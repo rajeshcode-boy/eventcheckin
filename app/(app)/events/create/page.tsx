@@ -87,7 +87,12 @@ export default function CreateEventPage() {
         .single()
 
       if (createError) {
-        setError('Failed to create event: ' + createError.message)
+        // Event IDs are unique across all organizers (they appear in the public check-in URL)
+        setError(
+          createError.code === '23505'
+            ? 'This event ID is already taken. Add something to the name (e.g. "Tech Fest 2") or change the date.'
+            : 'Failed to create event: ' + createError.message
+        )
         return
       }
 

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { QRCodeSVG } from 'qrcode.react'
 
 interface Event {
   id: string
@@ -19,6 +20,7 @@ export default function EventDetailPage() {
   const [event, setEvent] = useState<Event | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [copied, setCopied] = useState(false)
   const params = useParams()
   const router = useRouter()
   const eventId = params.id as string
@@ -63,7 +65,8 @@ export default function EventDetailPage() {
     )
   }
 
-  const checkInUrl = `${process.env.NEXT_PUBLIC_APP_URL}/checkin/${event.event_id}`
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin
+  const checkInUrl = `${appUrl}/checkin/${event.event_id}`
 
   return (
     <div style={{ maxWidth: '800px' }}>
@@ -134,8 +137,22 @@ export default function EventDetailPage() {
         }}>
           {checkInUrl}
         </div>
-        <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)' }}>
-          Share this URL or embed it in a QR code for guests to check in.
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '16px' }}>
+          <button
+            className="btn-secondary"
+            onClick={() => navigator.clipboard.writeText(checkInUrl).then(() => setCopied(true))}
+          >
+            {copied ? 'Copied ✓' : 'Copy link'}
+          </button>
+          <a href={checkInUrl} target="_blank" rel="noopener noreferrer" className="btn-secondary">
+            Open check-in page
+          </a>
+        </div>
+        <div style={{ display: 'inline-block', padding: '16px', backgroundColor: '#ffffff', borderRadius: '6px', border: '1px solid var(--color-border)' }}>
+          <QRCodeSVG value={checkInUrl} size={200} marginSize={1} aria-label="Check-in QR code" />
+        </div>
+        <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)', marginTop: '8px' }}>
+          Print or display this QR code at the entrance. Guests scan it and enter their email or phone.
         </p>
       </div>
 

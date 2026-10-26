@@ -4,12 +4,19 @@ import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { isValidEmail } from '@/lib/guests'
 import { formatTime } from '@/lib/time'
+import { publicImageUrl } from '@/lib/images'
+import { countryName } from '@/lib/countries'
 
 interface EventInfo {
   name: string
   location: string
   event_date: string
   status: 'upcoming' | 'live' | 'closed'
+  country: string | null
+  city: string | null
+  banner_path: string | null
+  logo_path: string | null
+  org_logo_path: string | null
 }
 
 interface CheckinResult {
@@ -156,12 +163,24 @@ export default function PublicCheckinPage() {
     )
   }
 
+  const bannerUrl = publicImageUrl('branding', event.banner_path)
+  // Event logo, falling back to the organizer's company logo
+  const logoUrl = publicImageUrl('branding', event.logo_path ?? event.org_logo_path)
+
   return (
     <Shell>
+      {bannerUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={bannerUrl} alt="" style={{ width: '100%', aspectRatio: '4 / 1', objectFit: 'cover', borderRadius: '8px', marginBottom: '16px' }} />
+      )}
       <header style={{ textAlign: 'center', marginBottom: '32px' }}>
+        {logoUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={logoUrl} alt="" style={{ height: '64px', maxWidth: '200px', objectFit: 'contain', margin: '0 auto 12px', display: 'block' }} />
+        )}
         <h1 style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '8px' }}>{event.name}</h1>
         <p style={{ fontSize: '16px', color: 'var(--color-text-secondary)' }}>
-          {event.location} • {new Date(event.event_date + 'T00:00:00').toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })}
+          {event.city && event.country ? `${event.city}, ${countryName(event.country)}` : event.location} • {new Date(event.event_date + 'T00:00:00').toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })}
         </p>
       </header>
 

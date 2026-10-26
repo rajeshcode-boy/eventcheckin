@@ -1,5 +1,5 @@
-// PDF generation for badges (Step 5) and reports (Step 6), using pdf-lib.
-import { PDFDocument, PDFFont, PDFPage, StandardFonts, rgb } from 'pdf-lib'
+// Attendance report PDFs (Step 6), using pdf-lib. Badges are rendered by lib/badgePdf.ts.
+import { PDFDocument, PDFFont, StandardFonts, rgb } from 'pdf-lib'
 
 // Standard fonts only cover Latin (WinAnsi) characters; replace anything else
 function safeText(font: PDFFont, text: string): string {
@@ -25,42 +25,6 @@ function fitText(font: PDFFont, text: string, size: number, minSize: number, max
     t += '...'
   }
   return { text: t, size: s }
-}
-
-function drawCentered(page: PDFPage, font: PDFFont, text: string, y: number, size: number, minSize: number, color = rgb(0.07, 0.09, 0.15)) {
-  const width = page.getWidth()
-  const fitted = fitText(font, text, size, minSize, width - 32)
-  const textWidth = font.widthOfTextAtSize(fitted.text, fitted.size)
-  page.drawText(fitted.text, { x: (width - textWidth) / 2, y, size: fitted.size, font, color })
-}
-
-export interface BadgeData {
-  name: string
-  designation?: string | null
-  company?: string | null
-  registrationId: string
-}
-
-// One 4 x 3 inch badge per page
-export async function buildBadgesPdf(eventName: string, badges: BadgeData[]): Promise<Uint8Array> {
-  const doc = await PDFDocument.create()
-  doc.setTitle(`${eventName} badges`)
-  const bold = await doc.embedFont(StandardFonts.HelveticaBold)
-  const regular = await doc.embedFont(StandardFonts.Helvetica)
-  const mono = await doc.embedFont(StandardFonts.Courier)
-  const green = rgb(0.063, 0.725, 0.506)
-
-  for (const badge of badges) {
-    const page = doc.addPage([288, 216])
-    page.drawRectangle({ x: 0, y: 180, width: 288, height: 36, color: green })
-    drawCentered(page, bold, eventName.toUpperCase(), 193, 13, 8, rgb(1, 1, 1))
-    drawCentered(page, bold, badge.name, 128, 26, 12)
-    if (badge.designation) drawCentered(page, regular, badge.designation, 102, 14, 8, rgb(0.29, 0.33, 0.39))
-    if (badge.company) drawCentered(page, bold, badge.company, 80, 15, 8)
-    page.drawLine({ start: { x: 24, y: 44 }, end: { x: 264, y: 44 }, thickness: 0.75, color: rgb(0.82, 0.84, 0.86) })
-    drawCentered(page, mono, badge.registrationId, 22, 14, 10, rgb(0.29, 0.33, 0.39))
-  }
-  return doc.save()
 }
 
 export interface ReportSection {

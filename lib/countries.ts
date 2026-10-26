@@ -87,3 +87,16 @@ export function formatPhone(country: Country, national: string): string {
   const digits = national.replace(/\D/g, '').replace(/^0+/, '')
   return digits ? `+${country.dial} ${digits}` : ''
 }
+
+export function countryName(iso: string | null | undefined): string {
+  return (iso && countryByIso(iso)?.name) || ''
+}
+
+// Accepts an ISO code ("IN"), a name ("India") or a common alias ("UAE"); returns the ISO code
+export function countryIsoFromInput(input: string | null | undefined): string | undefined {
+  const value = input?.trim()
+  if (!value) return undefined
+  if (/^[A-Za-z]{2}$/.test(value) && countryByIso(value)) return value.toUpperCase()
+  const key = letters(value)
+  return COUNTRY_ALIASES[key] ?? COUNTRIES.find((c) => letters(c.name) === key)?.iso
+}

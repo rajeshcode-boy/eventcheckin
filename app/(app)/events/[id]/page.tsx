@@ -5,15 +5,23 @@ import { supabase } from '@/lib/supabase'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { QRCodeSVG } from 'qrcode.react'
+import EventTabs from '@/components/EventTabs'
+import { publicImageUrl } from '@/lib/storage'
+import { countryName } from '@/lib/countries'
 
 interface Event {
   id: string
   event_id: string
   name: string
   location: string
+  country: string | null
+  city: string | null
   event_date: string
   capacity: number
   status: string
+  banner_path: string | null
+  logo_path: string | null
+  organizations: { logo_path: string | null } | null
 }
 
 export default function EventDetailPage() {
@@ -33,7 +41,7 @@ export default function EventDetailPage() {
     try {
       const { data, error: fetchError } = await supabase
         .from('events')
-        .select('*')
+        .select('*, organizations(logo_path)')
         .eq('id', eventId)
         .single()
 
@@ -67,23 +75,34 @@ export default function EventDetailPage() {
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin
   const checkInUrl = `${appUrl}/checkin/${event.event_id}`
+  const bannerUrl = publicImageUrl('branding', event.banner_path)
+  // Event logo, falling back to the organization's logo
+  const logoUrl = publicImageUrl('branding', event.logo_path ?? event.organizations?.logo_path)
+  const place = event.city && event.country ? `${event.city}, ${countryName(event.country)}` : event.location
 
   return (
-    <div style={{ maxWidth: '800px' }}>
-      <div style={{ marginBottom: '24px' }}>
-        <Link href="/events" style={{ color: 'var(--color-primary-green)', fontSize: '14px' }}>
-          ← Back to events
-        </Link>
-      </div>
+    <div style={{ maxWidth: '900px' }}>
+      <EventTabs eventUuid={event.id} />
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '24px' }}>
-        <div>
-          <h1 style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '8px' }}>
-            {event.name}
-          </h1>
-          <p style={{ color: 'var(--color-text-secondary)', fontSize: '16px' }}>
-            {event.location} • {new Date(event.event_date).toLocaleDateString()}
-          </p>
+      {bannerUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={bannerUrl} alt="" style={{ width: '100%', aspectRatio: '4 / 1', objectFit: 'cover', borderRadius: '8px', marginBottom: '24px', border: '1px solid var(--color-border)' }} />
+      )}
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', gap: '16px', flexWrap: 'wrap', marginBottom: '24px' }}>
+        <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+          {logoUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={logoUrl} alt="" style={{ width: '64px', height: '64px', objectFit: 'contain', borderRadius: '8px', backgroundColor: '#ffffff', padding: '4px', border: '1px solid var(--color-border)' }} />
+          )}
+          <div>
+            <h1 style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '8px' }}>
+              {event.name}
+            </h1>
+            <p style={{ color: 'var(--color-text-secondary)', fontSize: '16px' }}>
+              {place} • {new Date(event.event_date + 'T00:00:00').toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })}
+            </p>
+          </div>
         </div>
         <span style={{
           padding: '8px 16px',
@@ -167,8 +186,14 @@ export default function EventDetailPage() {
         <Link href={`/events/${event.id}/dashboard`} className="btn-primary">
           Live Dashboard
         </Link>
+        <Link href={`/events/${event.id}/badge-design`} className="btn-primary">
+          Badge Design
+        </Link>
         <Link href={`/events/${event.id}/badges`} className="btn-primary">
           Badge Printing
+        </Link>
+        <Link href={`/events/${event.id}/edit`} className="btn-secondary">
+          Edit Event
         </Link>
       </div>
 

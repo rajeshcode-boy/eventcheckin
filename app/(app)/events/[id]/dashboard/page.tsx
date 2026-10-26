@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { formatTime } from '@/lib/time'
 import ExportButtons from './ExportButtons'
+import EventTabs from '@/components/EventTabs'
 
 interface EventInfo {
   id: string
@@ -151,11 +152,7 @@ export default function DashboardPage() {
 
   return (
     <div style={{ maxWidth: '1100px' }}>
-      <div style={{ marginBottom: '24px' }}>
-        <Link href={`/events/${event.id}`} style={{ color: 'var(--color-primary-green)', fontSize: '14px' }}>
-          ← Back to {event.name}
-        </Link>
-      </div>
+      <EventTabs eventUuid={event.id} />
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', flexWrap: 'wrap', gap: '16px', marginBottom: '24px' }}>
         <div>

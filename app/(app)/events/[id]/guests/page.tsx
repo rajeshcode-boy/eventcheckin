@@ -1,114 +1,184 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import {
+  ATTENDANCE_CONFIRMATIONS,
   Guest,
-  GuestInput,
-  classifyEmails,
-  completeName,
-  guestEmails,
+  REGISTRATION_STATUSES,
+  attendanceConfirmationLabel,
   guestsToCsvRows,
-  isValidEmail,
-  nameCompanyKey,
-  newRegistrationId,
+  registrationStatusLabel,
   toCsv,
 } from '@/lib/guests'
-import { COUNTRIES, Country, countryByIso, countryFromTypedNumber, detectCountry, flagEmoji, formatPhone } from '@/lib/countries'
-import ImportPanel, { panelStyle } from './ImportPanel'
+import { countryName, detectCountry } from '@/lib/countries'
+import EventTabs from '@/components/EventTabs'
+import ImportPanel from './ImportPanel'
+import AttendeeForm from './AttendeeForm'
+import BulkEditPanel from './BulkEditPanel'
 
 interface EventInfo {
   id: string
   event_id: string
   name: string
   location: string
+  country: string | null
 }
 
-const EMPTY_FORM: Record<string, string> = {
-  first_name: '',
-  last_name: '',
-  email: '',
-  phone: '',
-  designation: '',
-  company: '',
+type SortKey = 'created_desc' | 'created_asc' | 'name_asc' | 'name_desc'
+type Panel = '' | 'import' | 'add' | 'bulk-edit'
+
+const EMPTY_FILTERS = { country: '', city: '', industry: '', status: '', confirmation: '', source: '' }
+const PAGE_SIZES = [25, 50, 100]
+
+const ATTENDEE_COLUMNS =
+  'id, registration_id, source, source_id, full_name, first_name, last_name, email, company_email, phone, designation, company, ' +
+  'country, city, industry, registration_status, attendance_confirmation, created_at'
+
+const STATUS_COLORS: Record<string, string> = {
+  approved: 'var(--color-primary-green)',
+  registered: 'var(--color-primary-green)',
+  pending: 'var(--color-amber-warning)',
+  rejected: 'var(--color-error-red)',
+  cancelled: 'var(--color-error-red)',
+  confirmed: 'var(--color-primary-green)',
+  maybe: 'var(--color-amber-warning)',
+  not_confirmed: 'var(--color-text-secondary)',
 }
+
+const formatDate = (iso?: string) =>
+  iso ? new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : ''
 
 export default function GuestsPage() {
   const params = useParams()
   const eventUuid = params.id as string
   const [event, setEvent] = useState<EventInfo | null>(null)
   const [guests, setGuests] = useState<Guest[]>([])
+  const [checkedIn, setCheckedIn] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [search, setSearch] = useState('')
-  const [sourceFilter, setSourceFilter] = useState('')
+  const [filters, setFilters] = useState(EMPTY_FILTERS)
+  const [sort, setSort] = useState<SortKey>('created_desc')
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(25)
   const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [panel, setPanel] = useState<'' | 'import' | 'add'>('')
+  const [panel, setPanel] = useState<Panel>('')
+  const [editing, setEditing] = useState<Guest | null>(null)
 
-  useEffect(() => {
-    loadData()
-  }, [eventUuid])
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true)
-    const [{ data: eventData }, { data: guestData, error: guestError }] = await Promise.all([
-      supabase.from('events').select('id, event_id, name, location').eq('id', eventUuid).single(),
-      supabase
-        .from('registrations')
-        .select('id, registration_id, source, source_id, full_name, first_name, last_name, email, phone, designation, company, company_email, created_at')
-        .eq('event_id', eventUuid)
-        .order('created_at', { ascending: true }),
+    const [{ data: eventData }, { data: guestData, error: guestError }, { data: checkinData }] = await Promise.all([
+      supabase.from('events').select('id, event_id, name, location, country').eq('id', eventUuid).single(),
+      supabase.from('registrations').select(ATTENDEE_COLUMNS).eq('event_id', eventUuid).order('created_at', { ascending: true }),
+      supabase.from('checkins').select('registration_id').eq('event_id', eventUuid),
     ])
 
     if (!eventData) {
       setError('Event not found')
     } else if (guestError) {
-      setError('Failed to load guests: ' + guestError.message)
+      setError('Failed to load attendees: ' + guestError.message)
     } else {
       setEvent(eventData)
-      setGuests((guestData ?? []) as Guest[])
+      const list = (guestData ?? []) as unknown as Guest[]
+      setGuests(list)
+      setCheckedIn(new Set((checkinData ?? []).map((c) => c.registration_id as string)))
+      // Drop selections of attendees that no longer exist
+      setSelected((prev) => new Set([...prev].filter((id) => list.some((g) => g.id === id))))
     }
-    setSelected(new Set())
     setLoading(false)
-  }
+  }, [eventUuid])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
+
+  // Filter choices come from the attendees' actual values
+  const options = useMemo(() => {
+    const uniq = (values: (string | undefined)[]) => [...new Set(values.filter((v): v is string => !!v))].sort((a, b) => a.localeCompare(b))
+    return {
+      countries: uniq(guests.map((g) => g.country)).map((iso) => ({ value: iso, label: countryName(iso) || iso })),
+      cities: uniq(guests.filter((g) => !filters.country || g.country === filters.country).map((g) => g.city)),
+      industries: uniq(guests.map((g) => g.industry)),
+    }
+  }, [guests, filters.country])
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim()
-    return guests.filter((g) => {
-      if (sourceFilter && g.source !== sourceFilter) return false
+    const list = guests.filter((g) => {
+      if (filters.country && g.country !== filters.country) return false
+      if (filters.city && g.city !== filters.city) return false
+      if (filters.industry && g.industry !== filters.industry) return false
+      if (filters.status && g.registration_status !== filters.status) return false
+      if (filters.confirmation && g.attendance_confirmation !== filters.confirmation) return false
+      if (filters.source && g.source !== filters.source) return false
       if (!q) return true
-      return [g.registration_id, g.full_name, g.email, g.company_email, g.phone, g.company, g.designation]
-        .some((v) => v?.toLowerCase().includes(q))
+      return [g.registration_id, g.full_name, g.email, g.company_email, g.phone, g.company].some((v) => v?.toLowerCase().includes(q))
     })
-  }, [guests, search, sourceFilter])
+    const byName = (a: Guest, b: Guest) => a.full_name.localeCompare(b.full_name)
+    const byDate = (a: Guest, b: Guest) => (a.created_at ?? '').localeCompare(b.created_at ?? '')
+    const sorters: Record<SortKey, (a: Guest, b: Guest) => number> = {
+      created_desc: (a, b) => byDate(b, a),
+      created_asc: byDate,
+      name_asc: byName,
+      name_desc: (a, b) => byName(b, a),
+    }
+    return [...list].sort(sorters[sort])
+  }, [guests, search, filters, sort])
 
-  const allFilteredSelected = filtered.length > 0 && filtered.every((g) => selected.has(g.id))
+  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize))
+  const currentPage = Math.min(page, pageCount)
+  const pageRows = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+  const filtersActive = !!search || Object.values(filters).some(Boolean)
 
-  const toggleAll = () => {
-    const next = new Set(selected)
-    filtered.forEach((g) => (allFilteredSelected ? next.delete(g.id) : next.add(g.id)))
-    setSelected(next)
+  // Back to page 1 whenever the result set changes shape
+  useEffect(() => {
+    setPage(1)
+  }, [search, filters, sort, pageSize])
+
+  const setFilter = (key: keyof typeof EMPTY_FILTERS, value: string) =>
+    setFilters((f) => ({ ...f, [key]: value, ...(key === 'country' ? { city: '' } : {}) }))
+
+  const clearFilters = () => {
+    setSearch('')
+    setFilters(EMPTY_FILTERS)
   }
 
+  const pageAllSelected = pageRows.length > 0 && pageRows.every((g) => selected.has(g.id))
+  const togglePage = () => {
+    const next = new Set(selected)
+    pageRows.forEach((g) => (pageAllSelected ? next.delete(g.id) : next.add(g.id)))
+    setSelected(next)
+  }
   const toggleOne = (id: string) => {
     const next = new Set(selected)
     next.has(id) ? next.delete(id) : next.add(id)
     setSelected(next)
   }
 
-  const handleDelete = async () => {
-    if (!confirm(`Delete ${selected.size} attendee(s)? Their check-ins and badge prints are deleted too.`)) return
+  const finish = (message: string) => {
+    setPanel('')
+    setEditing(null)
+    setNotice(message)
     setError('')
+    loadData()
+  }
+
+  const handleDelete = async () => {
+    const count = selected.size
+    if (!confirm(`Delete ${count} attendee(s)?\n\nTheir check-ins and badge print history are deleted too. This cannot be undone.`)) return
+    setError('')
+    setNotice('')
     const ids = [...selected]
-    const { data, error: deleteError } = await supabase.from('registrations').delete().in('id', ids).select('id')
+    const { data, error: deleteError } = await supabase.from('registrations').delete().in('id', ids).eq('event_id', eventUuid).select('id')
 
     if (deleteError) {
       setError('Delete failed: ' + deleteError.message)
     } else if (!data || data.length < ids.length) {
-      setError('Some attendees could not be deleted. Only admins can delete attendees.')
+      setError(`${data?.length ?? 0} of ${count} attendee(s) deleted. Only admins can delete attendees.`)
     } else {
       setNotice(`Deleted ${data.length} attendee(s).`)
     }
@@ -116,19 +186,28 @@ export default function GuestsPage() {
   }
 
   const handleExport = () => {
+    // Selected attendees (even ones hidden by the current filters), otherwise everything shown
     const rows = selected.size > 0 ? guests.filter((g) => selected.has(g.id)) : filtered
     const blob = new Blob(['﻿' + toCsv(guestsToCsvRows(rows))], { type: 'text/csv;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `${event?.event_id ?? 'attendees'}-attendees.csv`
+    a.download = `${event?.event_id ?? 'attendees'}-attendees${selected.size > 0 ? '-selected' : ''}.csv`
     a.click()
-    URL.revokeObjectURL(url)
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
 
-  if (loading && !event) {
-    return <p>Loading attendees...</p>
+  const handleEditSelected = () => {
+    if (selected.size === 1) {
+      setEditing(guests.find((g) => selected.has(g.id)) ?? null)
+      setPanel('')
+    } else {
+      setEditing(null)
+      setPanel('bulk-edit')
+    }
   }
+
+  if (loading && !event) return <p>Loading attendees...</p>
 
   if (!event) {
     return (
@@ -141,13 +220,11 @@ export default function GuestsPage() {
     )
   }
 
+  const eventCountry = event.country ?? detectCountry(event.location).iso
+
   return (
-    <div style={{ maxWidth: '1100px' }}>
-      <div style={{ marginBottom: '24px' }}>
-        <Link href={`/events/${event.id}`} style={{ color: 'var(--color-primary-green)', fontSize: '14px' }}>
-          ← Back to {event.name}
-        </Link>
-      </div>
+    <div style={{ maxWidth: '1400px' }}>
+      <EventTabs eventUuid={event.id} />
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', flexWrap: 'wrap', gap: '16px', marginBottom: '24px' }}>
         <div>
@@ -160,315 +237,215 @@ export default function GuestsPage() {
           <button className={panel === 'import' ? 'btn-secondary' : 'btn-primary'} onClick={() => setPanel(panel === 'import' ? '' : 'import')}>
             {panel === 'import' ? 'Close import' : 'Import CSV/Excel'}
           </button>
-          <button className="btn-secondary" onClick={() => setPanel(panel === 'add' ? '' : 'add')}>
+          <button className="btn-secondary" onClick={() => { setEditing(null); setPanel(panel === 'add' ? '' : 'add') }}>
             {panel === 'add' ? 'Close' : 'Add attendee'}
           </button>
         </div>
       </div>
 
-      {notice && (
-        <div className="alert-success" style={{ marginBottom: '16px' }}>
-          {notice}
-        </div>
-      )}
-      {error && (
-        <div className="alert-error" style={{ marginBottom: '16px' }}>
-          {error}
-        </div>
-      )}
+      {notice && <div className="alert-success" style={{ marginBottom: '16px' }}>{notice}</div>}
+      {error && <div className="alert-error" style={{ marginBottom: '16px' }}>{error}</div>}
 
-      {panel === 'import' && (
-        <ImportPanel
-          eventUuid={event.id}
-          existing={guests}
-          onDone={(message) => {
-            setPanel('')
-            setNotice(message)
-            setError('')
-            loadData()
-          }}
-        />
-      )}
+      {panel === 'import' && <ImportPanel eventUuid={event.id} existing={guests} onDone={finish} />}
+      {panel === 'add' && <AttendeeForm eventUuid={event.id} eventCountry={eventCountry} existing={guests} onDone={finish} onCancel={() => setPanel('')} />}
+      {panel === 'bulk-edit' && <BulkEditPanel ids={[...selected]} onDone={finish} onCancel={() => setPanel('')} />}
 
-      {panel === 'add' && (
-        <AddGuestForm
-          eventUuid={event.id}
-          eventLocation={event.location}
-          existing={guests}
-          onDone={(message) => {
-            setPanel('')
-            setNotice(message)
-            setError('')
-            loadData()
-          }}
-        />
-      )}
-
-      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '16px' }}>
+      {/* Search, filters and sort */}
+      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '12px' }}>
         <input
           type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="input-field"
           placeholder="Search name, email, phone, company or reg ID"
-          style={{ flex: '1 1 260px' }}
+          aria-label="Search attendees"
+          style={{ flex: '1 1 280px' }}
         />
-        <select
-          value={sourceFilter}
-          onChange={(e) => setSourceFilter(e.target.value)}
-          className="input-field"
-          style={{ flex: '0 0 160px' }}
-          aria-label="Filter by source"
-        >
-          <option value="">All sources</option>
-          <option value="import">Imported</option>
-          <option value="manual">Manual</option>
-          <option value="walkin">Walk-in</option>
+        <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)} className="input-field" style={{ flex: '0 0 210px' }} aria-label="Sort attendees">
+          <option value="created_desc">Newest registrations first</option>
+          <option value="created_asc">Oldest registrations first</option>
+          <option value="name_asc">Name A–Z</option>
+          <option value="name_desc">Name Z–A</option>
         </select>
       </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px', marginBottom: '16px' }}>
+        <FilterSelect label="Country" value={filters.country} onChange={(v) => setFilter('country', v)} options={options.countries} />
+        <FilterSelect label="City" value={filters.city} onChange={(v) => setFilter('city', v)} options={options.cities.map((c) => ({ value: c, label: c }))} />
+        <FilterSelect label="Industry" value={filters.industry} onChange={(v) => setFilter('industry', v)} options={options.industries.map((i) => ({ value: i, label: i }))} />
+        <FilterSelect label="Registration status" value={filters.status} onChange={(v) => setFilter('status', v)} options={REGISTRATION_STATUSES.map((s) => ({ value: s.value, label: s.label }))} />
+        <FilterSelect label="Attendance" value={filters.confirmation} onChange={(v) => setFilter('confirmation', v)} options={ATTENDANCE_CONFIRMATIONS.map((s) => ({ value: s.value, label: s.label }))} />
+        <FilterSelect label="Source" value={filters.source} onChange={(v) => setFilter('source', v)} options={[{ value: 'import', label: 'Imported' }, { value: 'manual', label: 'Manual' }, { value: 'walkin', label: 'Walk-in' }]} />
+      </div>
 
-      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '12px' }}>
+      {/* Selection actions */}
+      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '12px', minHeight: '44px' }}>
         <span style={{ fontSize: '14px', color: 'var(--color-text-secondary)' }}>
           {selected.size > 0 ? `${selected.size} selected` : `Showing ${filtered.length} of ${guests.length}`}
         </span>
-        <button className="btn-secondary" onClick={handleExport} disabled={filtered.length === 0 && selected.size === 0}>
-          Export {selected.size > 0 ? 'selected' : 'shown'} (CSV)
-        </button>
-        <button
-          className="btn-secondary"
-          onClick={handleDelete}
-          disabled={selected.size === 0}
-          style={{ color: selected.size > 0 ? 'var(--color-error-red)' : undefined }}
-        >
-          Delete selected
-        </button>
+        {filtersActive && (
+          <button className="btn-secondary" onClick={clearFilters}>Clear filters</button>
+        )}
+        {selected.size > 0 ? (
+          <>
+            <button className="btn-secondary" onClick={handleExport}>Export selected (CSV)</button>
+            <button className="btn-secondary" onClick={handleEditSelected}>{selected.size === 1 ? 'Edit' : `Edit ${selected.size}`}</button>
+            <button className="btn-secondary" onClick={handleDelete} style={{ color: 'var(--color-error-red)', borderColor: 'var(--color-error-red)' }}>
+              Delete {selected.size}
+            </button>
+            <button className="btn-secondary" onClick={() => setSelected(new Set())}>Clear selection</button>
+            {selected.size < filtered.length && (
+              <button className="btn-secondary" onClick={() => setSelected(new Set(filtered.map((g) => g.id)))}>
+                Select all {filtered.length} shown
+              </button>
+            )}
+          </>
+        ) : (
+          <button className="btn-secondary" onClick={handleExport} disabled={filtered.length === 0}>Export shown (CSV)</button>
+        )}
       </div>
+
+      {editing && (
+        <Modal onClose={() => setEditing(null)}>
+          <AttendeeForm
+            key={editing.id}
+            eventUuid={event.id}
+            eventCountry={eventCountry}
+            existing={guests}
+            attendee={editing}
+            onDone={finish}
+            onCancel={() => setEditing(null)}
+          />
+        </Modal>
+      )}
 
       {guests.length === 0 ? (
         <div style={{ padding: '32px', textAlign: 'center', border: '1px solid var(--color-border)', borderRadius: '6px' }}>
-          <p style={{ color: 'var(--color-text-secondary)' }}>
-            No attendees yet. Import a CSV or Excel file, or add attendees one by one.
-          </p>
+          <p style={{ color: 'var(--color-text-secondary)' }}>No attendees yet. Import a CSV or Excel file, or add attendees one by one.</p>
         </div>
       ) : (
-        <div style={{ overflowX: 'auto', border: '1px solid var(--color-border)', borderRadius: '6px' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
-            <thead>
-              <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--color-border)' }}>
-                <th style={cellStyle}>
-                  <input type="checkbox" checked={allFilteredSelected} onChange={toggleAll} aria-label="Select all shown" />
-                </th>
-                <th style={cellStyle}>Reg ID</th>
-                <th style={cellStyle}>Name</th>
-                <th style={cellStyle}>Corporate email</th>
-                <th style={cellStyle}>Personal email</th>
-                <th style={cellStyle}>Phone</th>
-                <th style={cellStyle}>Company</th>
-                <th style={cellStyle}>Designation</th>
-                <th style={cellStyle}>Source</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((g) => (
-                <tr key={g.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
-                  <td style={cellStyle}>
-                    <input type="checkbox" checked={selected.has(g.id)} onChange={() => toggleOne(g.id)} aria-label={`Select ${g.full_name}`} />
-                  </td>
-                  <td style={{ ...cellStyle, fontFamily: 'monospace' }}>{g.registration_id}</td>
-                  <td style={{ ...cellStyle, fontWeight: 500 }}>{g.full_name}</td>
-                  <td style={cellStyle}>{g.company_email}</td>
-                  <td style={cellStyle}>{g.email}</td>
-                  <td style={cellStyle}>{g.phone}</td>
-                  <td style={cellStyle}>{g.company}</td>
-                  <td style={cellStyle}>{g.designation}</td>
-                  <td style={{ ...cellStyle, color: 'var(--color-text-secondary)' }}>{g.source}</td>
+        <>
+          <div style={{ overflowX: 'auto', border: '1px solid var(--color-border)', borderRadius: '6px' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+              <thead>
+                <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--color-border)' }}>
+                  <th style={cellStyle}>
+                    <input type="checkbox" checked={pageAllSelected} onChange={togglePage} aria-label="Select all on this page" />
+                  </th>
+                  <th style={cellStyle}>Attendee</th>
+                  <th style={cellStyle}>Email</th>
+                  <th style={cellStyle}>Phone</th>
+                  <th style={cellStyle}>Company</th>
+                  <th style={cellStyle}>Country</th>
+                  <th style={cellStyle}>City</th>
+                  <th style={cellStyle}>Industry</th>
+                  <th style={cellStyle}>Registration</th>
+                  <th style={cellStyle}>Attendance</th>
+                  <th style={cellStyle}>Registered</th>
+                  <th style={cellStyle}>Check-in</th>
+                  <th style={cellStyle}><span className="sr-only">Actions</span></th>
                 </tr>
-              ))}
-              {filtered.length === 0 && (
-                <tr>
-                  <td colSpan={9} style={{ ...cellStyle, textAlign: 'center', color: 'var(--color-text-secondary)' }}>
-                    No attendees match your search.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {pageRows.map((g) => (
+                  <tr key={g.id} style={{ borderBottom: '1px solid var(--color-border)', backgroundColor: selected.has(g.id) ? 'var(--color-neutral-light)' : undefined }}>
+                    <td style={cellStyle}>
+                      <input type="checkbox" checked={selected.has(g.id)} onChange={() => toggleOne(g.id)} aria-label={`Select ${g.full_name}`} />
+                    </td>
+                    <td style={cellStyle}>
+                      <div style={{ fontWeight: 600 }}>{g.full_name}</div>
+                      <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>
+                        <span style={{ fontFamily: 'monospace' }}>{g.registration_id}</span>
+                        {g.designation ? ` • ${g.designation}` : ''} • {g.source}
+                      </div>
+                    </td>
+                    <td style={cellStyle}>
+                      <div>{g.company_email || g.email}</div>
+                      {g.company_email && g.email && <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>{g.email}</div>}
+                    </td>
+                    <td style={cellStyle}>{g.phone}</td>
+                    <td style={cellStyle}>{g.company}</td>
+                    <td style={cellStyle}>{countryName(g.country)}</td>
+                    <td style={cellStyle}>{g.city}</td>
+                    <td style={cellStyle}>{g.industry}</td>
+                    <td style={cellStyle}><Pill value={g.registration_status} label={registrationStatusLabel(g.registration_status)} /></td>
+                    <td style={cellStyle}><Pill value={g.attendance_confirmation} label={attendanceConfirmationLabel(g.attendance_confirmation)} /></td>
+                    <td style={cellStyle}>{formatDate(g.created_at)}</td>
+                    <td style={{ ...cellStyle, color: checkedIn.has(g.id) ? 'var(--color-primary-green)' : 'var(--color-text-secondary)' }}>
+                      {checkedIn.has(g.id) ? 'Checked in' : '—'}
+                    </td>
+                    <td style={cellStyle}>
+                      <button className="btn-secondary" onClick={() => { setPanel(''); setEditing(g) }} style={{ minHeight: '32px', padding: '4px 12px' }}>
+                        Edit
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {pageRows.length === 0 && (
+                  <tr>
+                    <td colSpan={13} style={{ ...cellStyle, textAlign: 'center', color: 'var(--color-text-secondary)' }}>
+                      No attendees match your search or filters.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginTop: '12px' }}>
+            <label style={{ fontSize: '14px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+              Rows per page
+              <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))} className="input-field" style={{ width: '90px' }}>
+                {PAGE_SIZES.map((n) => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </label>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <button className="btn-secondary" onClick={() => setPage(currentPage - 1)} disabled={currentPage <= 1}>Previous</button>
+              <span style={{ fontSize: '14px' }}>Page {currentPage} of {pageCount}</span>
+              <button className="btn-secondary" onClick={() => setPage(currentPage + 1)} disabled={currentPage >= pageCount}>Next</button>
+            </div>
+          </div>
+        </>
       )}
     </div>
   )
 }
 
-const cellStyle: React.CSSProperties = { padding: '10px 12px', whiteSpace: 'nowrap' }
+const cellStyle: React.CSSProperties = { padding: '10px 12px', whiteSpace: 'nowrap', verticalAlign: 'top' }
 
-
-function AddGuestForm({
-  eventUuid,
-  eventLocation,
-  existing,
-  onDone,
-}: {
-  eventUuid: string
-  eventLocation: string
-  existing: Guest[]
-  onDone: (message: string) => void
-}) {
-  const [form, setForm] = useState(EMPTY_FORM)
-  const [country, setCountry] = useState<Country>(() =>
-    detectCountry(eventLocation, typeof navigator !== 'undefined' ? navigator.language : undefined)
+function FilterSelect({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: { value: string; label: string }[] }) {
+  return (
+    <select value={value} onChange={(e) => onChange(e.target.value)} className="input-field" aria-label={`Filter by ${label.toLowerCase()}`}>
+      <option value="">{label}: all</option>
+      {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+    </select>
   )
-  const [error, setError] = useState('')
-  const [warning, setWarning] = useState('')
-  const [saving, setSaving] = useState(false)
+}
 
-  const update = (key: string, value: string) => {
-    setForm({ ...form, [key]: value })
-    setWarning('')
-  }
-
-  // Typing "+971 50..." switches the country and keeps only the local number
-  const updatePhone = (value: string) => {
-    const typed = countryFromTypedNumber(value, country.iso)
-    if (typed) {
-      setCountry(typed)
-      update('phone', value.replace(/^\s*\+\s*/, '').replace(/\D/g, '').slice(typed.dial.length))
-    } else {
-      update('phone', value.replace(/[^\d\s()-]/g, ''))
-    }
-  }
-
-  const sortedCountries = useMemo(() => [...COUNTRIES].sort((a, b) => a.name.localeCompare(b.name)), [])
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-
-    const raw: GuestInput = {}
-    for (const key of ['first_name', 'last_name', 'designation', 'company'] as const) {
-      if (form[key]?.trim()) raw[key] = form[key]!.trim()
-    }
-    const email = form.email?.trim().toLowerCase()
-    if (email) raw.company_email = email
-    const phone = formatPhone(country, form.phone ?? '')
-    if (phone) raw.phone = phone
-    const guest = classifyEmails(completeName(raw))
-
-    if (!guest.first_name) {
-      setError('First name is required')
-      return
-    }
-    if (email && !isValidEmail(email)) {
-      setError('Email format looks wrong')
-      return
-    }
-
-    const sameEmail = email && existing.find((g) => guestEmails(g).includes(email))
-    if (sameEmail) {
-      setError(`${sameEmail.full_name} (${sameEmail.registration_id}) is already registered with this email.`)
-      return
-    }
-    const key = nameCompanyKey(guest)
-    const sameNameCompany = key && existing.find((g) => nameCompanyKey(g) === key)
-    if (sameNameCompany && !warning) {
-      setWarning(`${sameNameCompany.full_name} from ${sameNameCompany.company} is already registered (${sameNameCompany.registration_id}). Click "Add attendee" again to add anyway.`)
-      return
-    }
-
-    setSaving(true)
-    const taken = new Set(existing.map((g) => g.registration_id))
-    const { data, error: insertError } = await supabase
-      .from('registrations')
-      .insert([{ ...guest, event_id: eventUuid, source: 'manual', registration_id: newRegistrationId(taken) }])
-      .select('registration_id')
-      .single()
-    setSaving(false)
-
-    if (insertError) {
-      setError('Could not add attendee: ' + insertError.message)
-      return
-    }
-    onDone(`Added ${guest.full_name} (${data.registration_id}).`)
-  }
-
-  const textField = (key: string, label: string, opts: { type?: string; required?: boolean; hint?: string } = {}) => (
-    <div>
-      <label htmlFor={`add-${key}`} style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>
-        {label}{opts.required ? ' *' : ''}
-      </label>
-      <input
-        id={`add-${key}`}
-        type={opts.type ?? 'text'}
-        value={form[key] ?? ''}
-        onChange={(e) => update(key, e.target.value)}
-        className="input-field"
-        required={opts.required}
-      />
-      {opts.hint && (
-        <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginTop: '4px' }}>{opts.hint}</p>
-      )}
-    </div>
+function Pill({ value, label }: { value?: string; label: string }) {
+  const color = (value && STATUS_COLORS[value]) || 'var(--color-text-secondary)'
+  return (
+    <span style={{ display: 'inline-block', fontSize: '12px', fontWeight: 600, color, border: `1px solid ${color}`, borderRadius: '999px', padding: '2px 8px' }}>
+      {label}
+    </span>
   )
+}
+
+function Modal({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
 
   return (
-    <form onSubmit={handleSubmit} style={panelStyle}>
-      <h2 style={{ fontSize: '20px', fontWeight: 600, marginBottom: '16px' }}>Add attendee</h2>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '16px' }}>
-        {textField('first_name', 'First name', { required: true })}
-        {textField('last_name', 'Last name')}
-        {textField('email', 'Email', { type: 'email', hint: 'Corporate email preferred. Personal addresses (Gmail, Yahoo…) are saved as personal email.' })}
-        <div style={{ gridColumn: 'span 1' }}>
-          <label htmlFor="add-phone" style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>
-            Phone
-          </label>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <select
-              value={country.iso}
-              onChange={(e) => setCountry(countryByIso(e.target.value) ?? country)}
-              className="input-field"
-              aria-label="Country code"
-              title={country.name}
-              style={{ flex: '0 0 112px', width: '112px', padding: '8px' }}
-            >
-              {sortedCountries.map((c) => (
-                <option key={c.iso} value={c.iso}>
-                  {c.name} (+{c.dial})
-                </option>
-              ))}
-            </select>
-            <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
-              <span
-                aria-hidden="true"
-                style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '16px', color: 'var(--color-text-secondary)', pointerEvents: 'none' }}
-              >
-                {flagEmoji(country.iso)} +{country.dial}
-              </span>
-              <input
-                id="add-phone"
-                type="tel"
-                inputMode="tel"
-                value={form.phone ?? ''}
-                onChange={(e) => updatePhone(e.target.value)}
-                className="input-field"
-                style={{ paddingLeft: `${40 + country.dial.length * 10}px` }}
-                placeholder="Mobile number"
-              />
-            </div>
-          </div>
-          <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginTop: '4px' }}>
-            Detected from the event location. Pick another country or type a number starting with +.
-          </p>
-        </div>
-        {textField('designation', 'Designation')}
-        {textField('company', 'Company')}
-      </div>
-      {error && <div className="alert-error" style={{ marginBottom: '16px' }}>{error}</div>}
-      {warning && <div className="alert-warning" style={{ marginBottom: '16px' }}>{warning}</div>}
-      <button type="submit" className="btn-primary" disabled={saving}>
-        {saving ? 'Adding...' : 'Add attendee'}
-      </button>
-      <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)', marginTop: '8px' }}>
-        A 6-character registration ID is generated automatically.
-      </p>
-    </form>
+    <div
+      role="dialog"
+      aria-modal="true"
+      onMouseDown={(e) => e.target === e.currentTarget && onClose()}
+      style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', padding: '32px 16px', overflowY: 'auto' }}
+    >
+      <div style={{ width: '100%', maxWidth: '900px', backgroundColor: 'var(--color-white)', borderRadius: '8px' }}>{children}</div>
+    </div>
   )
 }

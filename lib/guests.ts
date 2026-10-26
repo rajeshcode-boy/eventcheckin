@@ -1,5 +1,6 @@
 // Guest list helpers: column mapping, duplicate detection, registration IDs.
 // Pure functions (no Supabase) so they can be unit tested.
+import { countryIsoFromInput, countryName } from './countries'
 
 // Name: map First name + Last name, or a single Full name column.
 // Emails: `email` is the personal address, `company_email` the corporate one;
@@ -13,6 +14,11 @@ export const GUEST_FIELDS = [
   { key: 'phone', label: 'Phone' },
   { key: 'designation', label: 'Designation' },
   { key: 'company', label: 'Company' },
+  { key: 'country', label: 'Country' },
+  { key: 'city', label: 'City' },
+  { key: 'industry', label: 'Industry' },
+  { key: 'registration_status', label: 'Registration status' },
+  { key: 'attendance_confirmation', label: 'Attendance confirmation' },
   { key: 'source_id', label: 'Source ID (e.g. Jotform submission)' },
 ] as const
 
@@ -27,6 +33,63 @@ export interface Guest extends GuestInput {
   created_at?: string
 }
 
+export const INDUSTRIES = [
+  'Technology', 'Software & IT Services', 'Telecommunications', 'Banking & Financial Services', 'Insurance',
+  'Healthcare', 'Pharmaceuticals & Life Sciences', 'Education', 'Government & Public Sector', 'Manufacturing',
+  'Automotive', 'Energy & Utilities', 'Oil & Gas', 'Construction & Real Estate', 'Retail & E-commerce',
+  'Consumer Goods', 'Food & Beverage', 'Hospitality & Tourism', 'Media & Entertainment', 'Marketing & Advertising',
+  'Consulting & Professional Services', 'Legal', 'Logistics & Transportation', 'Aviation & Aerospace',
+  'Agriculture', 'Non-profit', 'Other',
+] as const
+
+export const REGISTRATION_STATUSES = [
+  { value: 'registered', label: 'Registered' },
+  { value: 'pending', label: 'Pending' },
+  { value: 'approved', label: 'Approved' },
+  { value: 'rejected', label: 'Rejected' },
+  { value: 'cancelled', label: 'Cancelled' },
+] as const
+
+export const ATTENDANCE_CONFIRMATIONS = [
+  { value: 'confirmed', label: 'Confirmed' },
+  { value: 'not_confirmed', label: 'Not confirmed' },
+  { value: 'maybe', label: 'Maybe' },
+] as const
+
+export type RegistrationStatus = (typeof REGISTRATION_STATUSES)[number]['value']
+export type AttendanceConfirmation = (typeof ATTENDANCE_CONFIRMATIONS)[number]['value']
+
+const labelFor = (options: readonly { value: string; label: string }[], value?: string | null) =>
+  options.find((o) => o.value === value)?.label ?? value ?? ''
+export const registrationStatusLabel = (v?: string | null) => labelFor(REGISTRATION_STATUSES, v)
+export const attendanceConfirmationLabel = (v?: string | null) => labelFor(ATTENDANCE_CONFIRMATIONS, v)
+
+const squash = (s: string) => s.toLowerCase().replace(/[^a-z]/g, '')
+
+// Imported values like "Confirmed", "not confirmed", "Yes" -> stored values; unknown -> undefined
+export function normalizeRegistrationStatus(input?: string): RegistrationStatus | undefined {
+  const v = squash(input ?? '')
+  if (!v) return undefined
+  if (['canceled', 'cancelled'].includes(v)) return 'cancelled'
+  return REGISTRATION_STATUSES.find((s) => squash(s.value) === v || squash(s.label) === v)?.value
+}
+
+export function normalizeAttendanceConfirmation(input?: string): AttendanceConfirmation | undefined {
+  const v = squash(input ?? '')
+  if (!v) return undefined
+  if (['yes', 'y', 'attending', 'going'].includes(v)) return 'confirmed'
+  if (['no', 'n', 'notattending', 'notgoing', 'unconfirmed'].includes(v)) return 'not_confirmed'
+  if (['tentative', 'unsure'].includes(v)) return 'maybe'
+  return ATTENDANCE_CONFIRMATIONS.find((s) => squash(s.value) === v || squash(s.label) === v)?.value
+}
+
+// Matches a predefined industry case-insensitively; other text is kept as typed
+export function normalizeIndustry(input?: string): string | undefined {
+  const value = input?.trim()
+  if (!value) return undefined
+  return INDUSTRIES.find((i) => i.toLowerCase() === value.toLowerCase()) ?? value
+}
+
 // Header spellings recognised automatically (compared after normalizeHeader)
 const HEADER_ALIASES: Record<GuestField, string[]> = {
   first_name: ['firstname', 'givenname', 'fname'],
@@ -37,6 +100,11 @@ const HEADER_ALIASES: Record<GuestField, string[]> = {
   phone: ['phone', 'phonenumber', 'mobile', 'mobilenumber', 'contactnumber', 'contact', 'whatsapp', 'cell'],
   designation: ['designation', 'title', 'jobtitle', 'role', 'position'],
   company: ['company', 'companyname', 'organization', 'organisation', 'org', 'employer'],
+  country: ['country', 'countryname', 'nationality', 'countryregion'],
+  city: ['city', 'town', 'cityname'],
+  industry: ['industry', 'sector', 'vertical', 'industrytype'],
+  registration_status: ['registrationstatus', 'status', 'approvalstatus'],
+  attendance_confirmation: ['attendanceconfirmation', 'attendance', 'rsvp', 'confirmation', 'willattend', 'attending'],
   source_id: ['sourceid', 'submissionid', 'id', 'registrationno', 'ticketid', 'orderid'],
 }
 
@@ -131,6 +199,22 @@ export function mappingHasName(mapping: (GuestField | '')[]): boolean {
   return mapping.some((f) => f === 'full_name' || f === 'first_name' || f === 'last_name')
 }
 
+// Country -> ISO code, and status/confirmation/industry -> stored values.
+// Values that can't be recognised are dropped (status/confirmation then use their defaults).
+export function normalizeAttendeeFields(guest: GuestInput): GuestInput {
+  const result = { ...guest }
+  if (result.country !== undefined) {
+    const iso = countryIsoFromInput(result.country)
+    if (iso) result.country = iso
+    else delete result.country
+  }
+  if (result.industry !== undefined) result.industry = normalizeIndustry(result.industry)
+  if (result.registration_status !== undefined) result.registration_status = normalizeRegistrationStatus(result.registration_status)
+  if (result.attendance_confirmation !== undefined) result.attendance_confirmation = normalizeAttendanceConfirmation(result.attendance_confirmation)
+  for (const key of Object.keys(result) as GuestField[]) if (result[key] === undefined) delete result[key]
+  return result
+}
+
 export function rowsToGuests(
   headers: string[],
   rows: string[][],
@@ -145,7 +229,7 @@ export function rowsToGuests(
         const value = String(row[i] ?? '').trim()
         if (value) guest[field] = value
       })
-      return classifyEmails(completeName(guest))
+      return normalizeAttendeeFields(classifyEmails(completeName(guest)))
     })
 }
 
@@ -292,8 +376,19 @@ export function newRegistrationId(taken: Set<string>): string {
   }
 }
 
+// YYYY-MM-DD in the viewer's time zone, matching the date shown in the list
+function localDate(iso?: string): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 export function guestsToCsvRows(guests: Guest[]): string[][] {
-  const header = ['Registration ID', 'First name', 'Last name', 'Corporate email', 'Personal email', 'Phone', 'Designation', 'Company', 'Source', 'Source ID']
+  const header = [
+    'Registration ID', 'First name', 'Last name', 'Corporate email', 'Personal email', 'Phone', 'Designation',
+    'Company', 'Country', 'City', 'Industry', 'Registration status', 'Attendance confirmation', 'Registration date',
+    'Source', 'Source ID',
+  ]
   return [
     header,
     ...guests.map((g) => [
@@ -305,6 +400,12 @@ export function guestsToCsvRows(guests: Guest[]): string[][] {
       g.phone ?? '',
       g.designation ?? '',
       g.company ?? '',
+      countryName(g.country),
+      g.city ?? '',
+      g.industry ?? '',
+      registrationStatusLabel(g.registration_status),
+      attendanceConfirmationLabel(g.attendance_confirmation),
+      localDate(g.created_at),
       g.source,
       g.source_id ?? '',
     ]),

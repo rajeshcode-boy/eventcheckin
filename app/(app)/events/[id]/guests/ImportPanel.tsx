@@ -154,8 +154,12 @@ export default function ImportPanel({
     let updated = 0
     const failures: string[] = []
 
+    // A batch insert sends every column for every row, so rows without a status
+    // would get null instead of the column default: fill the defaults here
     const records = plan.inserts.map(({ guest }) => ({
       ...guest,
+      registration_status: guest.registration_status ?? 'registered',
+      attendance_confirmation: guest.attendance_confirmation ?? 'not_confirmed',
       event_id: eventUuid,
       source: 'import',
       registration_id: newRegistrationId(taken),

@@ -9,3 +9,12 @@ export function formatTime(iso: string | null | undefined): string {
   const zones = [zoneName(), zoneName('en-IN'), zoneName('en-US')].filter((z): z is string => !!z)
   return `${time} ${zones.find((z) => !z.startsWith('GMT')) ?? zones[0] ?? ''}`.trim()
 }
+
+// "27 Oct at 2:49 AM IST" (adds the year when it isn't the current one)
+export function formatDateTime(iso: string | null | undefined): string {
+  if (!iso) return ''
+  const date = new Date(iso)
+  const sameYear = date.getFullYear() === new Date().getFullYear()
+  const day = date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', ...(sameYear ? {} : { year: 'numeric' }) })
+  return `${day} at ${formatTime(iso)}`
+}

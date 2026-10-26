@@ -167,9 +167,9 @@ export default function EventDetailPage() {
         <Link href={`/events/${event.id}/dashboard`} className="btn-primary">
           Live Dashboard
         </Link>
-        <button className="btn-primary" disabled>
-          Badge Printing (Step 5)
-        </button>
+        <Link href={`/events/${event.id}/badges`} className="btn-primary">
+          Badge Printing
+        </Link>
       </div>
 
       <p style={{

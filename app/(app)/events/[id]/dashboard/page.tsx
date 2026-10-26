@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { formatTime } from '@/lib/time'
+import ExportButtons from './ExportButtons'
 
 interface EventInfo {
   id: string
@@ -210,6 +211,8 @@ export default function DashboardPage() {
           <StatCard label="Not yet arrived" value={stats.notArrived} color="var(--color-text-secondary)" />
         )}
       </div>
+
+      <ExportButtons event={event} />
 
       <h2 style={{ fontSize: '20px', fontWeight: 600, marginBottom: '12px' }}>Latest check-ins</h2>
       {feed.length === 0 ? (

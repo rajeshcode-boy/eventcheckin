@@ -144,9 +144,9 @@ export default function EventDetailPage() {
         gap: '12px',
         flexWrap: 'wrap',
       }}>
-        <button className="btn-primary" disabled>
-          Guest List (Step 2)
-        </button>
+        <Link href={`/events/${event.id}/guests`} className="btn-primary">
+          Guest List
+        </Link>
         <button className="btn-primary" disabled>
           Live Dashboard (Step 4)
         </button>
@@ -164,7 +164,7 @@ export default function EventDetailPage() {
         fontSize: '14px',
         color: '#78350f',
       }}>
-        💡 Step 1 complete! Next: Import your guest list from CSV or Excel.
+        💡 Add your guests from the Guest List: import a CSV or Excel file, or add them one by one.
       </p>
     </div>
   )

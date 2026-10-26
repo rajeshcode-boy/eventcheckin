@@ -7,28 +7,32 @@ import Link from 'next/link'
 import {
   Guest,
   GuestInput,
+  classifyEmails,
+  completeName,
+  guestEmails,
   guestsToCsvRows,
   isValidEmail,
   nameCompanyKey,
   newRegistrationId,
-  normalizeGuestEmail,
   toCsv,
 } from '@/lib/guests'
+import { COUNTRIES, Country, countryByIso, countryFromTypedNumber, detectCountry, flagEmoji, formatPhone } from '@/lib/countries'
 import ImportPanel, { panelStyle } from './ImportPanel'
 
 interface EventInfo {
   id: string
   event_id: string
   name: string
+  location: string
 }
 
 const EMPTY_FORM: Record<string, string> = {
-  full_name: '',
+  first_name: '',
+  last_name: '',
   email: '',
   phone: '',
   designation: '',
   company: '',
-  company_email: '',
 }
 
 export default function GuestsPage() {
@@ -51,10 +55,10 @@ export default function GuestsPage() {
   const loadData = async () => {
     setLoading(true)
     const [{ data: eventData }, { data: guestData, error: guestError }] = await Promise.all([
-      supabase.from('events').select('id, event_id, name').eq('id', eventUuid).single(),
+      supabase.from('events').select('id, event_id, name, location').eq('id', eventUuid).single(),
       supabase
         .from('registrations')
-        .select('id, registration_id, source, source_id, full_name, email, phone, designation, company, company_email, created_at')
+        .select('id, registration_id, source, source_id, full_name, first_name, last_name, email, phone, designation, company, company_email, created_at')
         .eq('event_id', eventUuid)
         .order('created_at', { ascending: true }),
     ])
@@ -76,7 +80,7 @@ export default function GuestsPage() {
     return guests.filter((g) => {
       if (sourceFilter && g.source !== sourceFilter) return false
       if (!q) return true
-      return [g.registration_id, g.full_name, g.email, g.phone, g.company, g.designation]
+      return [g.registration_id, g.full_name, g.email, g.company_email, g.phone, g.company, g.designation]
         .some((v) => v?.toLowerCase().includes(q))
     })
   }, [guests, search, sourceFilter])
@@ -96,7 +100,7 @@ export default function GuestsPage() {
   }
 
   const handleDelete = async () => {
-    if (!confirm(`Delete ${selected.size} guest(s)? Their check-ins and badge prints are deleted too.`)) return
+    if (!confirm(`Delete ${selected.size} attendee(s)? Their check-ins and badge prints are deleted too.`)) return
     setError('')
     const ids = [...selected]
     const { data, error: deleteError } = await supabase.from('registrations').delete().in('id', ids).select('id')
@@ -104,9 +108,9 @@ export default function GuestsPage() {
     if (deleteError) {
       setError('Delete failed: ' + deleteError.message)
     } else if (!data || data.length < ids.length) {
-      setError('Some guests could not be deleted. Only admins can delete guests.')
+      setError('Some attendees could not be deleted. Only admins can delete attendees.')
     } else {
-      setNotice(`Deleted ${data.length} guest(s).`)
+      setNotice(`Deleted ${data.length} attendee(s).`)
     }
     loadData()
   }
@@ -117,13 +121,13 @@ export default function GuestsPage() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `${event?.event_id ?? 'guests'}-guests.csv`
+    a.download = `${event?.event_id ?? 'attendees'}-attendees.csv`
     a.click()
     URL.revokeObjectURL(url)
   }
 
   if (loading && !event) {
-    return <p>Loading guests...</p>
+    return <p>Loading attendees...</p>
   }
 
   if (!event) {
@@ -147,9 +151,9 @@ export default function GuestsPage() {
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', flexWrap: 'wrap', gap: '16px', marginBottom: '24px' }}>
         <div>
-          <h1 style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '8px' }}>Guest List</h1>
+          <h1 style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '8px' }}>Attendee Registration</h1>
           <p style={{ color: 'var(--color-text-secondary)', fontSize: '16px' }}>
-            {event.name} • <span style={{ fontFamily: 'monospace' }}>{event.event_id}</span> • {guests.length} guest{guests.length === 1 ? '' : 's'}
+            {event.name} • <span style={{ fontFamily: 'monospace' }}>{event.event_id}</span> • {guests.length} attendee{guests.length === 1 ? '' : 's'}
           </p>
         </div>
         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
@@ -157,7 +161,7 @@ export default function GuestsPage() {
             {panel === 'import' ? 'Close import' : 'Import CSV/Excel'}
           </button>
           <button className="btn-secondary" onClick={() => setPanel(panel === 'add' ? '' : 'add')}>
-            {panel === 'add' ? 'Close' : 'Add guest'}
+            {panel === 'add' ? 'Close' : 'Add attendee'}
           </button>
         </div>
       </div>
@@ -189,6 +193,7 @@ export default function GuestsPage() {
       {panel === 'add' && (
         <AddGuestForm
           eventUuid={event.id}
+          eventLocation={event.location}
           existing={guests}
           onDone={(message) => {
             setPanel('')
@@ -242,7 +247,7 @@ export default function GuestsPage() {
       {guests.length === 0 ? (
         <div style={{ padding: '32px', textAlign: 'center', border: '1px solid var(--color-border)', borderRadius: '6px' }}>
           <p style={{ color: 'var(--color-text-secondary)' }}>
-            No guests yet. Import a CSV or Excel file, or add guests one by one.
+            No attendees yet. Import a CSV or Excel file, or add attendees one by one.
           </p>
         </div>
       ) : (
@@ -255,7 +260,8 @@ export default function GuestsPage() {
                 </th>
                 <th style={cellStyle}>Reg ID</th>
                 <th style={cellStyle}>Name</th>
-                <th style={cellStyle}>Email</th>
+                <th style={cellStyle}>Corporate email</th>
+                <th style={cellStyle}>Personal email</th>
                 <th style={cellStyle}>Phone</th>
                 <th style={cellStyle}>Company</th>
                 <th style={cellStyle}>Designation</th>
@@ -270,6 +276,7 @@ export default function GuestsPage() {
                   </td>
                   <td style={{ ...cellStyle, fontFamily: 'monospace' }}>{g.registration_id}</td>
                   <td style={{ ...cellStyle, fontWeight: 500 }}>{g.full_name}</td>
+                  <td style={cellStyle}>{g.company_email}</td>
                   <td style={cellStyle}>{g.email}</td>
                   <td style={cellStyle}>{g.phone}</td>
                   <td style={cellStyle}>{g.company}</td>
@@ -279,8 +286,8 @@ export default function GuestsPage() {
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={8} style={{ ...cellStyle, textAlign: 'center', color: 'var(--color-text-secondary)' }}>
-                    No guests match your search.
+                  <td colSpan={9} style={{ ...cellStyle, textAlign: 'center', color: 'var(--color-text-secondary)' }}>
+                    No attendees match your search.
                   </td>
                 </tr>
               )}
@@ -294,16 +301,22 @@ export default function GuestsPage() {
 
 const cellStyle: React.CSSProperties = { padding: '10px 12px', whiteSpace: 'nowrap' }
 
+
 function AddGuestForm({
   eventUuid,
+  eventLocation,
   existing,
   onDone,
 }: {
   eventUuid: string
+  eventLocation: string
   existing: Guest[]
   onDone: (message: string) => void
 }) {
   const [form, setForm] = useState(EMPTY_FORM)
+  const [country, setCountry] = useState<Country>(() =>
+    detectCountry(eventLocation, typeof navigator !== 'undefined' ? navigator.language : undefined)
+  )
   const [error, setError] = useState('')
   const [warning, setWarning] = useState('')
   const [saving, setSaving] = useState(false)
@@ -313,31 +326,43 @@ function AddGuestForm({
     setWarning('')
   }
 
+  // Typing "+971 50..." switches the country and keeps only the local number
+  const updatePhone = (value: string) => {
+    const typed = countryFromTypedNumber(value, country.iso)
+    if (typed) {
+      setCountry(typed)
+      update('phone', value.replace(/^\s*\+\s*/, '').replace(/\D/g, '').slice(typed.dial.length))
+    } else {
+      update('phone', value.replace(/[^\d\s()-]/g, ''))
+    }
+  }
+
+  const sortedCountries = useMemo(() => [...COUNTRIES].sort((a, b) => a.name.localeCompare(b.name)), [])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
 
-    const guest: GuestInput = {}
-    Object.entries(form).forEach(([k, v]) => {
-      if (v.trim()) guest[k as keyof GuestInput] = v.trim()
-    })
-    if (guest.email) guest.email = normalizeGuestEmail(guest.email)
-    if (guest.company_email) guest.company_email = normalizeGuestEmail(guest.company_email)
+    const raw: GuestInput = {}
+    for (const key of ['first_name', 'last_name', 'designation', 'company'] as const) {
+      if (form[key]?.trim()) raw[key] = form[key]!.trim()
+    }
+    const email = form.email?.trim().toLowerCase()
+    if (email) raw.company_email = email
+    const phone = formatPhone(country, form.phone ?? '')
+    if (phone) raw.phone = phone
+    const guest = classifyEmails(completeName(raw))
 
-    if (!guest.full_name) {
-      setError('Full name is required')
+    if (!guest.first_name) {
+      setError('First name is required')
       return
     }
-    if (guest.email && !isValidEmail(guest.email)) {
+    if (email && !isValidEmail(email)) {
       setError('Email format looks wrong')
       return
     }
-    if (guest.company_email && !isValidEmail(guest.company_email)) {
-      setError('Company email format looks wrong')
-      return
-    }
 
-    const sameEmail = guest.email && existing.find((g) => g.email && normalizeGuestEmail(g.email) === guest.email)
+    const sameEmail = email && existing.find((g) => guestEmails(g).includes(email))
     if (sameEmail) {
       setError(`${sameEmail.full_name} (${sameEmail.registration_id}) is already registered with this email.`)
       return
@@ -345,7 +370,7 @@ function AddGuestForm({
     const key = nameCompanyKey(guest)
     const sameNameCompany = key && existing.find((g) => nameCompanyKey(g) === key)
     if (sameNameCompany && !warning) {
-      setWarning(`${sameNameCompany.full_name} from ${sameNameCompany.company} is already registered (${sameNameCompany.registration_id}). Click "Add guest" again to add anyway.`)
+      setWarning(`${sameNameCompany.full_name} from ${sameNameCompany.company} is already registered (${sameNameCompany.registration_id}). Click "Add attendee" again to add anyway.`)
       return
     }
 
@@ -359,45 +384,87 @@ function AddGuestForm({
     setSaving(false)
 
     if (insertError) {
-      setError('Could not add guest: ' + insertError.message)
+      setError('Could not add attendee: ' + insertError.message)
       return
     }
     onDone(`Added ${guest.full_name} (${data.registration_id}).`)
   }
 
-  const fields: { key: string; label: string; type?: string; required?: boolean }[] = [
-    { key: 'full_name', label: 'Full name', required: true },
-    { key: 'email', label: 'Email', type: 'email' },
-    { key: 'phone', label: 'Phone', type: 'tel' },
-    { key: 'designation', label: 'Designation' },
-    { key: 'company', label: 'Company' },
-    { key: 'company_email', label: 'Company email', type: 'email' },
-  ]
+  const textField = (key: string, label: string, opts: { type?: string; required?: boolean; hint?: string } = {}) => (
+    <div>
+      <label htmlFor={`add-${key}`} style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>
+        {label}{opts.required ? ' *' : ''}
+      </label>
+      <input
+        id={`add-${key}`}
+        type={opts.type ?? 'text'}
+        value={form[key] ?? ''}
+        onChange={(e) => update(key, e.target.value)}
+        className="input-field"
+        required={opts.required}
+      />
+      {opts.hint && (
+        <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginTop: '4px' }}>{opts.hint}</p>
+      )}
+    </div>
+  )
 
   return (
     <form onSubmit={handleSubmit} style={panelStyle}>
-      <h2 style={{ fontSize: '20px', fontWeight: 600, marginBottom: '16px' }}>Add guest</h2>
+      <h2 style={{ fontSize: '20px', fontWeight: 600, marginBottom: '16px' }}>Add attendee</h2>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '16px' }}>
-        {fields.map((f) => (
-          <div key={f.key}>
-            <label htmlFor={`add-${f.key}`} style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>
-              {f.label}{f.required ? ' *' : ''}
-            </label>
-            <input
-              id={`add-${f.key}`}
-              type={f.type ?? 'text'}
-              value={form[f.key]}
-              onChange={(e) => update(f.key, e.target.value)}
+        {textField('first_name', 'First name', { required: true })}
+        {textField('last_name', 'Last name')}
+        {textField('email', 'Email', { type: 'email', hint: 'Corporate email preferred. Personal addresses (Gmail, Yahoo…) are saved as personal email.' })}
+        <div style={{ gridColumn: 'span 1' }}>
+          <label htmlFor="add-phone" style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>
+            Phone
+          </label>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <select
+              value={country.iso}
+              onChange={(e) => setCountry(countryByIso(e.target.value) ?? country)}
               className="input-field"
-              required={f.required}
-            />
+              aria-label="Country code"
+              title={country.name}
+              style={{ flex: '0 0 112px', width: '112px', padding: '8px' }}
+            >
+              {sortedCountries.map((c) => (
+                <option key={c.iso} value={c.iso}>
+                  {c.name} (+{c.dial})
+                </option>
+              ))}
+            </select>
+            <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
+              <span
+                aria-hidden="true"
+                style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '16px', color: 'var(--color-text-secondary)', pointerEvents: 'none' }}
+              >
+                {flagEmoji(country.iso)} +{country.dial}
+              </span>
+              <input
+                id="add-phone"
+                type="tel"
+                inputMode="tel"
+                value={form.phone ?? ''}
+                onChange={(e) => updatePhone(e.target.value)}
+                className="input-field"
+                style={{ paddingLeft: `${40 + country.dial.length * 10}px` }}
+                placeholder="Mobile number"
+              />
+            </div>
           </div>
-        ))}
+          <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginTop: '4px' }}>
+            Detected from the event location. Pick another country or type a number starting with +.
+          </p>
+        </div>
+        {textField('designation', 'Designation')}
+        {textField('company', 'Company')}
       </div>
       {error && <div className="alert-error" style={{ marginBottom: '16px' }}>{error}</div>}
       {warning && <div className="alert-warning" style={{ marginBottom: '16px' }}>{warning}</div>}
       <button type="submit" className="btn-primary" disabled={saving}>
-        {saving ? 'Adding...' : 'Add guest'}
+        {saving ? 'Adding...' : 'Add attendee'}
       </button>
       <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)', marginTop: '8px' }}>
         A 6-character registration ID is generated automatically.

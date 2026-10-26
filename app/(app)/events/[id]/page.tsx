@@ -145,7 +145,7 @@ export default function EventDetailPage() {
         flexWrap: 'wrap',
       }}>
         <Link href={`/events/${event.id}/guests`} className="btn-primary">
-          Guest List
+          Attendee Registration
         </Link>
         <button className="btn-primary" disabled>
           Live Dashboard (Step 4)
@@ -164,7 +164,7 @@ export default function EventDetailPage() {
         fontSize: '14px',
         color: '#78350f',
       }}>
-        💡 Add your guests from the Guest List: import a CSV or Excel file, or add them one by one.
+        💡 Add attendees from Attendee Registration: import a CSV or Excel file, or add them one by one.
       </p>
     </div>
   )

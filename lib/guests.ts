@@ -1,14 +1,19 @@
 // Guest list helpers: column mapping, duplicate detection, registration IDs.
 // Pure functions (no Supabase) so they can be unit tested.
 
+// Name: map First name + Last name, or a single Full name column.
+// Emails: `email` is the personal address, `company_email` the corporate one;
+// a single email column is sorted by domain (see classifyEmails).
 export const GUEST_FIELDS = [
-  { key: 'full_name', label: 'Full name', required: true },
-  { key: 'email', label: 'Email', required: false },
-  { key: 'phone', label: 'Phone', required: false },
-  { key: 'designation', label: 'Designation', required: false },
-  { key: 'company', label: 'Company', required: false },
-  { key: 'company_email', label: 'Company email', required: false },
-  { key: 'source_id', label: 'Source ID (e.g. Jotform submission)', required: false },
+  { key: 'first_name', label: 'First name' },
+  { key: 'last_name', label: 'Last name' },
+  { key: 'full_name', label: 'Full name (if no first/last)' },
+  { key: 'company_email', label: 'Email (corporate)' },
+  { key: 'email', label: 'Personal email' },
+  { key: 'phone', label: 'Phone' },
+  { key: 'designation', label: 'Designation' },
+  { key: 'company', label: 'Company' },
+  { key: 'source_id', label: 'Source ID (e.g. Jotform submission)' },
 ] as const
 
 export type GuestField = (typeof GUEST_FIELDS)[number]['key']
@@ -24,13 +29,66 @@ export interface Guest extends GuestInput {
 
 // Header spellings recognised automatically (compared after normalizeHeader)
 const HEADER_ALIASES: Record<GuestField, string[]> = {
+  first_name: ['firstname', 'givenname', 'fname'],
+  last_name: ['lastname', 'surname', 'familyname', 'lname'],
   full_name: ['fullname', 'name', 'guestname', 'attendeename', 'participantname', 'yourname'],
-  email: ['email', 'emailaddress', 'emailid', 'mail', 'personalemail'],
+  company_email: ['email', 'emailaddress', 'emailid', 'mail', 'companyemail', 'workemail', 'officeemail', 'businessemail', 'corporateemail'],
+  email: ['personalemail', 'privateemail', 'homeemail'],
   phone: ['phone', 'phonenumber', 'mobile', 'mobilenumber', 'contactnumber', 'contact', 'whatsapp', 'cell'],
   designation: ['designation', 'title', 'jobtitle', 'role', 'position'],
   company: ['company', 'companyname', 'organization', 'organisation', 'org', 'employer'],
-  company_email: ['companyemail', 'workemail', 'officeemail', 'businessemail'],
   source_id: ['sourceid', 'submissionid', 'id', 'registrationno', 'ticketid', 'orderid'],
+}
+
+// Free/personal mailbox providers; anything else counts as corporate
+const PERSONAL_EMAIL_DOMAINS = new Set([
+  'gmail.com', 'googlemail.com', 'yahoo.com', 'yahoo.co.in', 'yahoo.co.uk', 'ymail.com', 'rocketmail.com',
+  'outlook.com', 'outlook.in', 'hotmail.com', 'hotmail.co.uk', 'live.com', 'live.in', 'msn.com',
+  'icloud.com', 'me.com', 'mac.com', 'aol.com', 'proton.me', 'protonmail.com', 'pm.me',
+  'zoho.com', 'zohomail.com', 'zohomail.in', 'gmx.com', 'gmx.net', 'mail.com', 'yandex.com', 'yandex.ru',
+  'rediffmail.com', 'rediff.com', 'qq.com', '163.com', '126.com', 'hey.com', 'fastmail.com', 'tutanota.com',
+])
+
+export function isPersonalEmail(email: string): boolean {
+  const domain = email.toLowerCase().trim().split('@')[1] ?? ''
+  return PERSONAL_EMAIL_DOMAINS.has(domain)
+}
+
+// Puts a personal address in `email` and a corporate one in `company_email`
+export function classifyEmails(guest: GuestInput): GuestInput {
+  const result = { ...guest }
+  const all = [guest.company_email, guest.email].filter((e): e is string => !!e).map(normalizeGuestEmail)
+  delete result.email
+  delete result.company_email
+  for (const e of all) {
+    if (isPersonalEmail(e)) result.email ??= e
+    else result.company_email ??= e
+  }
+  // Two addresses of the same kind: keep the extra one in the other slot
+  for (const e of all) {
+    if (e !== result.email && e !== result.company_email) {
+      if (!result.email) result.email = e
+      else if (!result.company_email) result.company_email = e
+    }
+  }
+  return result
+}
+
+// Fills full_name from first/last, or splits a full name into first/last
+export function completeName(guest: GuestInput): GuestInput {
+  const result = { ...guest }
+  if (result.first_name || result.last_name) {
+    result.full_name = [result.first_name, result.last_name].filter(Boolean).join(' ')
+  } else if (result.full_name) {
+    const [first, ...rest] = result.full_name.split(/\s+/)
+    result.first_name = first
+    if (rest.length) result.last_name = rest.join(' ')
+  }
+  return result
+}
+
+export function guestEmails(guest: GuestInput): string[] {
+  return [guest.email, guest.company_email].filter((e): e is string => !!e).map(normalizeGuestEmail)
 }
 
 export function normalizeHeader(header: string): string {
@@ -65,13 +123,12 @@ export function autoMapColumns(
     }
   })
 
-  // "First name" + "Last name" columns: map first name to full_name; rowsToGuests joins them
-  if (!used.has('full_name')) {
-    const first = headers.findIndex((h) => ['firstname', 'givenname'].includes(normalizeHeader(h)))
-    if (first >= 0) mapping[first] = 'full_name'
-  }
-
   return mapping
+}
+
+// The import needs a name: full name, or first and/or last name
+export function mappingHasName(mapping: (GuestField | '')[]): boolean {
+  return mapping.some((f) => f === 'full_name' || f === 'first_name' || f === 'last_name')
 }
 
 export function rowsToGuests(
@@ -79,11 +136,6 @@ export function rowsToGuests(
   rows: string[][],
   mapping: (GuestField | '')[]
 ): GuestInput[] {
-  const lastNameCol = headers.findIndex((h) => ['lastname', 'surname', 'familyname'].includes(normalizeHeader(h)))
-  const nameIsFirstName = mapping.some(
-    (f, i) => f === 'full_name' && ['firstname', 'givenname'].includes(normalizeHeader(headers[i] ?? ''))
-  )
-
   return rows
     .filter((row) => row.some((cell) => String(cell ?? '').trim() !== ''))
     .map((row) => {
@@ -93,13 +145,7 @@ export function rowsToGuests(
         const value = String(row[i] ?? '').trim()
         if (value) guest[field] = value
       })
-      if (nameIsFirstName && lastNameCol >= 0 && !mapping[lastNameCol]) {
-        const last = String(row[lastNameCol] ?? '').trim()
-        if (last) guest.full_name = [guest.full_name, last].filter(Boolean).join(' ')
-      }
-      if (guest.email) guest.email = normalizeGuestEmail(guest.email)
-      if (guest.company_email) guest.company_email = normalizeGuestEmail(guest.company_email)
-      return guest
+      return classifyEmails(completeName(guest))
     })
 }
 
@@ -134,7 +180,7 @@ export function findDuplicates(rows: GuestInput[], existing: Guest[]): Duplicate
   const existingByEmail = new Map<string, Guest>()
   const existingByNameCompany = new Map<string, Guest>()
   for (const g of existing) {
-    if (g.email) existingByEmail.set(normalizeGuestEmail(g.email), g)
+    for (const e of guestEmails(g)) existingByEmail.set(e, g)
     const key = nameCompanyKey(g)
     if (key) existingByNameCompany.set(key, g)
   }
@@ -144,14 +190,16 @@ export function findDuplicates(rows: GuestInput[], existing: Guest[]): Duplicate
   const conflicts: DuplicateConflict[] = []
 
   rows.forEach((row, rowIndex) => {
-    const email = row.email ? normalizeGuestEmail(row.email) : null
+    const emails = guestEmails(row)
     const key = nameCompanyKey(row)
+    const existingEmail = emails.find((e) => existingByEmail.has(e))
+    const rowEmail = emails.find((e) => rowByEmail.has(e))
 
     let conflict: DuplicateConflict | null = null
-    if (email && existingByEmail.has(email)) {
-      conflict = { rowIndex, reason: 'email', match: { kind: 'existing', guest: existingByEmail.get(email)! } }
-    } else if (email && rowByEmail.has(email)) {
-      conflict = { rowIndex, reason: 'email', match: { kind: 'row', rowIndex: rowByEmail.get(email)! } }
+    if (existingEmail) {
+      conflict = { rowIndex, reason: 'email', match: { kind: 'existing', guest: existingByEmail.get(existingEmail)! } }
+    } else if (rowEmail) {
+      conflict = { rowIndex, reason: 'email', match: { kind: 'row', rowIndex: rowByEmail.get(rowEmail)! } }
     } else if (key && existingByNameCompany.has(key)) {
       conflict = { rowIndex, reason: 'name+company', match: { kind: 'existing', guest: existingByNameCompany.get(key)! } }
     } else if (key && rowByNameCompany.has(key)) {
@@ -159,7 +207,7 @@ export function findDuplicates(rows: GuestInput[], existing: Guest[]): Duplicate
     }
     if (conflict) conflicts.push(conflict)
 
-    if (email && !rowByEmail.has(email)) rowByEmail.set(email, rowIndex)
+    for (const e of emails) if (!rowByEmail.has(e)) rowByEmail.set(e, rowIndex)
     if (key && !rowByNameCompany.has(key)) rowByNameCompany.set(key, rowIndex)
   })
 
@@ -193,8 +241,9 @@ export function planImport(
       skipped.push({ rowIndex, reason: 'Missing full name' })
       return
     }
-    if (guest.email && !isValidEmail(guest.email)) {
-      skipped.push({ rowIndex, reason: `Invalid email "${guest.email}"` })
+    const badEmail = guestEmails(guest).find((e) => !isValidEmail(e))
+    if (badEmail) {
+      skipped.push({ rowIndex, reason: `Invalid email "${badEmail}"` })
       return
     }
 
@@ -244,17 +293,18 @@ export function newRegistrationId(taken: Set<string>): string {
 }
 
 export function guestsToCsvRows(guests: Guest[]): string[][] {
-  const header = ['Registration ID', 'Full name', 'Email', 'Phone', 'Designation', 'Company', 'Company email', 'Source', 'Source ID']
+  const header = ['Registration ID', 'First name', 'Last name', 'Corporate email', 'Personal email', 'Phone', 'Designation', 'Company', 'Source', 'Source ID']
   return [
     header,
     ...guests.map((g) => [
       g.registration_id,
-      g.full_name,
+      g.first_name ?? g.full_name,
+      g.last_name ?? '',
+      g.company_email ?? '',
       g.email ?? '',
       g.phone ?? '',
       g.designation ?? '',
       g.company ?? '',
-      g.company_email ?? '',
       g.source,
       g.source_id ?? '',
     ]),

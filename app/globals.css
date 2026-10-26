@@ -24,6 +24,11 @@
   }
 }
 
+:root {
+  /* Native controls (select menus, date pickers) follow the theme */
+  color-scheme: light dark;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -111,6 +116,13 @@ select {
   border-radius: 6px;
   font-size: 16px;
   min-height: 44px;
+  background-color: var(--color-white);
+  color: var(--color-text-primary);
+}
+
+.input-field::placeholder {
+  color: var(--color-text-secondary);
+  opacity: 0.8;
 }
 
 .input-field:focus {

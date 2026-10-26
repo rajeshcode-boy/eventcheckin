@@ -12,6 +12,7 @@ import {
   allowedResolutions,
   autoMapColumns,
   findDuplicates,
+  mappingHasName,
   newRegistrationId,
   normalizeHeader,
   planImport,
@@ -96,7 +97,7 @@ export default function ImportPanel({
       }
       const nonEmpty = dataRows.filter((r) => r.some((c) => c.trim()))
       if (nonEmpty.length === 0) {
-        setError('No guest rows found below the header row.')
+        setError('No attendee rows found below the header row.')
         return
       }
       if (nonEmpty.length > MAX_ROWS) {
@@ -122,8 +123,8 @@ export default function ImportPanel({
   }
 
   const handleCheck = () => {
-    if (!mapping.includes('full_name')) {
-      setError('Choose which column holds the full name.')
+    if (!mappingHasName(mapping)) {
+      setError('Choose which columns hold the name (first and last name, or full name).')
       return
     }
     setError('')
@@ -196,7 +197,7 @@ export default function ImportPanel({
 
   return (
     <div style={panelStyle}>
-      <h2 style={{ fontSize: '20px', fontWeight: 600, marginBottom: '16px' }}>Import guests</h2>
+      <h2 style={{ fontSize: '20px', fontWeight: 600, marginBottom: '16px' }}>Import attendees</h2>
 
       {stage === 'file' && (
         <div>
@@ -209,7 +210,7 @@ export default function ImportPanel({
             onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
             disabled={busy}
             className="input-field"
-            aria-label="Guest list file"
+            aria-label="Attendee list file"
           />
           {busy && <p style={{ marginTop: '8px' }}>Reading file...</p>}
         </div>
@@ -247,7 +248,7 @@ export default function ImportPanel({
                         <option value="">— Ignore —</option>
                         {GUEST_FIELDS.map((f) => (
                           <option key={f.key} value={f.key}>
-                            {f.label}{f.required ? ' *' : ''}
+                            {f.label}
                           </option>
                         ))}
                       </select>

@@ -14,6 +14,7 @@ interface CheckinResult {
   status: 'checked_in' | 'already_checked_in' | 'not_found' | 'event_not_found' | 'already_registered' | 'invalid'
   registration_id: string | null
   full_name: string | null
+  designation: string | null
   company: string | null
   checked_in_at: string | null
 }
@@ -23,8 +24,17 @@ type View = 'form' | 'walkin' | 'result'
 const AUTO_CLEAR_MS = 3000
 const EMPTY_WALKIN = { firstName: '', lastName: '', designation: '', company: '', email: '' }
 
-const formatTime = (iso: string | null) =>
-  iso ? new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : ''
+// 12-hour time in the viewer's own time zone, e.g. "2:51 PM IST".
+// The zone name comes from the viewer's locale ("IST" for en-IN, where en-US says "GMT+5:30").
+const formatTime = (iso: string | null) => {
+  if (!iso) return ''
+  const date = new Date(iso)
+  const time = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+  const zoneName = (locale?: string) =>
+    new Intl.DateTimeFormat(locale, { timeZoneName: 'short' }).formatToParts(date).find((p) => p.type === 'timeZoneName')?.value
+  const zones = [zoneName(), zoneName('en-IN'), zoneName('en-US')].filter((z): z is string => !!z)
+  return `${time} ${zones.find((z) => !z.startsWith('GMT')) ?? zones[0] ?? ''}`.trim()
+}
 
 async function callApi(body: object): Promise<CheckinResult> {
   let res: Response
@@ -227,7 +237,7 @@ function ResultCard({ result, onWalkin, onDone }: { result: CheckinResult; onWal
       <div className="alert-success" role="status" style={{ padding: '24px' }}>
         <p style={{ fontSize: '20px', fontWeight: 600, marginBottom: '12px' }}>✅ Welcome!</p>
         <p style={{ fontSize: '18px', fontWeight: 'bold' }}>{result.full_name}</p>
-        {result.company && <p style={{ fontSize: '14px', marginTop: '4px' }}>{result.company}</p>}
+        <PersonDetails result={result} />
         <p style={{ fontSize: '16px', marginTop: '12px' }}>Checked in at {formatTime(result.checked_in_at)}</p>
         {result.registration_id && (
           <p style={{ fontSize: '14px', marginTop: '4px', fontFamily: 'monospace' }}>Reg ID: {result.registration_id}</p>
@@ -242,7 +252,7 @@ function ResultCard({ result, onWalkin, onDone }: { result: CheckinResult; onWal
         <div className="alert-warning" role="status" style={{ padding: '24px' }}>
           <p style={{ fontSize: '20px', fontWeight: 600, marginBottom: '12px' }}>⚠️ Already checked in</p>
           <p style={{ fontSize: '18px', fontWeight: 'bold' }}>{result.full_name}</p>
-          {result.company && <p style={{ fontSize: '14px', marginTop: '4px' }}>{result.company}</p>}
+          <PersonDetails result={result} />
           <p style={{ fontSize: '16px', marginTop: '12px' }}>First check-in: {formatTime(result.checked_in_at)}</p>
           <p style={{ fontSize: '14px', marginTop: '4px' }}>No second check-in recorded.</p>
         </div>
@@ -274,5 +284,23 @@ function Shell({ children }: { children: React.ReactNode }) {
     <main style={{ minHeight: '100vh', display: 'flex', justifyContent: 'center', padding: '32px 16px' }}>
       <div style={{ width: '100%', maxWidth: '440px' }}>{children}</div>
     </main>
+  )
+}
+
+function PersonDetails({ result }: { result: CheckinResult }) {
+  const rows = [
+    ['Designation', result.designation],
+    ['Company', result.company],
+  ].filter(([, value]) => value)
+  if (rows.length === 0) return null
+  return (
+    <dl style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 12px', fontSize: '16px', marginTop: '8px' }}>
+      {rows.map(([label, value]) => (
+        <div key={label} style={{ display: 'contents' }}>
+          <dt style={{ opacity: 0.8 }}>{label}</dt>
+          <dd style={{ fontWeight: 500 }}>{value}</dd>
+        </div>
+      ))}
+    </dl>
   )
 }

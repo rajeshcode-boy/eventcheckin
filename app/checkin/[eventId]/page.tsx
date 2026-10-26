@@ -3,15 +3,17 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { isValidEmail } from '@/lib/guests'
+import { formatTime } from '@/lib/time'
 
 interface EventInfo {
   name: string
   location: string
   event_date: string
+  status: 'upcoming' | 'live' | 'closed'
 }
 
 interface CheckinResult {
-  status: 'checked_in' | 'already_checked_in' | 'not_found' | 'event_not_found' | 'already_registered' | 'invalid'
+  status: 'checked_in' | 'already_checked_in' | 'not_found' | 'event_not_found' | 'already_registered' | 'invalid' | 'closed'
   registration_id: string | null
   full_name: string | null
   designation: string | null
@@ -24,17 +26,6 @@ type View = 'form' | 'walkin' | 'result'
 const AUTO_CLEAR_MS = 3000
 const EMPTY_WALKIN = { firstName: '', lastName: '', designation: '', company: '', email: '' }
 
-// 12-hour time in the viewer's own time zone, e.g. "2:51 PM IST".
-// The zone name comes from the viewer's locale ("IST" for en-IN, where en-US says "GMT+5:30").
-const formatTime = (iso: string | null) => {
-  if (!iso) return ''
-  const date = new Date(iso)
-  const time = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
-  const zoneName = (locale?: string) =>
-    new Intl.DateTimeFormat(locale, { timeZoneName: 'short' }).formatToParts(date).find((p) => p.type === 'timeZoneName')?.value
-  const zones = [zoneName(), zoneName('en-IN'), zoneName('en-US')].filter((z): z is string => !!z)
-  return `${time} ${zones.find((z) => !z.startsWith('GMT')) ?? zones[0] ?? ''}`.trim()
-}
 
 async function callApi(body: object): Promise<CheckinResult> {
   let res: Response
@@ -104,12 +95,21 @@ export default function PublicCheckinPage() {
     setError('')
     setBusy(true)
     try {
-      showResult(await callApi({ eventId, query }))
+      const r = await callApi({ eventId, query })
+      if (r.status === 'closed') markClosed()
+      else showResult(r)
     } catch (err) {
       setError((err as Error).message)
     } finally {
       setBusy(false)
     }
+  }
+
+  // Organizer closed check-in while this page was open
+  const markClosed = () => {
+    setEvent((ev) => (ev ? { ...ev, status: 'closed' } : ev))
+    setView('form')
+    setError('')
   }
 
   const handleWalkin = async (e: React.FormEvent) => {
@@ -122,7 +122,9 @@ export default function PublicCheckinPage() {
     setBusy(true)
     try {
       const r = await callApi({ eventId, walkin })
-      if (r.status === 'already_registered') {
+      if (r.status === 'closed') {
+        markClosed()
+      } else if (r.status === 'already_registered') {
         setError('This email is already registered. Go back and check in with it.')
       } else if (r.status === 'invalid') {
         setError('Please fill in first name, designation and company.')
@@ -163,7 +165,14 @@ export default function PublicCheckinPage() {
         </p>
       </header>
 
-      {view === 'form' && (
+      {event.status === 'closed' && (
+        <div className="alert-warning" role="status" style={{ padding: '24px' }}>
+          <p style={{ fontSize: '20px', fontWeight: 600, marginBottom: '8px' }}>Check-in is closed</p>
+          <p style={{ fontSize: '16px' }}>Please see the event staff for help.</p>
+        </div>
+      )}
+
+      {event.status !== 'closed' && view === 'form' && (
         <form onSubmit={handleCheckin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <label htmlFor="checkin-query" style={{ fontSize: '18px', fontWeight: 600 }}>
             Check in

@@ -164,9 +164,9 @@ export default function EventDetailPage() {
         <Link href={`/events/${event.id}/guests`} className="btn-primary">
           Attendee Registration
         </Link>
-        <button className="btn-primary" disabled>
-          Live Dashboard (Step 4)
-        </button>
+        <Link href={`/events/${event.id}/dashboard`} className="btn-primary">
+          Live Dashboard
+        </Link>
         <button className="btn-primary" disabled>
           Badge Printing (Step 5)
         </button>

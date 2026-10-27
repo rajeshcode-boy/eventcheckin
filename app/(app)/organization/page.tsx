@@ -152,7 +152,7 @@ export default function OrganizationPage() {
           <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px', marginBottom: '16px' }}>
             These settings affect your entire organization. Please proceed with caution.
           </p>
-          <div style={{ border: '1px solid var(--color-error-red)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
+          <div style={{ border: '1px solid var(--color-error-red)', borderRadius: 'var(--app-radius-md)', overflow: 'hidden' }}>
             <div style={{ backgroundColor: 'var(--color-surface-muted)', padding: '10px 16px', borderBottom: '1px solid var(--color-error-red)' }}>
               <p style={{ fontWeight: 700, color: 'var(--color-error-red)', fontSize: '14px' }}>Danger Zone</p>
             </div>

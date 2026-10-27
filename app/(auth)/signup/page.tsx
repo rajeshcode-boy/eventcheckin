@@ -247,7 +247,7 @@ export default function SignupPage() {
             </label>
 
             {error && (
-              <div role="alert" className="alert-error" style={{ borderRadius: 'var(--radius-md)' }}>
+              <div role="alert" className="alert-error" style={{ borderRadius: 'var(--app-radius-md)' }}>
                 {error}
               </div>
             )}

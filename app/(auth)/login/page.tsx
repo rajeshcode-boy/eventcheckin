@@ -69,7 +69,7 @@ export default function LoginPage() {
 
         <div className="card" style={{ padding: '24px' }}>
           {signedOut && (
-            <div role="status" style={{ marginBottom: '20px', padding: '12px 14px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--color-primary-soft)', color: 'var(--color-primary)', fontSize: '14px', fontWeight: 500 }}>
+            <div role="status" style={{ marginBottom: '20px', padding: '12px 14px', borderRadius: 'var(--app-radius-md)', backgroundColor: 'var(--color-primary-soft)', color: 'var(--color-primary)', fontSize: '14px', fontWeight: 500 }}>
               You&apos;ve signed out.
             </div>
           )}
@@ -120,7 +120,7 @@ export default function LoginPage() {
             </div>
 
             {error && (
-              <div role="alert" className="alert-error" style={{ borderRadius: 'var(--radius-md)' }}>
+              <div role="alert" className="alert-error" style={{ borderRadius: 'var(--app-radius-md)' }}>
                 {error}
               </div>
             )}

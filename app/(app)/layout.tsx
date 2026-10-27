@@ -5,8 +5,14 @@ import { supabase } from '@/lib/supabase'
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { publicImageUrl } from '@/lib/images'
-import ThemeToggle from '@/components/ThemeToggle'
+import ThemeMenu from '@/components/ThemeMenu'
 import ProfileMenu from '@/components/ProfileMenu'
+import {
+  NavigationMenu,
+  NavigationMenuItem,
+  NavigationMenuLink,
+  NavigationMenuList,
+} from '@/components/ui/navigation-menu'
 
 const NAV = [
   { href: '/dashboard', label: 'Dashboard' },
@@ -101,28 +107,20 @@ export default function AppLayout({
             <span aria-hidden="true" style={{ width: '28px', height: '28px', borderRadius: '8px', backgroundColor: 'var(--color-primary)', color: '#ffffff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 700 }}>✓</span>
             EventCheckin
           </Link>
-          <nav aria-label="Main" className="app-nav-desktop" style={{ display: 'flex', gap: '4px' }}>
-            {NAV.map((item) => {
-              const active = isActive(item.href)
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  aria-current={active ? 'page' : undefined}
-                  style={{
-                    padding: '7px 12px', borderRadius: '999px', fontSize: '14px', fontWeight: active ? 600 : 500,
-                    color: active ? 'var(--color-primary)' : 'var(--color-text-secondary)',
-                    backgroundColor: active ? 'var(--color-primary-soft)' : undefined,
-                  }}
-                >
-                  {item.label}
-                </Link>
-              )
-            })}
-          </nav>
+          <NavigationMenu className="app-nav-desktop" style={{ justifyContent: 'flex-start' }}>
+            <NavigationMenuList>
+              {NAV.map((item) => (
+                <NavigationMenuItem key={item.href}>
+                  <NavigationMenuLink active={isActive(item.href)} render={<Link href={item.href} />}>
+                    {item.label}
+                  </NavigationMenuLink>
+                </NavigationMenuItem>
+              ))}
+            </NavigationMenuList>
+          </NavigationMenu>
         </div>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-          <ThemeToggle />
+          <ThemeMenu />
           <ProfileMenu
             name={displayName}
             email={user?.email ?? ''}

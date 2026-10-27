@@ -153,7 +153,7 @@ export default function EventsPage() {
                       borderRadius: '999px',
                       fontSize: '14px',
                       fontWeight: active ? 600 : 500,
-                      color: active ? 'var(--color-primary-green)' : 'var(--color-text-secondary)',
+                      color: active ? 'var(--color-primary)' : 'var(--color-text-secondary)',
                       backgroundColor: active ? 'var(--color-primary-soft)' : 'transparent',
                     }}
                   >
@@ -203,8 +203,8 @@ export default function EventsPage() {
                         fontSize: '12px',
                         fontWeight: 600,
                         textTransform: 'capitalize',
-                        backgroundColor: event.status === 'live' ? 'var(--color-primary-soft)' : 'var(--color-neutral-light)',
-                        color: event.status === 'live' ? 'var(--color-primary-green)' : 'var(--color-text-secondary)',
+                        backgroundColor: event.status === 'live' ? 'var(--color-live-soft)' : 'var(--color-neutral-light)',
+                        color: event.status === 'live' ? 'var(--color-live)' : 'var(--color-text-secondary)',
                       }}>
                         {event.status}
                       </span>

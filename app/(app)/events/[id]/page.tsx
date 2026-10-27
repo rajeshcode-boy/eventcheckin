@@ -111,8 +111,8 @@ export default function EventDetailPage() {
             fontSize: '14px',
             fontWeight: 600,
             textTransform: 'capitalize',
-            backgroundColor: event.status === 'live' ? 'var(--color-primary-soft)' : 'var(--color-neutral-light)',
-            color: event.status === 'live' ? 'var(--color-primary-green)' : 'var(--color-text-secondary)',
+            backgroundColor: event.status === 'live' ? 'var(--color-live-soft)' : 'var(--color-neutral-light)',
+            color: event.status === 'live' ? 'var(--color-live)' : 'var(--color-text-secondary)',
           }}>
             {event.status}
           </span>

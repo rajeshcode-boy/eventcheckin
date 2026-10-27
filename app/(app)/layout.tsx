@@ -97,7 +97,7 @@ export default function AppLayout({
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '24px', minWidth: 0 }}>
           <Link href="/events" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, fontSize: '17px', letterSpacing: '-0.01em', whiteSpace: 'nowrap' }}>
-            <span aria-hidden="true" style={{ width: '28px', height: '28px', borderRadius: '8px', backgroundColor: 'var(--color-primary-green)', color: '#ffffff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 700 }}>✓</span>
+            <span aria-hidden="true" style={{ width: '28px', height: '28px', borderRadius: '8px', backgroundColor: 'var(--color-primary)', color: '#ffffff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 700 }}>✓</span>
             EventCheckin
           </Link>
           <nav aria-label="Main" className="app-nav-desktop" style={{ display: 'flex', gap: '4px' }}>
@@ -110,7 +110,7 @@ export default function AppLayout({
                   aria-current={active ? 'page' : undefined}
                   style={{
                     padding: '7px 12px', borderRadius: '999px', fontSize: '14px', fontWeight: active ? 600 : 500,
-                    color: active ? 'var(--color-primary-green)' : 'var(--color-text-secondary)',
+                    color: active ? 'var(--color-primary)' : 'var(--color-text-secondary)',
                     backgroundColor: active ? 'var(--color-primary-soft)' : undefined,
                   }}
                 >
@@ -145,7 +145,7 @@ export default function AppLayout({
               key={item.href}
               href={item.href}
               aria-current={active ? 'page' : undefined}
-              style={{ color: active ? 'var(--color-primary-green)' : 'var(--color-text-secondary)', fontWeight: active ? 600 : 500 }}
+              style={{ color: active ? 'var(--color-primary)' : 'var(--color-text-secondary)', fontWeight: active ? 600 : 500 }}
             >
               {item.label === 'My Profile' ? 'Profile' : item.label}
             </Link>

@@ -7,7 +7,7 @@ export default function CreateEventPage() {
   return (
     <div style={{ maxWidth: '640px' }}>
       <div style={{ marginBottom: '24px' }}>
-        <Link href="/events" style={{ color: 'var(--color-primary-green)', fontSize: '14px' }}>
+        <Link href="/events" style={{ color: 'var(--color-primary)', fontSize: '14px' }}>
           ← Back to events
         </Link>
       </div>

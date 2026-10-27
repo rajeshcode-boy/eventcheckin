@@ -63,7 +63,7 @@ export default function ProfileMenu({ name, email, avatarUrl, onLogout }: Props)
           // eslint-disable-next-line @next/next/no-img-element
           <img src={avatarUrl} alt="" style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }} />
         ) : (
-          <span aria-hidden="true" style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: 'var(--color-primary-green)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: '14px' }}>
+          <span aria-hidden="true" style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: 'var(--color-primary)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: '14px' }}>
             {initial}
           </span>
         )}

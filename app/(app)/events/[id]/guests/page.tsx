@@ -38,12 +38,12 @@ const ATTENDEE_COLUMNS =
   'country, city, industry, registration_status, attendance_confirmation, created_at'
 
 const STATUS_COLORS: Record<string, string> = {
-  approved: 'var(--color-primary-green)',
-  registered: 'var(--color-primary-green)',
+  approved: 'var(--color-primary)',
+  registered: 'var(--color-primary)',
   pending: 'var(--color-amber-warning)',
   rejected: 'var(--color-error-red)',
   cancelled: 'var(--color-error-red)',
-  confirmed: 'var(--color-primary-green)',
+  confirmed: 'var(--color-primary)',
   maybe: 'var(--color-amber-warning)',
   not_confirmed: 'var(--color-text-secondary)',
 }
@@ -370,7 +370,7 @@ export default function GuestsPage() {
                     <td style={cellStyle}><Pill value={g.registration_status} label={registrationStatusLabel(g.registration_status)} /></td>
                     <td style={cellStyle}><Pill value={g.attendance_confirmation} label={attendanceConfirmationLabel(g.attendance_confirmation)} /></td>
                     <td style={cellStyle}>{formatDate(g.created_at)}</td>
-                    <td style={{ ...cellStyle, color: checkedIn.has(g.id) ? 'var(--color-primary-green)' : 'var(--color-text-secondary)' }}>
+                    <td style={{ ...cellStyle, color: checkedIn.has(g.id) ? 'var(--color-primary)' : 'var(--color-text-secondary)' }}>
                       {checkedIn.has(g.id) ? 'Checked in' : '—'}
                     </td>
                     <td style={cellStyle}>

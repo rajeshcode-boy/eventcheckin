@@ -163,7 +163,7 @@ export default function DashboardPage() {
           <p style={{ fontSize: '14px', marginTop: '8px', color: 'var(--color-text-secondary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span
               aria-hidden="true"
-              style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: live ? 'var(--color-primary-green)' : 'var(--color-amber-warning)' }}
+              style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: live ? 'var(--color-live)' : 'var(--color-amber-warning)' }}
             />
             {live ? 'Live updates on' : 'Live updates off — use Refresh'}
             {lastUpdated && ` • Updated ${formatTime(lastUpdated)}`}
@@ -200,7 +200,7 @@ export default function DashboardPage() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '16px', marginBottom: '32px' }}>
         <StatCard label="Total registered" value={stats.total} note={`${stats.preRegistered} pre-registered`} />
-        <StatCard label="Checked in" value={stats.arrived} note={`${stats.attendance}% of pre-registered`} color="var(--color-primary-green)" />
+        <StatCard label="Checked in" value={stats.arrived} note={`${stats.attendance}% of pre-registered`} color="var(--color-primary)" />
         <StatCard label="Walk-ins" value={stats.walkins} color="var(--color-amber-warning)" />
         {closed ? (
           <StatCard label="No-shows" value={stats.notArrived} color="var(--color-error-red)" />

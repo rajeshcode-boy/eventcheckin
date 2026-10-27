@@ -407,7 +407,7 @@ function BadgeCard({
   }
 
   return (
-    <div style={{ border: `1px solid ${selected ? 'var(--color-primary-green)' : 'var(--color-border)'}`, borderRadius: '6px', padding: '12px' }}>
+    <div style={{ border: `1px solid ${selected ? 'var(--color-primary)' : 'var(--color-border)'}`, borderRadius: '6px', padding: '12px' }}>
       <label style={{ display: 'flex', gap: '8px', alignItems: 'center', fontSize: '14px', marginBottom: '8px' }}>
         <input type="checkbox" checked={selected} onChange={onToggle} />
         <span style={{ fontWeight: 600 }}>{attendee.full_name}</span>

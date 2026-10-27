@@ -35,7 +35,7 @@ export default function EventTabs({ eventUuid }: { eventUuid: string }) {
                 padding: '10px 12px',
                 fontSize: '14px',
                 fontWeight: active ? 600 : 400,
-                borderBottom: active ? '2px solid var(--color-primary-green)' : '2px solid transparent',
+                borderBottom: active ? '2px solid var(--color-primary)' : '2px solid transparent',
                 color: active ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
                 marginBottom: '-1px',
               }}

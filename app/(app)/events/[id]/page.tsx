@@ -168,7 +168,7 @@ export default function EventDetailPage() {
         </span>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px', marginBottom: '14px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '14px', marginBottom: '14px' }}>
         {[
           { label: 'Registered', value: `${stats.registered}`, sub: event.registration_capacity ? `of ${event.registration_capacity}` : 'no limit' },
           { label: 'Pending approval', value: `${stats.pending}`, sub: event.approval_mode === 'manual' ? 'approval on' : 'auto-approve' },
@@ -188,6 +188,7 @@ export default function EventDetailPage() {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '14px', alignItems: 'start', marginBottom: '20px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
         <section className="card" style={{ padding: '20px' }} aria-labelledby="checkin-heading">
           <h2 id="checkin-heading" style={{ fontSize: '18px', fontWeight: 600, marginBottom: '4px' }}>Check-in</h2>
           <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)', marginBottom: '16px' }}>
@@ -213,11 +214,9 @@ export default function EventDetailPage() {
           <code style={{ display: 'block', marginTop: '14px', fontSize: '12px', wordBreak: 'break-all', color: 'var(--color-text-secondary)' }}>{checkInUrl}</code>
         </section>
 
-        <RegistrationSettings eventUuid={event.id} organizationId={event.organization_id} registrations={registrations} />
-      </div>
-
-      <h2 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: '10px' }}>Manage</h2>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '10px' }}>
+        <div>
+          <h2 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: '10px' }}>Manage</h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px' }}>
         {[
           { href: `/events/${event.id}/guests`, title: 'Guests', sub: `${stats.registered} registered` },
           { href: `/events/${event.id}/dashboard`, title: 'Dashboard', sub: 'Trends and sources' },
@@ -231,6 +230,11 @@ export default function EventDetailPage() {
             <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginTop: '2px' }}>{t.sub}</p>
           </Link>
         ))}
+          </div>
+        </div>
+        </div>
+
+        <RegistrationSettings eventUuid={event.id} organizationId={event.organization_id} registrations={registrations} />
       </div>
     </div>
   )

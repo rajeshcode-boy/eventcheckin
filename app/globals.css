@@ -3,21 +3,21 @@
 @tailwind utilities;
 
 :root {
-  --color-primary: #1A4439;
-  --color-primary-hover: #0F2B24;
-  --color-primary-soft: #D5EDE4;
-  --color-live: #007550;
-  --color-live-soft: #D5EDE4;
+  --color-primary: #2563EB;
+  --color-primary-hover: #1D4ED8;
+  --color-primary-soft: #DBEAFE;
+  --color-live: #16A34A;
+  --color-live-soft: #DCFCE7;
   --color-amber-warning: #f59e0b;
   --color-error-red: #dc2626;
-  --color-neutral-light: #F3F7F5;
+  --color-neutral-light: #F3F6FB;
   --color-neutral-dark: #1f2937;
-  --color-border: #D5E2DC;
-  --color-text-primary: #1A4439;
-  --color-text-secondary: #4F6B62;
+  --color-border: #E2E8F0;
+  --color-text-primary: #0F172A;
+  --color-text-secondary: #64748B;
   --color-white: #ffffff;
   --color-surface: #ffffff;
-  --color-surface-muted: #F7FAF8;
+  --color-surface-muted: #F8FAFC;
   --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.06);
   --shadow-pop: 0 8px 24px rgba(15, 23, 42, 0.12);
   --radius-md: 10px;
@@ -26,38 +26,38 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --color-primary: #2F7A62;
-    --color-primary-hover: #3A8D73;
-    --color-primary-soft: #17332C;
-    --color-live: #3FB68A;
-    --color-live-soft: #163C30;
-    --color-neutral-light: #0C1B19;
+    --color-primary: #3B82F6;
+    --color-primary-hover: #60A5FA;
+    --color-primary-soft: #1E3A8A;
+    --color-live: #4ADE80;
+    --color-live-soft: #14532D;
+    --color-neutral-light: #0B1220;
     --color-neutral-dark: #f1f5f9;
-    --color-border: #2A4A41;
-    --color-text-primary: #F3F7F5;
-    --color-text-secondary: #A9C2B8;
-    --color-white: #0A1A16;
-    --color-surface: #132E27;
-    --color-surface-muted: #0F2B24;
+    --color-border: #263244;
+    --color-text-primary: #F1F5F9;
+    --color-text-secondary: #94A3B8;
+    --color-white: #0A0F1A;
+    --color-surface: #111827;
+    --color-surface-muted: #0B1220;
     --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4);
     --shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.5);
   }
 }
 
 :root[data-theme="dark"] {
-  --color-primary: #2F7A62;
-  --color-primary-hover: #3A8D73;
-  --color-primary-soft: #17332C;
-  --color-live: #3FB68A;
-  --color-live-soft: #163C30;
-  --color-neutral-light: #0C1B19;
+  --color-primary: #3B82F6;
+  --color-primary-hover: #60A5FA;
+  --color-primary-soft: #1E3A8A;
+  --color-live: #4ADE80;
+  --color-live-soft: #14532D;
+  --color-neutral-light: #0B1220;
   --color-neutral-dark: #f1f5f9;
-  --color-border: #2A4A41;
-  --color-text-primary: #F3F7F5;
-  --color-text-secondary: #A9C2B8;
-  --color-white: #0A1A16;
+  --color-border: #263244;
+  --color-text-primary: #F1F5F9;
+  --color-text-secondary: #94A3B8;
+  --color-white: #0A0F1A;
   --color-surface: #111827;
-  --color-surface-muted: #1A4439;
+  --color-surface-muted: #0B1220;
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.5);
 }
@@ -194,7 +194,7 @@ select {
 .input-field:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(0, 117, 80, 0.18);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18);
 }
 
 .alert-success {
@@ -320,13 +320,67 @@ select {
   border-color: var(--color-text-secondary);
 }
 
-/* App shell: desktop nav above 640px, bottom tabs below */
+/* App shell: left sidebar nav above 640px, bottom tabs below */
+.app-body {
+  display: flex;
+  align-items: flex-start;
+}
+
+.app-sidebar {
+  width: 232px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 20px 12px;
+  border-right: 1px solid var(--color-border);
+  position: sticky;
+  top: 65px;
+  height: calc(100vh - 65px);
+  overflow-y: auto;
+}
+
+.app-sidebar-org {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-secondary);
+  padding: 0 12px 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  min-height: 40px;
+}
+
+.app-sidebar-link:hover {
+  background-color: var(--color-surface-muted);
+  color: var(--color-text-primary);
+}
+
+.app-sidebar-link[aria-current='page'] {
+  background-color: var(--color-primary-soft);
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
 .app-tabbar {
   display: none;
 }
 
 @media (max-width: 640px) {
-  .app-nav-desktop,
+  .app-sidebar,
   .app-user-name {
     display: none !important;
   }

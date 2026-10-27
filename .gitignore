@@ -39,3 +39,6 @@ yarn-error.log*
 
 # OS
 Thumbs.db
+
+# OMC operational state (see CLAUDE.md worktree_paths)
+.omc/

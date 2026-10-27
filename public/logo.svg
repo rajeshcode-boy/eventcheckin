@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="EventCheckin logo">
-  <rect width="64" height="64" rx="16" fill="#1A4439"/>
+  <rect width="64" height="64" rx="16" fill="#2563EB"/>
   <path d="M18 33.5 L27.5 43 L46 22" fill="none" stroke="#FFFFFF" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="48" cy="16" r="5" fill="#3FB68A"/>
+  <circle cx="48" cy="16" r="5" fill="#4ADE80"/>
 </svg>

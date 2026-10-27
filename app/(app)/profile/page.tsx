@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { AVATAR_RULES } from '@/lib/images'
 import ImageUpload from '@/components/ImageUpload'
 import PhoneInput from '@/components/PhoneInput'
+import PushNotifications from '@/components/PushNotifications'
 
 interface Profile {
   id: string
@@ -114,6 +115,8 @@ export default function ProfilePage() {
           hint="A square photo works best."
         />
       </div>
+
+      <PushNotifications mode="organizer" />
 
       <form onSubmit={save} style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '16px', border: '1px solid var(--color-border)', borderRadius: '6px' }}>
         <h2 style={{ fontSize: '18px', fontWeight: 600 }}>Details</h2>

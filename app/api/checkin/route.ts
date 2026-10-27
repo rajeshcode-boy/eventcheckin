@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { sendPushSafely } from '@/lib/push/server'
 
 // Public check-in API used by /checkin/[eventId] (no login).
 // Calls the SECURITY DEFINER functions from SQL/005 with the anon key.
@@ -75,5 +76,13 @@ export async function POST(req: NextRequest) {
   if (!query.trim()) return NextResponse.json({ error: 'Enter your email or phone' }, { status: 400 })
   const { data, error } = await supabase.rpc('public_check_in_guest', { p_event_id: eventId, p_query: query })
   if (error) return NextResponse.json({ error: 'Check-in failed' }, { status: 502 })
-  return NextResponse.json({ result: data?.[0] })
+  const result = data?.[0]
+  // Tell the guest on their devices that they are in (only if they subscribed from their badge page)
+  if (result?.status === 'checked_in' && result.badge_token) {
+    await sendPushSafely(
+      { column: 'badge_token', value: result.badge_token },
+      { title: "You're checked in", body: `Welcome, ${result.full_name}. Your badge is ready.`, url: `/badge/${result.badge_token}`, tag: 'checkin' }
+    )
+  }
+  return NextResponse.json({ result })
 }

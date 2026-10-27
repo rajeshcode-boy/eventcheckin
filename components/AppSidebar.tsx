@@ -23,6 +23,18 @@ const ICON_PROPS = {
 
 const NAV: NavItem[] = [
   {
+    href: '/dashboard',
+    label: 'Dashboard',
+    icon: (
+      <svg {...ICON_PROPS}>
+        <rect x="3" y="3" width="8" height="9" rx="1.5" />
+        <rect x="13" y="3" width="8" height="5" rx="1.5" />
+        <rect x="13" y="12" width="8" height="9" rx="1.5" />
+        <rect x="3" y="16" width="8" height="5" rx="1.5" />
+      </svg>
+    ),
+  },
+  {
     href: '/events',
     label: 'Events',
     icon: (

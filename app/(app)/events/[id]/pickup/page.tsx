@@ -1,0 +1,211 @@
+'use client'
+
+import { useEffect, useRef, useState } from 'react'
+import { supabase } from '@/lib/supabase'
+import { useParams } from 'next/navigation'
+import EventTabs from '@/components/EventTabs'
+import { formatTime } from '@/lib/time'
+
+interface Found {
+  id: string
+  registration_id: string
+  full_name: string
+  designation: string | null
+  company: string | null
+  badge_collected_at: string | null
+  badge_collected_by: string | null
+  checkins: { checked_in_at: string }[]
+}
+
+// Accepts a registration ID, a badge link, or a token. Returns the lookup key.
+function parseCode(input: string): { kind: 'token' | 'reg'; value: string } | null {
+  const text = input.trim()
+  if (!text) return null
+  const badgeMatch = text.match(/\/badge\/([A-Za-z0-9]+)/)
+  if (badgeMatch) return { kind: 'token', value: badgeMatch[1]! }
+  if (/^[A-Za-z0-9]{32}$/.test(text)) return { kind: 'token', value: text }
+  return { kind: 'reg', value: text.toUpperCase() }
+}
+
+// Desk page: find a guest's badge, check it is ready, and mark it collected once.
+export default function PickupPage() {
+  const params = useParams()
+  const eventUuid = params.id as string
+  const [eventName, setEventName] = useState('')
+  const [code, setCode] = useState('')
+  const [found, setFound] = useState<Found | null | 'none'>(null)
+  const [message, setMessage] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [staffEmail, setStaffEmail] = useState('')
+  const [scanning, setScanning] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const canScan = typeof window !== 'undefined' && 'BarcodeDetector' in window
+
+  useEffect(() => {
+    supabase.from('events').select('name').eq('id', eventUuid).single().then(({ data }) => setEventName(data?.name ?? ''))
+    supabase.auth.getUser().then(({ data }) => setStaffEmail(data.user?.email ?? ''))
+    inputRef.current?.focus()
+  }, [eventUuid])
+
+  const lookup = async (raw: string) => {
+    const parsed = parseCode(raw)
+    if (!parsed) return
+    setMessage('')
+    setBusy(true)
+    const base = supabase
+      .from('registrations')
+      .select('id, registration_id, full_name, designation, company, badge_collected_at, badge_collected_by, checkins(checked_in_at)')
+      .eq('event_id', eventUuid)
+    const { data, error } = await (parsed.kind === 'token'
+      ? base.eq('badge_token', parsed.value)
+      : base.eq('registration_id', parsed.value)
+    ).maybeSingle()
+    setBusy(false)
+    if (error) {
+      setMessage("Couldn't look that up. Try again.")
+      return
+    }
+    setFound(data ? (data as unknown as Found) : 'none')
+    setCode('')
+    setTimeout(() => inputRef.current?.focus(), 0)
+  }
+
+  const collect = async () => {
+    if (!found || found === 'none') return
+    setBusy(true)
+    // Only succeeds if nobody has collected it yet, so a double tap or a second desk cannot hand out two badges
+    const { data, error } = await supabase
+      .from('registrations')
+      .update({ badge_collected_at: new Date().toISOString(), badge_collected_by: staffEmail || 'staff' })
+      .eq('id', found.id)
+      .is('badge_collected_at', null)
+      .select('id, badge_collected_at, badge_collected_by')
+      .maybeSingle()
+    setBusy(false)
+    if (error) {
+      setMessage("Couldn't mark the badge as collected. Try again.")
+      return
+    }
+    if (!data) {
+      setMessage('This badge was already collected. Check the details below.')
+      await refresh()
+      return
+    }
+    setFound({ ...found, badge_collected_at: data.badge_collected_at, badge_collected_by: data.badge_collected_by })
+    setMessage(`Collected. Hand over the printed badge to ${found.full_name}.`)
+  }
+
+  const refresh = async () => {
+    if (!found || found === 'none') return
+    const { data } = await supabase
+      .from('registrations')
+      .select('id, registration_id, full_name, designation, company, badge_collected_at, badge_collected_by, checkins(checked_in_at)')
+      .eq('id', found.id)
+      .single()
+    if (data) setFound(data as unknown as Found)
+  }
+
+  // Camera scan, where the browser supports BarcodeDetector (Chrome and Edge on Android and desktop)
+  const startScan = async () => {
+    if (!canScan) return
+    setScanning(true)
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }).catch(() => null)
+    if (!stream || !videoRef.current) {
+      setScanning(false)
+      setMessage("Couldn't open the camera. Type the code instead.")
+      return
+    }
+    videoRef.current.srcObject = stream
+    await videoRef.current.play()
+    // BarcodeDetector is not in the standard TypeScript DOM typings yet
+    const Detector = (window as unknown as { BarcodeDetector: new (o: { formats: string[] }) => { detect: (v: HTMLVideoElement) => Promise<{ rawValue: string }[]> } }).BarcodeDetector
+    const detector = new Detector({ formats: ['qr_code'] })
+    const timer = setInterval(async () => {
+      if (!videoRef.current) return
+      const hits = await detector.detect(videoRef.current).catch(() => [])
+      if (hits.length > 0) {
+        clearInterval(timer)
+        stream.getTracks().forEach((t) => t.stop())
+        setScanning(false)
+        lookup(hits[0]!.rawValue)
+      }
+    }, 400)
+  }
+
+  const status = (() => {
+    if (found === null) return null
+    if (found === 'none') return { tone: 'error', text: 'No badge matches that code for this event.' }
+    if (found.badge_collected_at) {
+      return { tone: 'warning', text: `Already collected at ${formatTime(found.badge_collected_at)}${found.badge_collected_by ? ` by ${found.badge_collected_by}` : ''}.` }
+    }
+    if (found.checkins.length === 0) return { tone: 'warning', text: 'Not checked in yet. Send the guest to the check-in desk first.' }
+    return { tone: 'success', text: 'Checked in and ready to collect.' }
+  })()
+
+  return (
+    <div style={{ maxWidth: '640px' }}>
+      <EventTabs eventUuid={eventUuid} />
+
+      <h1 style={{ fontSize: '24px', fontWeight: 700, letterSpacing: '-0.01em', marginBottom: '4px' }}>Badge pickup</h1>
+      <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px', marginBottom: '20px' }}>{eventName}</p>
+
+      <form
+        onSubmit={(e) => { e.preventDefault(); lookup(code) }}
+        style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '16px' }}
+      >
+        <label htmlFor="pickup-code" className="sr-only">
+          Registration ID or badge link
+        </label>
+        <input
+          id="pickup-code"
+          ref={inputRef}
+          className="input-field"
+          style={{ flex: '1 1 260px', width: 'auto', fontSize: '18px' }}
+          placeholder="Scan or type the registration ID"
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+          autoComplete="off"
+          autoCapitalize="characters"
+        />
+        <button type="submit" className="btn-primary" style={{ width: 'auto' }} disabled={busy || !code.trim()}>
+          Find badge
+        </button>
+        {canScan && (
+          <button type="button" className="btn-secondary" onClick={startScan} disabled={scanning}>
+            {scanning ? 'Scanning...' : 'Scan with camera'}
+          </button>
+        )}
+      </form>
+
+      {scanning && (
+        <video ref={videoRef} muted playsInline aria-label="Camera preview" style={{ width: '100%', borderRadius: '12px', marginBottom: '16px', backgroundColor: '#000' }} />
+      )}
+
+      {message && <p role="status" style={{ fontSize: '14px', marginBottom: '12px', color: 'var(--color-text-secondary)' }}>{message}</p>}
+
+      {status && (
+        <div className={status.tone === 'success' ? 'alert-success' : status.tone === 'warning' ? 'alert-warning' : 'alert-error'} role="status" style={{ marginBottom: '16px' }}>
+          {status.text}
+        </div>
+      )}
+
+      {found && found !== 'none' && (
+        <div className="card" style={{ padding: '20px' }}>
+          <p style={{ fontSize: '18px', fontWeight: 600 }}>{found.full_name}</p>
+          <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)', marginTop: '4px' }}>
+            {[found.designation, found.company].filter(Boolean).join(' · ')}
+          </p>
+          <p style={{ fontSize: '13px', marginTop: '8px' }}>
+            Registration ID <code style={{ fontFamily: 'ui-monospace, monospace', fontWeight: 600 }}>{found.registration_id}</code>
+          </p>
+          {!found.badge_collected_at && found.checkins.length > 0 && (
+            <button type="button" className="btn-primary" onClick={collect} disabled={busy} style={{ width: '100%', marginTop: '16px', minHeight: '52px', fontSize: '16px' }}>
+              {busy ? 'Saving...' : 'Mark as collected'}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}

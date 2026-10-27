@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { QRCodeSVG } from 'qrcode.react'
 import EventTabs from '@/components/EventTabs'
+import RegistrationSettings from '@/components/RegistrationSettings'
 import { publicImageUrl } from '@/lib/storage'
 import { countryName } from '@/lib/countries'
 
@@ -21,6 +22,7 @@ interface Event {
   status: string
   banner_path: string | null
   logo_path: string | null
+  organization_id: string
   organizations: { logo_path: string | null } | null
 }
 
@@ -186,6 +188,8 @@ export default function EventDetailPage() {
           Print or display this QR code at the entrance. Guests scan it and enter their email or phone.
         </p>
       </div>
+
+      <RegistrationSettings eventUuid={event.id} organizationId={event.organization_id} />
 
       <div style={{
         display: 'flex',

@@ -6,6 +6,7 @@ import { isValidEmail } from '@/lib/guests'
 import { formatTime } from '@/lib/time'
 import { publicImageUrl } from '@/lib/images'
 import { countryName } from '@/lib/countries'
+import DigitalBadge from '@/components/DigitalBadge'
 
 interface EventInfo {
   name: string
@@ -26,11 +27,11 @@ interface CheckinResult {
   designation: string | null
   company: string | null
   checked_in_at: string | null
+  badge_token: string | null
 }
 
 type View = 'form' | 'walkin' | 'result'
 
-const AUTO_CLEAR_MS = 3000
 const EMPTY_WALKIN = { firstName: '', lastName: '', designation: '', company: '', email: '' }
 
 
@@ -61,7 +62,6 @@ export default function PublicCheckinPage() {
   const [walkin, setWalkin] = useState(EMPTY_WALKIN)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
-  const clearTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -74,12 +74,8 @@ export default function PublicCheckinPage() {
       .catch(() => setEventError('No connection. Check the internet and reload.'))
   }, [eventId])
 
-  useEffect(() => () => {
-    if (clearTimer.current) clearTimeout(clearTimer.current)
-  }, [])
-
+  // Back to the search box for the next guest. Only the guest's own "Done" does this; the badge never clears itself.
   const reset = () => {
-    if (clearTimer.current) clearTimeout(clearTimer.current)
     setView('form')
     setResult(null)
     setQuery('')
@@ -91,9 +87,6 @@ export default function PublicCheckinPage() {
   const showResult = (r: CheckinResult) => {
     setResult(r)
     setView('result')
-    if (r.status === 'checked_in') {
-      clearTimer.current = setTimeout(reset, AUTO_CLEAR_MS)
-    }
   }
 
   const handleCheckin = async (e: React.FormEvent) => {
@@ -260,30 +253,23 @@ export default function PublicCheckinPage() {
 }
 
 function ResultCard({ result, onWalkin, onDone }: { result: CheckinResult; onWalkin: () => void; onDone: () => void }) {
-  if (result.status === 'checked_in') {
-    return (
-      <div className="alert-success" role="status" style={{ padding: '24px' }}>
-        <p style={{ fontSize: '20px', fontWeight: 600, marginBottom: '12px' }}>✅ Welcome!</p>
-        <p style={{ fontSize: '18px', fontWeight: 'bold' }}>{result.full_name}</p>
-        <PersonDetails result={result} />
-        <p style={{ fontSize: '16px', marginTop: '12px' }}>Checked in at {formatTime(result.checked_in_at)}</p>
-        {result.registration_id && (
-          <p style={{ fontSize: '14px', marginTop: '4px', fontFamily: 'monospace' }}>Reg ID: {result.registration_id}</p>
-        )}
-      </div>
-    )
-  }
-
-  if (result.status === 'already_checked_in') {
+  if (result.status === 'checked_in' || result.status === 'already_checked_in') {
+    const checkedIn = result.status === 'checked_in'
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-        <div className="alert-warning" role="status" style={{ padding: '24px' }}>
-          <p style={{ fontSize: '20px', fontWeight: 600, marginBottom: '12px' }}>⚠️ Already checked in</p>
-          <p style={{ fontSize: '18px', fontWeight: 'bold' }}>{result.full_name}</p>
-          <PersonDetails result={result} />
-          <p style={{ fontSize: '16px', marginTop: '12px' }}>First check-in: {formatTime(result.checked_in_at)}</p>
-          <p style={{ fontSize: '14px', marginTop: '4px' }}>No second check-in recorded.</p>
+        <div role="status" style={{ textAlign: 'center' }}>
+          <p style={{ fontSize: '20px', fontWeight: 600 }}>{checkedIn ? 'Welcome' : 'Already checked in'}</p>
+          <p style={{ fontSize: '16px', color: 'var(--color-text-secondary)', marginTop: '4px' }}>
+            {checkedIn ? 'Checked in' : 'First check-in'} at {formatTime(result.checked_in_at)}
+          </p>
         </div>
+        {result.badge_token ? (
+          <DigitalBadge token={result.badge_token} />
+        ) : (
+          <div className="alert-warning" role="status" style={{ padding: '24px' }}>
+            <p style={{ fontSize: '18px', fontWeight: 'bold' }}>{result.full_name}</p>
+          </div>
+        )}
         <button className="btn-primary" onClick={onDone} style={{ fontSize: '18px', minHeight: '52px', width: '100%' }}>
           Done
         </button>
@@ -312,23 +298,5 @@ function Shell({ children }: { children: React.ReactNode }) {
     <main style={{ minHeight: '100vh', display: 'flex', justifyContent: 'center', padding: '32px 16px' }}>
       <div style={{ width: '100%', maxWidth: '440px' }}>{children}</div>
     </main>
-  )
-}
-
-function PersonDetails({ result }: { result: CheckinResult }) {
-  const rows = [
-    ['Designation', result.designation],
-    ['Company', result.company],
-  ].filter(([, value]) => value)
-  if (rows.length === 0) return null
-  return (
-    <dl style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 12px', fontSize: '16px', marginTop: '8px' }}>
-      {rows.map(([label, value]) => (
-        <div key={label} style={{ display: 'contents' }}>
-          <dt style={{ opacity: 0.8 }}>{label}</dt>
-          <dd style={{ fontWeight: 500 }}>{value}</dd>
-        </div>
-      ))}
-    </dl>
   )
 }

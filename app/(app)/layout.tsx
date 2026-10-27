@@ -10,6 +10,7 @@ import ProfileMenu from '@/components/ProfileMenu'
 import AppSidebar from '@/components/AppSidebar'
 
 const NAV = [
+  { href: '/dashboard', label: 'Dashboard' },
   { href: '/events', label: 'Events' },
   { href: '/organization', label: 'Organization' },
   { href: '/profile', label: 'My Profile' },

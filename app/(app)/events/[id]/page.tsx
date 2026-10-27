@@ -112,32 +112,8 @@ export default function EventDetailPage() {
     return 'Add guests or open registration to get started.'
   })()
 
-  // Management pages, shown in the sidebar
-  const sections = [
-    { href: `/events/${event.id}/guests`, title: 'Guests', sub: `${stats.registered}` },
-    { href: `/events/${event.id}/dashboard`, title: 'Dashboard', sub: '' },
-    { href: `/events/${event.id}/badge-design`, title: 'Badge design', sub: '' },
-    { href: `/events/${event.id}/badges`, title: 'Badges', sub: '' },
-    { href: `/events/${event.id}/pickup`, title: 'Pickup', sub: `${stats.readyToCollect}` },
-    { href: `/events/${event.id}/edit`, title: 'Settings', sub: '' },
-  ]
-
   return (
-    <div className="event-layout">
-      <nav aria-label="Manage event" className="event-sidebar">
-        <p className="event-sidebar-heading">Manage</p>
-        {sections.map((s) => (
-          <Link key={s.title} href={s.href} className="event-sidebar-link">
-            <span>{s.title}</span>
-            {s.sub && <span className="event-sidebar-count">{s.sub}</span>}
-          </Link>
-        ))}
-        <Link href="/events" className="event-sidebar-link event-sidebar-back">
-          <span>← All events</span>
-        </Link>
-      </nav>
-
-      <div className="event-main">
+    <div>
         {bannerUrl && (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={bannerUrl} alt="" style={{ width: '100%', aspectRatio: '4 / 1', objectFit: 'cover', borderRadius: '12px', marginBottom: '16px', border: '1px solid var(--color-border)' }} />
@@ -234,7 +210,6 @@ export default function EventDetailPage() {
 
           <RegistrationSettings eventUuid={event.id} organizationId={event.organization_id} registrations={registrations} />
         </div>
-      </div>
     </div>
   )
 }

@@ -10,7 +10,6 @@ import {
   BadgeDesign, BadgeImages, PAPER_SIZES, Paper, badgeDataFor, defaultDesign, parseDesign, sheetGrid,
 } from '@/lib/badgeDesign'
 import type { PrintLayout } from '@/lib/badgePdf'
-import EventTabs from '@/components/EventTabs'
 import BadgePreview from '@/components/BadgePreview'
 
 interface EventInfo {
@@ -186,7 +185,6 @@ export default function BadgesPage() {
 
   return (
     <div style={{ maxWidth: '1400px' }}>
-      <EventTabs eventUuid={event.id} />
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', flexWrap: 'wrap', gap: '16px', marginBottom: '16px' }}>
         <div>

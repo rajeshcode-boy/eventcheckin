@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import EventTabs from '@/components/EventTabs'
 import BadgePreview from '@/components/BadgePreview'
 import {
   BADGE_FIELDS, BadgeDesign, BadgeElement, BadgeImages, ImageElement, LIMITS, RectElement, SAMPLE_BADGE_DATA, SIZE_PRESETS,
@@ -287,7 +286,6 @@ export default function BadgeDesignPage() {
 
   return (
     <div style={{ maxWidth: '1400px' }}>
-      <EventTabs eventUuid={event.id} />
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', flexWrap: 'wrap', gap: '16px', marginBottom: '16px' }}>
         <div>

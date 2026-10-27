@@ -14,7 +14,6 @@ import {
   toCsv,
 } from '@/lib/guests'
 import { countryName, detectCountry } from '@/lib/countries'
-import EventTabs from '@/components/EventTabs'
 import ImportPanel from './ImportPanel'
 import AttendeeForm from './AttendeeForm'
 import BulkEditPanel from './BulkEditPanel'
@@ -56,6 +55,7 @@ export default function GuestsPage() {
   const eventUuid = params.id as string
   const [event, setEvent] = useState<EventInfo | null>(null)
   const [guests, setGuests] = useState<Guest[]>([])
+  const [moreFilters, setMoreFilters] = useState(false)
   const [checkedIn, setCheckedIn] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -224,13 +224,12 @@ export default function GuestsPage() {
 
   return (
     <div style={{ maxWidth: '1400px' }}>
-      <EventTabs eventUuid={event.id} />
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', flexWrap: 'wrap', gap: '16px', marginBottom: '24px' }}>
         <div>
-          <h1 style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '8px' }}>Attendee Registration</h1>
-          <p style={{ color: 'var(--color-text-secondary)', fontSize: '16px' }}>
-            {event.name} • <span style={{ fontFamily: 'monospace' }}>{event.event_id}</span> • {guests.length} attendee{guests.length === 1 ? '' : 's'}
+          <h1 style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '8px' }}>Guests</h1>
+          <p style={{ color: 'var(--color-text-secondary)', fontSize: '15px' }}>
+            {guests.length} guest{guests.length === 1 ? '' : 's'} for {event.name}
           </p>
         </div>
         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
@@ -238,7 +237,7 @@ export default function GuestsPage() {
             {panel === 'import' ? 'Close import' : 'Import CSV/Excel'}
           </button>
           <button className="btn-secondary" onClick={() => { setEditing(null); setPanel(panel === 'add' ? '' : 'add') }}>
-            {panel === 'add' ? 'Close' : 'Add attendee'}
+            {panel === 'add' ? 'Close' : 'Add guest'}
           </button>
         </div>
       </div>
@@ -268,14 +267,29 @@ export default function GuestsPage() {
           <option value="name_desc">Name Z–A</option>
         </select>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px', marginBottom: '16px' }}>
-        <FilterSelect label="Country" value={filters.country} onChange={(v) => setFilter('country', v)} options={options.countries} />
-        <FilterSelect label="City" value={filters.city} onChange={(v) => setFilter('city', v)} options={options.cities.map((c) => ({ value: c, label: c }))} />
-        <FilterSelect label="Industry" value={filters.industry} onChange={(v) => setFilter('industry', v)} options={options.industries.map((i) => ({ value: i, label: i }))} />
-        <FilterSelect label="Registration status" value={filters.status} onChange={(v) => setFilter('status', v)} options={REGISTRATION_STATUSES.map((s) => ({ value: s.value, label: s.label }))} />
-        <FilterSelect label="Attendance" value={filters.confirmation} onChange={(v) => setFilter('confirmation', v)} options={ATTENDANCE_CONFIRMATIONS.map((s) => ({ value: s.value, label: s.label }))} />
-        <FilterSelect label="Source" value={filters.source} onChange={(v) => setFilter('source', v)} options={[{ value: 'import', label: 'Imported' }, { value: 'manual', label: 'Manual' }, { value: 'walkin', label: 'Walk-in' }]} />
-      </div>
+      {/* The two most-used filters stay visible; the rest sit behind "More filters" */}
+      {(() => {
+        const hiddenActive = [filters.country, filters.city, filters.industry, filters.source].filter(Boolean).length
+        return (
+          <>
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '12px', alignItems: 'center' }}>
+              <FilterSelect label="Registration status" value={filters.status} onChange={(v) => setFilter('status', v)} options={REGISTRATION_STATUSES.map((s) => ({ value: s.value, label: s.label }))} />
+              <FilterSelect label="Attendance" value={filters.confirmation} onChange={(v) => setFilter('confirmation', v)} options={ATTENDANCE_CONFIRMATIONS.map((s) => ({ value: s.value, label: s.label }))} />
+              <button type="button" className="btn-secondary" aria-expanded={moreFilters} onClick={() => setMoreFilters(!moreFilters)}>
+                {moreFilters ? 'Fewer filters' : `More filters${hiddenActive ? ` (${hiddenActive})` : ''}`}
+              </button>
+            </div>
+            {moreFilters && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px', marginBottom: '16px' }}>
+                <FilterSelect label="Country" value={filters.country} onChange={(v) => setFilter('country', v)} options={options.countries} />
+                <FilterSelect label="City" value={filters.city} onChange={(v) => setFilter('city', v)} options={options.cities.map((c) => ({ value: c, label: c }))} />
+                <FilterSelect label="Industry" value={filters.industry} onChange={(v) => setFilter('industry', v)} options={options.industries.map((i) => ({ value: i, label: i }))} />
+                <FilterSelect label="Source" value={filters.source} onChange={(v) => setFilter('source', v)} options={[{ value: 'import', label: 'Imported' }, { value: 'manual', label: 'Manual' }, { value: 'walkin', label: 'Walk-in' }]} />
+              </div>
+            )}
+          </>
+        )
+      })()}
 
       {/* Selection actions */}
       <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '12px', minHeight: '44px' }}>

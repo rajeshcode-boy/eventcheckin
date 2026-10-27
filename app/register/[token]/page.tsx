@@ -3,14 +3,21 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { publicImageUrl } from '@/lib/images'
+import { countryName } from '@/lib/countries'
 
 interface Info {
   name: string
   location: string
+  city: string | null
+  country: string | null
   event_date: string
   registration_open: boolean
   is_full: boolean
   approval_mode: string
+  banner_path: string | null
+  logo_path: string | null
+  org_logo_path: string | null
 }
 
 type Result = { status: string; registration_id: string | null } | null
@@ -82,10 +89,24 @@ export default function RegisterPage() {
     setResult(data[0] as Result)
   }
 
+  // Event branding above the form; the small label stays for the organiser's brand
+  const bannerUrl = info ? publicImageUrl('branding', info.banner_path) : null
+  const logoUrl = info ? publicImageUrl('branding', info.logo_path ?? info.org_logo_path) : null
+
   const shell = (children: React.ReactNode) => (
-    <div style={{ minHeight: '100vh', backgroundColor: 'var(--color-neutral-light)', padding: '40px 16px' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: 'var(--color-neutral-light)', padding: '32px 16px 48px' }}>
       <div style={{ maxWidth: '520px', margin: '0 auto' }}>
-        <p style={{ fontWeight: 700, fontSize: '17px', marginBottom: '20px' }}>EventCheckin</p>
+        {bannerUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={bannerUrl} alt="" style={{ width: '100%', aspectRatio: '4 / 1', objectFit: 'cover', borderRadius: '12px', marginBottom: '16px', border: '1px solid var(--color-border)' }} />
+        )}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', gap: '12px' }}>
+          <p style={{ fontWeight: 700, fontSize: '15px', color: 'var(--color-text-secondary)' }}>EventCheckin</p>
+          {logoUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={logoUrl} alt="" style={{ height: '40px', maxWidth: '140px', objectFit: 'contain' }} />
+          )}
+        </div>
         {children}
       </div>
     </div>
@@ -126,7 +147,9 @@ export default function RegisterPage() {
       <div className="card" style={{ padding: '24px' }}>
         <p style={{ fontSize: '18px', fontWeight: 600, marginBottom: '8px' }}>{info.name}</p>
         <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px' }}>
-          {info.is_full ? 'All places are taken.' : 'Registration is not open right now.'}
+          {info.is_full
+            ? 'All places for this event are taken. Contact the organiser to join the waiting list.'
+            : 'Registration is not open yet. Check back later or contact the organiser.'}
         </p>
       </div>
     )
@@ -152,7 +175,7 @@ export default function RegisterPage() {
     <div className="card" style={{ padding: '24px' }}>
       <h1 style={{ fontSize: '22px', fontWeight: 700, letterSpacing: '-0.01em', marginBottom: '6px' }}>{info.name}</h1>
       <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px', marginBottom: '20px' }}>
-        {info.location} · {date}
+        {info.city && info.country ? `${info.city}, ${countryName(info.country)}` : info.location} · {date}
       </p>
 
       <form onSubmit={submit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>

@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import EventForm, { EventRecord } from '@/components/EventForm'
-import EventTabs from '@/components/EventTabs'
 
 export default function EditEventPage() {
   const params = useParams()
@@ -27,7 +26,6 @@ export default function EditEventPage() {
 
   return (
     <div style={{ maxWidth: '900px' }}>
-      <EventTabs eventUuid={eventUuid} />
       <div style={{ maxWidth: '640px' }}>
         <h1 style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '24px' }}>Edit Event</h1>
         {searchParams.get('branding') === 'failed' && (

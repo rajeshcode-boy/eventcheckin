@@ -3,8 +3,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useParams } from 'next/navigation'
-import EventTabs from '@/components/EventTabs'
 import { formatTime } from '@/lib/time'
+
+interface RecentRow {
+  id: string
+  registration_id: string
+  full_name: string
+  badge_collected_at: string | null
+  badge_collected_by: string | null
+}
 
 interface Found {
   id: string
@@ -36,15 +43,29 @@ export default function PickupPage() {
   const [found, setFound] = useState<Found | null | 'none'>(null)
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
+  const [recent, setRecent] = useState<RecentRow[]>([])
   const [staffEmail, setStaffEmail] = useState('')
   const [scanning, setScanning] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const canScan = typeof window !== 'undefined' && 'BarcodeDetector' in window
 
+  // Latest badges handed over, newest first, so staff can see what has already gone out
+  const loadRecent = async () => {
+    const { data } = await supabase
+      .from('registrations')
+      .select('id, registration_id, full_name, badge_collected_at, badge_collected_by')
+      .eq('event_id', eventUuid)
+      .not('badge_collected_at', 'is', null)
+      .order('badge_collected_at', { ascending: false })
+      .limit(8)
+    setRecent((data ?? []) as RecentRow[])
+  }
+
   useEffect(() => {
     supabase.from('events').select('name').eq('id', eventUuid).single().then(({ data }) => setEventName(data?.name ?? ''))
     supabase.auth.getUser().then(({ data }) => setStaffEmail(data.user?.email ?? ''))
+    loadRecent()
     inputRef.current?.focus()
   }, [eventUuid])
 
@@ -93,6 +114,7 @@ export default function PickupPage() {
       return
     }
     setFound({ ...found, badge_collected_at: data.badge_collected_at, badge_collected_by: data.badge_collected_by })
+    loadRecent()
     setMessage(`Collected. Hand over the printed badge to ${found.full_name}.`)
   }
 
@@ -145,7 +167,6 @@ export default function PickupPage() {
 
   return (
     <div style={{ maxWidth: '640px' }}>
-      <EventTabs eventUuid={eventUuid} />
 
       <h1 style={{ fontSize: '24px', fontWeight: 700, letterSpacing: '-0.01em', marginBottom: '4px' }}>Badge pickup</h1>
       <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px', marginBottom: '20px' }}>{eventName}</p>
@@ -206,6 +227,26 @@ export default function PickupPage() {
           )}
         </div>
       )}
+
+      <section aria-labelledby="recent-heading" style={{ marginTop: '28px' }}>
+        <h2 id="recent-heading" style={{ fontSize: '15px', fontWeight: 600, marginBottom: '8px' }}>Recently collected</h2>
+        {recent.length === 0 ? (
+          <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)' }}>
+            No badges collected yet. Each badge you mark as collected appears here.
+          </p>
+        ) : (
+          <ul className="card" style={{ listStyle: 'none', padding: '4px 0' }}>
+            {recent.map((r) => (
+              <li key={r.id} style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', padding: '10px 16px', borderTop: '1px solid var(--color-border)', fontSize: '14px' }}>
+                <span style={{ fontWeight: 500 }}>{r.full_name}</span>
+                <span style={{ color: 'var(--color-text-secondary)', whiteSpace: 'nowrap' }}>
+                  {r.badge_collected_at ? formatTime(r.badge_collected_at) : ''}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </div>
   )
 }

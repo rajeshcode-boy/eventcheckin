@@ -380,9 +380,26 @@ select {
 }
 
 .home-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   font-size: 18px;
   font-weight: 700;
-  color: var(--color-primary);
+  color: var(--color-text-primary);
+}
+
+.home-logo {
+  display: block;
+  flex-shrink: 0;
+  border-radius: 8px;
+}
+
+.home-footer-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: var(--color-text-primary);
 }
 
 .home-header-nav {

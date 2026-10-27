@@ -46,8 +46,9 @@ export default function Home() {
   return (
     <div className="home-page">
       <header className="home-header">
-        <Link href="/" className="home-brand">
-          EventCheckin
+        <Link href="/" className="home-brand" aria-label="EventCheckin home">
+          <img src="/logo.svg" alt="" width={32} height={32} className="home-logo" />
+          <span>EventCheckin</span>
         </Link>
         <nav className="home-header-nav" aria-label="Account">
           <Link href="/login" className="home-link">
@@ -95,7 +96,10 @@ export default function Home() {
       </main>
 
       <footer className="home-footer">
-        <span>EventCheckin</span>
+        <span className="home-footer-brand">
+          <img src="/logo.svg" alt="" width={20} height={20} className="home-logo" />
+          EventCheckin
+        </span>
         <span className="home-footer-links">
           <Link href="/login" className="home-link">
             Log in

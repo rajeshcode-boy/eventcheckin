@@ -45,68 +45,77 @@ export default function LoginPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--color-neutral-light)' }}>
-      <div style={{ width: '100%', maxWidth: '400px', padding: '24px' }}>
-        <h1 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '24px', textAlign: 'center' }}>
-          EventCheckin
-        </h1>
-
-        {signedOut && (
-          <div role="status" className="alert-success" style={{ marginBottom: '16px' }}>
-            You've signed out.
-          </div>
-        )}
-
-        <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 16px', backgroundColor: 'var(--color-neutral-light)' }}>
+      <div style={{ width: '100%', maxWidth: '400px' }}>
+        {/* Brand: same mark as the app header */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', marginBottom: '28px', textAlign: 'center' }}>
+          <span aria-hidden="true" style={{ width: '44px', height: '44px', borderRadius: '12px', backgroundColor: 'var(--color-primary)', color: '#ffffff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: 700 }}>✓</span>
           <div>
-            <label htmlFor="email" style={{ display: 'block', marginBottom: '8px', fontWeight: '500' }}>
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="input-field"
-              placeholder="Enter your email"
-              required
-            />
+            <h1 style={{ fontSize: '24px', fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.2 }}>Welcome back</h1>
+            <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px', marginTop: '6px' }}>Log in to manage your EventCheckin events.</p>
           </div>
+        </div>
 
-          <div>
-            <label htmlFor="password" style={{ display: 'block', marginBottom: '8px', fontWeight: '500' }}>
-              Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="input-field"
-              placeholder="Enter your password"
-              required
-            />
-          </div>
-
-          {error && (
-            <div className="alert-error">
-              {error}
+        <div className="card" style={{ padding: '24px' }}>
+          {signedOut && (
+            <div role="status" style={{ marginBottom: '20px', padding: '12px 14px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--color-primary-soft)', color: 'var(--color-primary)', fontSize: '14px', fontWeight: 500 }}>
+              You&apos;ve signed out.
             </div>
           )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="btn-primary"
-            style={{ width: '100%' }}
-          >
-            {loading ? 'Logging in...' : 'Login'}
-          </button>
-        </form>
+          <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div>
+              <label htmlFor="email" style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: 500 }}>
+                Email
+              </label>
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="input-field"
+                placeholder="you@example.com"
+                autoComplete="email"
+                required
+              />
+            </div>
 
-        <p style={{ marginTop: '16px', textAlign: 'center', color: 'var(--color-text-secondary)' }}>
-          Don't have an account?{' '}
-          <Link href="/signup" style={{ color: 'var(--color-primary)', fontWeight: '500' }}>
+            <div>
+              <label htmlFor="password" style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: 500 }}>
+                Password
+              </label>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="input-field"
+                placeholder="Enter your password"
+                autoComplete="current-password"
+                required
+              />
+            </div>
+
+            {error && (
+              <div role="alert" className="alert-error" style={{ borderRadius: 'var(--radius-md)' }}>
+                {error}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="btn-primary"
+              style={{ width: '100%', marginTop: '4px' }}
+            >
+              {loading ? 'Logging in...' : 'Log in'}
+            </button>
+          </form>
+        </div>
+
+        <p style={{ marginTop: '20px', textAlign: 'center', fontSize: '14px', color: 'var(--color-text-secondary)' }}>
+          Don&apos;t have an account?{' '}
+          <Link href="/signup" style={{ color: 'var(--color-primary)', fontWeight: 600 }}>
             Sign up
           </Link>
         </p>

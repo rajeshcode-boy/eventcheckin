@@ -5,6 +5,8 @@ import { supabase } from '@/lib/supabase'
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { publicImageUrl } from '@/lib/images'
+import ThemeToggle from '@/components/ThemeToggle'
+import ProfileMenu from '@/components/ProfileMenu'
 
 const NAV = [
   { href: '/events', label: 'Events' },
@@ -65,45 +67,51 @@ export default function AppLayout({
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
-    router.push('/login')
+    router.push('/login?signedout=1')
   }
 
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
-        <p>Loading...</p>
+        <p style={{ color: 'var(--color-text-secondary)' }}>Loading...</p>
       </div>
     )
   }
 
+  const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/')
+
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: 'var(--color-white)' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: 'var(--color-neutral-light)' }}>
       {/* Header */}
       <header style={{
-        backgroundColor: 'var(--color-neutral-light)',
+        position: 'sticky',
+        top: 0,
+        zIndex: 20,
+        backgroundColor: 'var(--color-surface)',
         borderBottom: '1px solid var(--color-border)',
-        padding: '12px 24px',
+        padding: '10px 24px',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        flexWrap: 'wrap',
         gap: '12px',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap' }}>
-          <Link href="/events" style={{ fontWeight: 'bold', fontSize: '18px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '24px', minWidth: 0 }}>
+          <Link href="/events" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, fontSize: '17px', letterSpacing: '-0.01em', whiteSpace: 'nowrap' }}>
+            <span aria-hidden="true" style={{ width: '28px', height: '28px', borderRadius: '8px', backgroundColor: 'var(--color-primary-green)', color: '#ffffff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 700 }}>✓</span>
             EventCheckin
           </Link>
-          <nav aria-label="Main" style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+          <nav aria-label="Main" className="app-nav-desktop" style={{ display: 'flex', gap: '4px' }}>
             {NAV.map((item) => {
-              const active = pathname === item.href || pathname.startsWith(item.href + '/')
+              const active = isActive(item.href)
               return (
                 <Link
                   key={item.href}
                   href={item.href}
                   aria-current={active ? 'page' : undefined}
                   style={{
-                    padding: '8px 12px', borderRadius: '6px', fontSize: '14px', fontWeight: active ? 600 : 400,
-                    backgroundColor: active ? 'var(--color-white)' : undefined,
+                    padding: '7px 12px', borderRadius: '999px', fontSize: '14px', fontWeight: active ? 600 : 500,
+                    color: active ? 'var(--color-primary-green)' : 'var(--color-text-secondary)',
+                    backgroundColor: active ? 'var(--color-primary-soft)' : undefined,
                   }}
                 >
                   {item.label}
@@ -113,32 +121,37 @@ export default function AppLayout({
           </nav>
         </div>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-          <Link href="/profile" style={{ display: 'flex', gap: '8px', alignItems: 'center' }} aria-label="My profile">
-            {avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={avatarUrl} alt="" style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }} />
-            ) : (
-              <span aria-hidden="true" style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: 'var(--color-primary-green)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: '14px' }}>
-                {(displayName || user?.email || '?').charAt(0).toUpperCase()}
-              </span>
-            )}
-            <span style={{ color: 'var(--color-text-secondary)', fontSize: '14px' }}>
-              {displayName || user?.email}
-            </span>
-          </Link>
-          <button
-            onClick={handleLogout}
-            className="btn-secondary"
-          >
-            Logout
-          </button>
+          <ThemeToggle />
+          <ProfileMenu
+            name={displayName}
+            email={user?.email ?? ''}
+            avatarUrl={avatarUrl}
+            onLogout={handleLogout}
+          />
         </div>
       </header>
 
       {/* Main content */}
-      <main style={{ padding: '24px' }}>
+      <main className="app-main" style={{ padding: '32px 24px', maxWidth: '1040px', margin: '0 auto' }}>
         {children}
       </main>
+
+      {/* Bottom tabs on phones */}
+      <nav aria-label="Main" className="app-tabbar">
+        {NAV.map((item) => {
+          const active = isActive(item.href)
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-current={active ? 'page' : undefined}
+              style={{ color: active ? 'var(--color-primary-green)' : 'var(--color-text-secondary)', fontWeight: active ? 600 : 500 }}
+            >
+              {item.label === 'My Profile' ? 'Profile' : item.label}
+            </Link>
+          )
+        })}
+      </nav>
     </div>
   )
 }

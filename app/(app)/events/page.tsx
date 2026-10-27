@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 
@@ -15,16 +15,27 @@ interface Event {
   created_at: string
 }
 
+const STATUS_FILTERS = [
+  { value: 'all', label: 'All' },
+  { value: 'upcoming', label: 'Upcoming' },
+  { value: 'live', label: 'Live' },
+  { value: 'closed', label: 'Closed' },
+]
+
+const PAGE_SIZE = 10
+
 export default function EventsPage() {
   const [events, setEvents] = useState<Event[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [page, setPage] = useState(0)
-  const ITEMS_PER_PAGE = 5
+  const [query, setQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [shown, setShown] = useState(PAGE_SIZE)
+  const [copiedId, setCopiedId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchEvents()
-  }, [page])
+  }, [])
 
   const fetchEvents = async () => {
     setLoading(true)
@@ -43,39 +54,53 @@ export default function EventsPage() {
 
       if (!profileData) return
 
-      const from = page * ITEMS_PER_PAGE
-      const to = from + ITEMS_PER_PAGE - 1
-
       const { data, error: fetchError } = await supabase
         .from('events')
         .select('*')
         .eq('organization_id', profileData.organization_id)
         .order('event_date', { ascending: false })
-        .range(from, to)
 
       if (fetchError) {
-        setError('Failed to load events')
+        setError("Couldn't load your events. Refresh the page to try again.")
         return
       }
 
       setEvents(data || [])
     } catch (err) {
-      setError('An error occurred')
+      setError("Couldn't load your events. Refresh the page to try again.")
     } finally {
       setLoading(false)
     }
   }
 
-  if (loading) {
-    return <p>Loading events...</p>
+  // Filter by status and by name, location or event ID
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    return events.filter((e) => {
+      if (statusFilter !== 'all' && e.status !== statusFilter) return false
+      if (!q) return true
+      return [e.name, e.location, e.event_id].some((v) => v?.toLowerCase().includes(q))
+    })
+  }, [events, query, statusFilter])
+
+  const copyId = (eventId: string) => {
+    navigator.clipboard.writeText(eventId).then(() => {
+      setCopiedId(eventId)
+      setTimeout(() => setCopiedId((id) => (id === eventId ? null : id)), 1500)
+    })
   }
 
+  const visible = filtered.slice(0, shown)
+
   return (
-    <div style={{ maxWidth: '800px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-        <h1 style={{ fontSize: '28px', fontWeight: 'bold' }}>My Events</h1>
-        <Link href="/events/create" className="btn-primary">
-          Create Event
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', flexWrap: 'wrap', marginBottom: '24px' }}>
+        <div>
+          <h1 style={{ fontSize: '26px', fontWeight: 700, letterSpacing: '-0.02em' }}>My events</h1>
+          <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px', marginTop: '4px' }}>Manage guests, check-in and badges for each event.</p>
+        </div>
+        <Link href="/events/create" className="btn-primary" style={{ width: 'auto' }}>
+          + New event
         </Link>
       </div>
 
@@ -85,90 +110,120 @@ export default function EventsPage() {
         </div>
       )}
 
-      {events.length === 0 ? (
-        <div style={{
-          padding: '32px',
-          textAlign: 'center',
-          backgroundColor: 'var(--color-neutral-light)',
-          borderRadius: '6px',
-        }}>
-          <p style={{ color: 'var(--color-text-secondary)', marginBottom: '16px' }}>
-            No events yet. Create your first event to get started.
+      {loading ? (
+        <div aria-busy="true" aria-label="Loading events" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="card" style={{ height: '88px', backgroundColor: 'var(--color-neutral-light)' }} />
+          ))}
+        </div>
+      ) : events.length === 0 ? (
+        <div className="card" style={{ padding: '48px 24px', textAlign: 'center' }}>
+          <p style={{ fontWeight: 600, marginBottom: '4px' }}>No events yet</p>
+          <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px', marginBottom: '20px' }}>
+            An event is one gathering you check guests in for. Create one to start adding guests.
           </p>
-          <Link href="/events/create" className="btn-primary">
-            Create Event
+          <Link href="/events/create" className="btn-primary" style={{ width: 'auto' }}>
+            + New event
           </Link>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {events.map((event) => (
-            <Link
-              key={event.id}
-              href={`/events/${event.id}`}
-              style={{
-                padding: '16px',
-                border: '1px solid var(--color-border)',
-                borderRadius: '6px',
-                textDecoration: 'none',
-                color: 'inherit',
-                display: 'block',
-                transition: 'background-color 0.2s',
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--color-neutral-light)')}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-                <div>
-                  <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '4px' }}>
-                    {event.name}
-                  </h3>
-                  <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px', marginBottom: '8px' }}>
-                    {event.location} • {new Date(event.event_date).toLocaleDateString()}
-                  </p>
-                  <p style={{ color: 'var(--color-text-secondary)', fontSize: '13px' }}>
-                    Event ID: <code style={{ backgroundColor: 'var(--color-neutral-light)', padding: '2px 6px', borderRadius: '3px' }}>
-                      {event.event_id}
-                    </code>
-                  </p>
-                </div>
-                <span style={{
-                  padding: '4px 12px',
-                  borderRadius: '999px',
-                  fontSize: '12px',
-                  fontWeight: '500',
-                  backgroundColor: event.status === 'live' ? '#d1fae5' : 'var(--color-neutral-light)',
-                  color: event.status === 'live' ? '#065f46' : 'var(--color-text-secondary)',
-                }}>
-                  {event.status}
-                </span>
-              </div>
-            </Link>
-          ))}
-        </div>
-      )}
+        <>
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '16px' }}>
+            <input
+              type="search"
+              className="input-field"
+              value={query}
+              onChange={(e) => { setQuery(e.target.value); setShown(PAGE_SIZE) }}
+              placeholder="Search by name, location or ID"
+              aria-label="Search events"
+              style={{ flex: '1 1 240px', width: 'auto' }}
+            />
+            <div role="group" aria-label="Filter by status" style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+              {STATUS_FILTERS.map((f) => {
+                const active = statusFilter === f.value
+                return (
+                  <button
+                    key={f.value}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => { setStatusFilter(f.value); setShown(PAGE_SIZE) }}
+                    style={{
+                      padding: '8px 14px',
+                      minHeight: '40px',
+                      borderRadius: '999px',
+                      fontSize: '14px',
+                      fontWeight: active ? 600 : 500,
+                      color: active ? 'var(--color-primary-green)' : 'var(--color-text-secondary)',
+                      backgroundColor: active ? 'var(--color-primary-soft)' : 'transparent',
+                    }}
+                  >
+                    {f.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
 
-      {events.length >= ITEMS_PER_PAGE && (
-        <div style={{
-          marginTop: '24px',
-          display: 'flex',
-          justifyContent: 'center',
-          gap: '8px',
-        }}>
-          <button
-            onClick={() => setPage(p => Math.max(0, p - 1))}
-            disabled={page === 0}
-            className="btn-secondary"
-          >
-            Previous
-          </button>
-          <span style={{ padding: '12px 16px' }}>Page {page + 1}</span>
-          <button
-            onClick={() => setPage(p => p + 1)}
-            className="btn-secondary"
-          >
-            Next
-          </button>
-        </div>
+          {filtered.length === 0 ? (
+            <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px', padding: '24px 0', textAlign: 'center' }}>
+              No events match your search.
+            </p>
+          ) : (
+            <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {visible.map((event) => (
+                <li key={event.id} className="card event-row" style={{ position: 'relative', padding: '18px 20px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px' }}>
+                    <div style={{ minWidth: 0 }}>
+                      <h2 style={{ fontSize: '17px', fontWeight: 600, marginBottom: '4px' }}>
+                        <Link href={`/events/${event.id}`} className="event-row-link" style={{ color: 'inherit' }}>
+                          {event.name}
+                        </Link>
+                      </h2>
+                      <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px' }}>
+                        {event.location} · {new Date(event.event_date + 'T00:00:00').toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </p>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
+                        <code style={{ backgroundColor: 'var(--color-neutral-light)', padding: '2px 8px', borderRadius: '6px', fontFamily: 'ui-monospace, monospace', fontSize: '12px' }}>
+                          {event.event_id}
+                        </code>
+                        <button
+                          type="button"
+                          onClick={() => copyId(event.event_id)}
+                          aria-label={`Copy event ID ${event.event_id}`}
+                          style={{ position: 'relative', zIndex: 1, fontSize: '12px', color: 'var(--color-text-secondary)', padding: '4px 8px', borderRadius: '6px', border: '1px solid var(--color-border)', minHeight: '28px' }}
+                        >
+                          {copiedId === event.event_id ? 'Copied' : 'Copy'}
+                        </button>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+                      <span style={{
+                        padding: '4px 10px',
+                        borderRadius: '999px',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        textTransform: 'capitalize',
+                        backgroundColor: event.status === 'live' ? 'var(--color-primary-soft)' : 'var(--color-neutral-light)',
+                        color: event.status === 'live' ? 'var(--color-primary-green)' : 'var(--color-text-secondary)',
+                      }}>
+                        {event.status}
+                      </span>
+                      <span aria-hidden="true" style={{ color: 'var(--color-text-secondary)', fontSize: '18px' }}>›</span>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {shown < filtered.length && (
+            <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'center' }}>
+              <button type="button" onClick={() => setShown((s) => s + PAGE_SIZE)} className="btn-secondary">
+                Load more
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   )

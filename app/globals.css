@@ -3,25 +3,57 @@
 @tailwind utilities;
 
 :root {
-  --color-primary-green: #10b981;
+  --color-primary-green: #059669;
+  --color-primary-hover: #047857;
+  --color-primary-soft: #d1fae5;
   --color-amber-warning: #f59e0b;
-  --color-error-red: #ef4444;
-  --color-neutral-light: #f3f4f6;
+  --color-error-red: #dc2626;
+  --color-neutral-light: #f5f7fa;
   --color-neutral-dark: #1f2937;
-  --color-border: #d1d5db;
-  --color-text-primary: #111827;
-  --color-text-secondary: #6b7280;
+  --color-border: #e2e8f0;
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #64748b;
   --color-white: #ffffff;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f8fafc;
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.06);
+  --shadow-pop: 0 8px 24px rgba(15, 23, 42, 0.12);
+  --radius-md: 10px;
+  --radius-lg: 14px;
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
-    --color-neutral-light: #1f2937;
-    --color-neutral-dark: #f3f4f6;
-    --color-text-primary: #f3f4f6;
-    --color-text-secondary: #d1d5db;
-    --color-white: #111827;
+  :root:not([data-theme="light"]) {
+    --color-primary-green: #34d399;
+    --color-primary-hover: #6ee7b7;
+    --color-primary-soft: #064e3b;
+    --color-neutral-light: #0f172a;
+    --color-neutral-dark: #f1f5f9;
+    --color-border: #334155;
+    --color-text-primary: #f1f5f9;
+    --color-text-secondary: #94a3b8;
+    --color-white: #020617;
+    --color-surface: #111827;
+    --color-surface-muted: #0f172a;
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.5);
   }
+}
+
+:root[data-theme="dark"] {
+  --color-primary-green: #34d399;
+  --color-primary-hover: #6ee7b7;
+  --color-primary-soft: #064e3b;
+  --color-neutral-light: #0f172a;
+  --color-neutral-dark: #f1f5f9;
+  --color-border: #334155;
+  --color-text-primary: #f1f5f9;
+  --color-text-secondary: #94a3b8;
+  --color-white: #020617;
+  --color-surface: #111827;
+  --color-surface-muted: #0f172a;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.5);
 }
 
 :root {
@@ -74,50 +106,78 @@ select {
 /* Utility classes */
 .btn-primary {
   background-color: var(--color-primary-green);
-  color: var(--color-white);
-  padding: 12px 24px;
-  border-radius: 6px;
-  font-weight: 500;
-  font-size: 16px;
+  color: #ffffff;
+  padding: 10px 20px;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 15px;
   min-height: 44px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: opacity 0.2s ease;
+  gap: 8px;
+  box-shadow: var(--shadow-card);
+  transition: background-color 0.15s ease, transform 0.1s ease;
 }
 
 .btn-primary:hover {
-  opacity: 0.9;
+  background-color: var(--color-primary-hover);
+}
+
+.btn-primary:active {
+  transform: translateY(1px);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .btn-secondary {
-  background-color: transparent;
+  background-color: var(--color-surface);
   color: var(--color-text-primary);
-  padding: 12px 24px;
+  padding: 10px 20px;
   border: 1px solid var(--color-border);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   font-weight: 500;
-  font-size: 16px;
+  font-size: 15px;
   min-height: 44px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: opacity 0.2s ease;
+  gap: 8px;
+  box-shadow: var(--shadow-card);
+  transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
 .btn-secondary:hover {
-  opacity: 0.8;
+  background-color: var(--color-surface-muted);
+  border-color: var(--color-text-secondary);
+}
+
+.btn-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Card surface used for panels and list rows */
+.card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
 }
 
 .input-field {
   width: 100%;
-  padding: 12px;
+  padding: 10px 12px;
   border: 1px solid var(--color-border);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   font-size: 16px;
   min-height: 44px;
-  background-color: var(--color-white);
+  background-color: var(--color-surface);
   color: var(--color-text-primary);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .input-field::placeholder {
@@ -128,7 +188,7 @@ select {
 .input-field:focus {
   outline: none;
   border-color: var(--color-primary-green);
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.18);
 }
 
 .alert-success {
@@ -153,6 +213,59 @@ select {
   padding: 16px;
   border-radius: 6px;
   border-left: 4px solid var(--color-error-red);
+}
+
+/* Whole event row is clickable: the name link covers the card */
+.event-row-link::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.event-row:hover {
+  border-color: var(--color-text-secondary);
+}
+
+/* App shell: desktop nav above 640px, bottom tabs below */
+.app-tabbar {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .app-nav-desktop,
+  .app-user-name {
+    display: none !important;
+  }
+
+  .app-main {
+    padding: 16px 16px 96px !important;
+  }
+
+  .app-tabbar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 20;
+    display: flex;
+    justify-content: space-around;
+    background-color: var(--color-surface);
+    border-top: 1px solid var(--color-border);
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+  }
+
+  .app-tabbar a {
+    flex: 1;
+    text-align: center;
+    padding: 10px 4px;
+    min-height: 44px;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+  }
 }
 
 /* Visible to screen readers only */

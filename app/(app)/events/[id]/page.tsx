@@ -104,16 +104,28 @@ export default function EventDetailPage() {
             </p>
           </div>
         </div>
-        <span style={{
-          padding: '8px 16px',
-          borderRadius: '999px',
-          fontSize: '14px',
-          fontWeight: '500',
-          backgroundColor: event.status === 'live' ? '#d1fae5' : 'var(--color-neutral-light)',
-          color: event.status === 'live' ? '#065f46' : 'var(--color-text-secondary)',
-        }}>
-          {event.status}
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          <span style={{
+            padding: '6px 14px',
+            borderRadius: '999px',
+            fontSize: '14px',
+            fontWeight: 600,
+            textTransform: 'capitalize',
+            backgroundColor: event.status === 'live' ? 'var(--color-primary-soft)' : 'var(--color-neutral-light)',
+            color: event.status === 'live' ? 'var(--color-primary-green)' : 'var(--color-text-secondary)',
+          }}>
+            {event.status}
+          </span>
+          {event.status === 'live' ? (
+            <a href={checkInUrl} target="_blank" rel="noopener noreferrer" className="btn-primary" style={{ width: 'auto' }}>
+              Open check-in
+            </a>
+          ) : (
+            <Link href={`/events/${event.id}/guests`} className="btn-primary" style={{ width: 'auto' }}>
+              Add guests
+            </Link>
+          )}
+        </div>
       </div>
 
       <div style={{

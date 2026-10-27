@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -10,7 +10,13 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [signedOut, setSignedOut] = useState(false)
   const router = useRouter()
+
+  // Shown after logging out from the profile menu
+  useEffect(() => {
+    setSignedOut(new URLSearchParams(window.location.search).get('signedout') === '1')
+  }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -44,6 +50,12 @@ export default function LoginPage() {
         <h1 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '24px', textAlign: 'center' }}>
           EventCheckin
         </h1>
+
+        {signedOut && (
+          <div role="status" className="alert-success" style={{ marginBottom: '16px' }}>
+            You've signed out.
+          </div>
+        )}
 
         <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div>

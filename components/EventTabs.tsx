@@ -5,11 +5,11 @@ import { usePathname } from 'next/navigation'
 
 const TABS = [
   { href: '', label: 'Overview' },
-  { href: '/guests', label: 'Attendees' },
-  { href: '/dashboard', label: 'Live Dashboard' },
-  { href: '/badge-design', label: 'Badge Design' },
-  { href: '/badges', label: 'Badge Printing' },
-  { href: '/edit', label: 'Edit Event' },
+  { href: '/guests', label: 'Guests' },
+  { href: '/dashboard', label: 'Dashboard' },
+  { href: '/badge-design', label: 'Badge design' },
+  { href: '/badges', label: 'Badges' },
+  { href: '/edit', label: 'Settings' },
 ]
 
 // Navigation between an event's pages

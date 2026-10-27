@@ -318,7 +318,7 @@ select {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 20px 12px;
+  padding: 10px 12px 20px;
   border-right: 1px solid var(--color-border);
   position: sticky;
   top: 65px;
@@ -332,7 +332,7 @@ select {
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--color-text-secondary);
-  padding: 0 12px 12px;
+  padding: 0 12px 8px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

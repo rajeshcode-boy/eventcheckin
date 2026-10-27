@@ -7,7 +7,6 @@ import Link from 'next/link'
 import { publicImageUrl } from '@/lib/images'
 import ThemeToggle from '@/components/ThemeToggle'
 import ProfileMenu from '@/components/ProfileMenu'
-import AppSidebar from '@/components/AppSidebar'
 
 const NAV = [
   { href: '/dashboard', label: 'Dashboard' },
@@ -25,7 +24,6 @@ export default function AppLayout({
   const [loading, setLoading] = useState(true)
   const [displayName, setDisplayName] = useState('')
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
-  const [orgName, setOrgName] = useState('')
   const router = useRouter()
   const pathname = usePathname()
 
@@ -33,17 +31,10 @@ export default function AppLayout({
   useEffect(() => {
     if (!user) return
     const loadProfile = () =>
-      supabase
-        .from('profiles')
-        .select('full_name, profile_photo_url, organizations(name)')
-        .eq('id', user.id)
-        .single()
-        .then(({ data }) => {
-          setDisplayName(data?.full_name ?? '')
-          setAvatarUrl(publicImageUrl('avatars', data?.profile_photo_url))
-          const org = data?.organizations as unknown as { name: string } | { name: string }[] | null
-          setOrgName((Array.isArray(org) ? org[0]?.name : org?.name) ?? '')
-        })
+      supabase.from('profiles').select('full_name, profile_photo_url').eq('id', user.id).single().then(({ data }) => {
+        setDisplayName(data?.full_name ?? '')
+        setAvatarUrl(publicImageUrl('avatars', data?.profile_photo_url))
+      })
     loadProfile()
     window.addEventListener('profile-updated', loadProfile)
     return () => window.removeEventListener('profile-updated', loadProfile)
@@ -110,6 +101,25 @@ export default function AppLayout({
             <span aria-hidden="true" style={{ width: '28px', height: '28px', borderRadius: '8px', backgroundColor: 'var(--color-primary)', color: '#ffffff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 700 }}>✓</span>
             EventCheckin
           </Link>
+          <nav aria-label="Main" className="app-nav-desktop" style={{ display: 'flex', gap: '4px' }}>
+            {NAV.map((item) => {
+              const active = isActive(item.href)
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  aria-current={active ? 'page' : undefined}
+                  style={{
+                    padding: '7px 12px', borderRadius: '999px', fontSize: '14px', fontWeight: active ? 600 : 500,
+                    color: active ? 'var(--color-primary)' : 'var(--color-text-secondary)',
+                    backgroundColor: active ? 'var(--color-primary-soft)' : undefined,
+                  }}
+                >
+                  {item.label}
+                </Link>
+              )
+            })}
+          </nav>
         </div>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
           <ThemeToggle />
@@ -122,13 +132,10 @@ export default function AppLayout({
         </div>
       </header>
 
-      <div className="app-body">
-        <AppSidebar orgName={orgName} />
-        {/* Main content */}
-        <main className="app-main" style={{ flex: 1, minWidth: 0, padding: '32px 24px', maxWidth: '1040px', margin: '0 auto' }}>
-          {children}
-        </main>
-      </div>
+      {/* Main content */}
+      <main className="app-main" style={{ padding: '32px 24px', maxWidth: '1040px', margin: '0 auto' }}>
+        {children}
+      </main>
 
       {/* Bottom tabs on phones */}
       <nav aria-label="Main" className="app-tabbar">

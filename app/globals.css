@@ -306,67 +306,13 @@ select {
   border-color: var(--color-text-secondary);
 }
 
-/* App shell: left sidebar nav above 640px, bottom tabs below */
-.app-body {
-  display: flex;
-  align-items: flex-start;
-}
-
-.app-sidebar {
-  width: 232px;
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 10px 12px 20px;
-  border-right: 1px solid var(--color-border);
-  position: sticky;
-  top: 65px;
-  height: calc(100vh - 65px);
-  overflow-y: auto;
-}
-
-.app-sidebar-org {
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--color-text-secondary);
-  padding: 0 12px 8px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.app-sidebar-link {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 12px;
-  border-radius: 10px;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--color-text-secondary);
-  min-height: 40px;
-}
-
-.app-sidebar-link:hover {
-  background-color: var(--color-surface-muted);
-  color: var(--color-text-primary);
-}
-
-.app-sidebar-link[aria-current='page'] {
-  background-color: var(--color-primary-soft);
-  color: var(--color-primary);
-  font-weight: 600;
-}
-
+/* App shell: desktop nav above 640px, bottom tabs below */
 .app-tabbar {
   display: none;
 }
 
 @media (max-width: 640px) {
-  .app-sidebar,
+  .app-nav-desktop,
   .app-user-name {
     display: none !important;
   }

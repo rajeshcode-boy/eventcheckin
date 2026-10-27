@@ -16,14 +16,6 @@ interface TeamMember {
   referral_code: string
 }
 
-const SOURCES = [
-  { value: '', label: 'Direct' },
-  { value: 'social', label: 'Social media' },
-  { value: 'email', label: 'Email' },
-  { value: 'whatsapp', label: 'WhatsApp' },
-  { value: 'other', label: 'Other' },
-]
-
 // Random 6-character code, the same shape the database expects for referral codes
 const newCode = () => {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -35,7 +27,6 @@ export default function RegistrationSettings({ eventUuid, organizationId }: { ev
   const [settings, setSettings] = useState<EventSettings | null>(null)
   const [members, setMembers] = useState<TeamMember[]>([])
   const [capacityInput, setCapacityInput] = useState('')
-  const [source, setSource] = useState('')
   const [newName, setNewName] = useState('')
   const [message, setMessage] = useState('')
   const [copied, setCopied] = useState('')
@@ -59,13 +50,8 @@ export default function RegistrationSettings({ eventUuid, organizationId }: { ev
 
   const origin = process.env.NEXT_PUBLIC_APP_URL || (typeof window !== 'undefined' ? window.location.origin : '')
   const baseLink = `${origin}/register/${settings.registration_token}`
-  const linkFor = (code?: string) => {
-    const params = new URLSearchParams()
-    if (code) params.set('ref', code)
-    if (source) params.set('src', source)
-    const q = params.toString()
-    return q ? `${baseLink}?${q}` : baseLink
-  }
+  // The general link has no code, so registrations from it are not credited to a team member
+  const linkFor = (code?: string) => (code ? `${baseLink}?ref=${code}` : baseLink)
 
   const save = async (patch: Partial<EventSettings>, done: string) => {
     setMessage('')
@@ -168,19 +154,22 @@ export default function RegistrationSettings({ eventUuid, organizationId }: { ev
       </div>
 
       <div style={{ marginBottom: '16px' }}>
-        <label htmlFor="source" style={label}>Link source</label>
-        <select id="source" className="input-field" style={{ width: 'auto', marginBottom: '8px' }} value={source} onChange={(e) => setSource(e.target.value)}>
-          {SOURCES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-        </select>
+        <label htmlFor="general-link" style={label}>General event link</label>
+        <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginBottom: '8px' }}>
+          Use this for social media, email and other channels where no team member is named.
+        </p>
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-          <code style={{ flex: '1 1 260px', padding: '10px 12px', borderRadius: '8px', backgroundColor: 'var(--color-neutral-light)', border: '1px solid var(--color-border)', fontSize: '13px', wordBreak: 'break-all' }}>{linkFor()}</code>
+          <code id="general-link" style={{ flex: '1 1 260px', padding: '10px 12px', borderRadius: '8px', backgroundColor: 'var(--color-neutral-light)', border: '1px solid var(--color-border)', fontSize: '13px', wordBreak: 'break-all' }}>{linkFor()}</code>
           <button type="button" className="btn-secondary" onClick={() => copy(linkFor(), 'general')}>{copied === 'general' ? 'Copied' : 'Copy link'}</button>
           <button type="button" className="btn-secondary" onClick={newLink}>New link</button>
         </div>
       </div>
 
       <div>
-        <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '8px' }}>Team links</h3>
+        <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '4px' }}>Team links</h3>
+        <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginBottom: '8px' }}>
+          Each person's link credits their registrations to them.
+        </p>
         {members.length === 0 ? (
           <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)', marginBottom: '12px' }}>
             Add the people who will share this event. Each gets a link that credits their registrations.

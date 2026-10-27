@@ -7,6 +7,8 @@ import Link from 'next/link'
 
 const MIN_PASSWORD_LENGTH = 6
 
+const fieldLabel = { display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: 500 } as const
+
 export default function SignupPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -26,8 +28,6 @@ export default function SignupPage() {
     setLoading(true)
 
     try {
-      // Sign up user; the handle_new_user DB trigger creates the
-      // organization and admin profile from this metadata
       const fullName = `${firstName.trim()} ${lastName.trim()}`
 
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
@@ -56,14 +56,12 @@ export default function SignupPage() {
 
       // Redirect to login
       router.push('/login?message=Check your email to confirm your account')
-    } catch (err) {
+    } catch {
       setError('An error occurred. Please try again.')
     } finally {
       setLoading(false)
     }
   }
-
-  const fieldLabel = { display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: 500 } as const
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 16px', backgroundColor: 'var(--color-neutral-light)' }}>

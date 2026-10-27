@@ -73,14 +73,12 @@ export default function EventsPage() {
     }
   }
 
-  // Count per status for the filter pills, so organisers can see where events sit
   const counts = useMemo(() => {
     const result: Record<string, number> = { all: events.length }
     for (const e of events) result[e.status] = (result[e.status] ?? 0) + 1
     return result
   }, [events])
 
-  // Filter by status and by name, location or event ID
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     return events.filter((e) => {
@@ -107,7 +105,6 @@ export default function EventsPage() {
 
   return (
     <div>
-      {/* Page header: title, one-line purpose and the main action */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '16px', flexWrap: 'wrap', marginBottom: '24px' }}>
         <div style={{ minWidth: 0 }}>
           <h1 style={{ fontSize: '28px', fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.2 }}>My events</h1>
@@ -147,7 +144,6 @@ export default function EventsPage() {
         </div>
       ) : (
         <>
-          {/* Search and status filters share one row on desktop and wrap on phones */}
           <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '16px' }}>
             <input
               type="search"

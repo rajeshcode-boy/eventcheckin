@@ -16,6 +16,13 @@ interface TeamMember {
   referral_code: string
 }
 
+export interface RegistrationRow {
+  registration_status: string
+  referral_member_id: string | null
+  badge_collected_at: string | null
+  checkins: { checked_in_at: string }[]
+}
+
 // Random 6-character code, the same shape the database expects for referral codes
 const newCode = () => {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -23,7 +30,7 @@ const newCode = () => {
 }
 
 // Registration link controls for the organiser: open or close, approval, capacity, and team links
-export default function RegistrationSettings({ eventUuid, organizationId }: { eventUuid: string; organizationId: string }) {
+export default function RegistrationSettings({ eventUuid, organizationId, registrations }: { eventUuid: string; organizationId: string; registrations: RegistrationRow[] }) {
   const [settings, setSettings] = useState<EventSettings | null>(null)
   const [members, setMembers] = useState<TeamMember[]>([])
   const [capacityInput, setCapacityInput] = useState('')
@@ -125,7 +132,7 @@ export default function RegistrationSettings({ eventUuid, organizationId }: { ev
   const label = { display: 'block', fontSize: '14px', fontWeight: 500, marginBottom: '6px' } as const
 
   return (
-    <section className="card" style={{ padding: '20px', marginBottom: '24px' }} aria-labelledby="registration-heading">
+    <section className="card" style={{ padding: '20px' }} aria-labelledby="registration-heading">
       <h2 id="registration-heading" style={{ fontSize: '18px', fontWeight: 600, marginBottom: '4px' }}>Public registration</h2>
       <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)', marginBottom: '16px' }}>
         Share this link so guests can register themselves. Registrations from team links are credited to that person.
@@ -180,6 +187,9 @@ export default function RegistrationSettings({ eventUuid, organizationId }: { ev
               <li key={m.id} style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', padding: '10px 12px', border: '1px solid var(--color-border)', borderRadius: '10px' }}>
                 <span style={{ fontWeight: 500, minWidth: '120px' }}>{m.name}</span>
                 <code style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>{m.referral_code}</code>
+                <span style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>
+                  {registrations.filter((r) => r.referral_member_id === m.id && !['cancelled', 'rejected'].includes(r.registration_status)).length} registered
+                </span>
                 <span style={{ flex: 1 }} />
                 <button type="button" className="btn-secondary" style={{ minHeight: '36px', padding: '6px 12px' }} onClick={() => copy(linkFor(m.referral_code), m.id)}>
                   {copied === m.id ? 'Copied' : 'Copy link'}

@@ -29,8 +29,6 @@ interface Event {
   organizations: { logo_path: string | null } | null
 }
 
-const TILE_CLASS = 'card'
-
 export default function EventDetailPage() {
   const [event, setEvent] = useState<Event | null>(null)
   const [registrations, setRegistrations] = useState<RegistrationRow[]>([])
@@ -70,7 +68,7 @@ export default function EventDetailPage() {
     }
   }
 
-  // Counts for the summary and the tiles. Cancelled and rejected registrations don't count.
+  // Counts for the summary and the sidebar. Cancelled and rejected registrations don't count.
   const stats = useMemo(() => {
     const active = registrations.filter((r) => !['cancelled', 'rejected'].includes(r.registration_status))
     return {
@@ -115,126 +113,127 @@ export default function EventDetailPage() {
     return 'Add guests or open registration to get started.'
   })()
 
+  // Management pages, shown in the sidebar
+  const sections = [
+    { href: `/events/${event.id}/guests`, title: 'Guests', sub: `${stats.registered}` },
+    { href: `/events/${event.id}/dashboard`, title: 'Dashboard', sub: '' },
+    { href: `/events/${event.id}/badge-design`, title: 'Badge design', sub: '' },
+    { href: `/events/${event.id}/badges`, title: 'Badges', sub: '' },
+    { href: `/events/${event.id}/pickup`, title: 'Pickup', sub: `${stats.readyToCollect}` },
+    { href: `/events/${event.id}/edit`, title: 'Settings', sub: '' },
+  ]
+
   return (
-    <div style={{ maxWidth: '960px' }}>
-      <EventTabs eventUuid={event.id} />
-
-      {bannerUrl && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={bannerUrl} alt="" style={{ width: '100%', aspectRatio: '4 / 1', objectFit: 'cover', borderRadius: '12px', marginBottom: '16px', border: '1px solid var(--color-border)' }} />
-      )}
-
-      <header className="card" style={{ padding: '18px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', flexWrap: 'wrap', marginBottom: '14px' }}>
-        <div style={{ display: 'flex', gap: '14px', alignItems: 'center', minWidth: 0 }}>
-          {logoUrl && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={logoUrl} alt="" style={{ width: '56px', height: '56px', objectFit: 'contain', borderRadius: '10px', backgroundColor: '#ffffff', padding: '4px', border: '1px solid var(--color-border)', flexShrink: 0 }} />
-          )}
-          <div style={{ minWidth: 0 }}>
-            <h1 style={{ fontSize: '24px', fontWeight: 700, letterSpacing: '-0.01em', overflow: 'hidden', textOverflow: 'ellipsis' }}>{event.name}</h1>
-            <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px', marginTop: '2px' }}>{place} · {date}</p>
-          </div>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-          <span style={{
-            padding: '5px 12px',
-            borderRadius: '999px',
-            fontSize: '13px',
-            fontWeight: 600,
-            textTransform: 'capitalize',
-            backgroundColor: event.status === 'live' ? 'var(--color-live-soft)' : 'var(--color-neutral-light)',
-            color: event.status === 'live' ? 'var(--color-live)' : 'var(--color-text-secondary)',
-          }}>
-            {event.status}
-          </span>
-          {event.status === 'live' ? (
-            <a href={checkInUrl} target="_blank" rel="noopener noreferrer" className="btn-primary" style={{ width: 'auto' }}>
-              Open check-in
-            </a>
-          ) : (
-            <Link href={`/events/${event.id}/guests`} className="btn-primary" style={{ width: 'auto' }}>
-              Add guests
-            </Link>
-          )}
-        </div>
-      </header>
-
-      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', fontSize: '13px', color: 'var(--color-text-secondary)', marginBottom: '18px' }}>
-        <span className="card" style={{ padding: '8px 12px' }}>
-          Event ID <code style={{ fontFamily: 'ui-monospace, monospace', color: 'var(--color-text-primary)', fontWeight: 600, marginLeft: '4px' }}>{event.event_id}</code>
-        </span>
-        <span className="card" style={{ padding: '8px 12px' }}>
-          Capacity <span style={{ color: 'var(--color-text-primary)', fontWeight: 600, marginLeft: '4px' }}>{event.capacity}</span>
-        </span>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '14px', marginBottom: '14px' }}>
-        {[
-          { label: 'Registered', value: `${stats.registered}`, sub: event.registration_capacity ? `of ${event.registration_capacity}` : 'no limit' },
-          { label: 'Pending approval', value: `${stats.pending}`, sub: event.approval_mode === 'manual' ? 'approval on' : 'auto-approve' },
-          { label: 'Checked in', value: `${stats.checkedIn}`, sub: 'at the entrance' },
-          { label: 'Badges collected', value: `${stats.collected}`, sub: `${stats.readyToCollect} ready at the desk` },
-        ].map((s) => (
-          <div key={s.label} className="card" style={{ padding: '14px 16px' }}>
-            <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>{s.label}</p>
-            <p style={{ fontSize: '22px', fontWeight: 600, marginTop: '4px' }}>{s.value}</p>
-            <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginTop: '2px' }}>{s.sub}</p>
-          </div>
-        ))}
-      </div>
-
-      <div role="status" className="card" style={{ padding: '12px 16px', borderLeft: '4px solid var(--color-primary)', marginBottom: '14px', fontSize: '14px' }}>
-        <span style={{ fontWeight: 600 }}>Next step: </span>{nextStep}
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '14px', alignItems: 'start', marginBottom: '20px' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-        <section className="card" style={{ padding: '20px' }} aria-labelledby="checkin-heading">
-          <h2 id="checkin-heading" style={{ fontSize: '18px', fontWeight: 600, marginBottom: '4px' }}>Check-in</h2>
-          <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)', marginBottom: '16px' }}>
-            Guests scan this at the entrance and enter their email or phone.
-          </p>
-          <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
-            <div style={{ padding: '12px', backgroundColor: '#ffffff', borderRadius: '10px', border: '1px solid var(--color-border)' }}>
-              <QRCodeSVG value={checkInUrl} size={150} marginSize={1} aria-label="Check-in QR code" />
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() => navigator.clipboard.writeText(checkInUrl).then(() => setCopied(true))}
-              >
-                {copied ? 'Copied' : 'Copy check-in link'}
-              </button>
-              <a href={checkInUrl} target="_blank" rel="noopener noreferrer" className="btn-secondary">
-                Open check-in page
-              </a>
-            </div>
-          </div>
-          <code style={{ display: 'block', marginTop: '14px', fontSize: '12px', wordBreak: 'break-all', color: 'var(--color-text-secondary)' }}>{checkInUrl}</code>
-        </section>
-
-        <div>
-          <h2 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: '10px' }}>Manage</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px' }}>
-        {[
-          { href: `/events/${event.id}/guests`, title: 'Guests', sub: `${stats.registered} registered` },
-          { href: `/events/${event.id}/dashboard`, title: 'Dashboard', sub: 'Trends and sources' },
-          { href: `/events/${event.id}/badge-design`, title: 'Badge design', sub: 'Layout and fields' },
-          { href: `/events/${event.id}/badges`, title: 'Badges', sub: 'Print sheets' },
-          { href: `/events/${event.id}/pickup`, title: 'Pickup', sub: `${stats.readyToCollect} ready to collect` },
-          { href: `/events/${event.id}/edit`, title: 'Settings', sub: 'Event details' },
-        ].map((t) => (
-          <Link key={t.title} href={t.href} className={TILE_CLASS} style={{ padding: '14px 16px', color: 'inherit', display: 'block' }}>
-            <p style={{ fontSize: '15px', fontWeight: 600 }}>{t.title}</p>
-            <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginTop: '2px' }}>{t.sub}</p>
+    <div className="event-layout">
+      <nav aria-label="Manage event" className="event-sidebar">
+        <p className="event-sidebar-heading">Manage</p>
+        {sections.map((s) => (
+          <Link key={s.title} href={s.href} className="event-sidebar-link">
+            <span>{s.title}</span>
+            {s.sub && <span className="event-sidebar-count">{s.sub}</span>}
           </Link>
         ))}
+      </nav>
+
+      <div className="event-main">
+        <EventTabs eventUuid={event.id} />
+
+        {bannerUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={bannerUrl} alt="" style={{ width: '100%', aspectRatio: '4 / 1', objectFit: 'cover', borderRadius: '12px', marginBottom: '16px', border: '1px solid var(--color-border)' }} />
+        )}
+
+        <header className="card" style={{ padding: '18px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', flexWrap: 'wrap', marginBottom: '14px' }}>
+          <div style={{ display: 'flex', gap: '14px', alignItems: 'center', minWidth: 0 }}>
+            {logoUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={logoUrl} alt="" style={{ width: '56px', height: '56px', objectFit: 'contain', borderRadius: '10px', backgroundColor: '#ffffff', padding: '4px', border: '1px solid var(--color-border)', flexShrink: 0 }} />
+            )}
+            <div style={{ minWidth: 0 }}>
+              <h1 style={{ fontSize: '24px', fontWeight: 700, letterSpacing: '-0.01em', overflow: 'hidden', textOverflow: 'ellipsis' }}>{event.name}</h1>
+              <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px', marginTop: '2px' }}>{place} · {date}</p>
+            </div>
           </div>
-        </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <span style={{
+              padding: '5px 12px',
+              borderRadius: '999px',
+              fontSize: '13px',
+              fontWeight: 600,
+              textTransform: 'capitalize',
+              backgroundColor: event.status === 'live' ? 'var(--color-live-soft)' : 'var(--color-neutral-light)',
+              color: event.status === 'live' ? 'var(--color-live)' : 'var(--color-text-secondary)',
+            }}>
+              {event.status}
+            </span>
+            {event.status === 'live' ? (
+              <a href={checkInUrl} target="_blank" rel="noopener noreferrer" className="btn-primary" style={{ width: 'auto' }}>
+                Open check-in
+              </a>
+            ) : (
+              <Link href={`/events/${event.id}/guests`} className="btn-primary" style={{ width: 'auto' }}>
+                Add guests
+              </Link>
+            )}
+          </div>
+        </header>
+
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', fontSize: '13px', color: 'var(--color-text-secondary)', marginBottom: '18px' }}>
+          <span className="card" style={{ padding: '8px 12px' }}>
+            Event ID <code style={{ fontFamily: 'ui-monospace, monospace', color: 'var(--color-text-primary)', fontWeight: 600, marginLeft: '4px' }}>{event.event_id}</code>
+          </span>
+          <span className="card" style={{ padding: '8px 12px' }}>
+            Capacity <span style={{ color: 'var(--color-text-primary)', fontWeight: 600, marginLeft: '4px' }}>{event.capacity}</span>
+          </span>
         </div>
 
-        <RegistrationSettings eventUuid={event.id} organizationId={event.organization_id} registrations={registrations} />
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '14px', marginBottom: '14px' }}>
+          {[
+            { label: 'Registered', value: `${stats.registered}`, sub: event.registration_capacity ? `of ${event.registration_capacity}` : 'no limit' },
+            { label: 'Pending approval', value: `${stats.pending}`, sub: event.approval_mode === 'manual' ? 'approval on' : 'auto-approve' },
+            { label: 'Checked in', value: `${stats.checkedIn}`, sub: 'at the entrance' },
+            { label: 'Badges collected', value: `${stats.collected}`, sub: `${stats.readyToCollect} ready at the desk` },
+          ].map((s) => (
+            <div key={s.label} className="card" style={{ padding: '14px 16px' }}>
+              <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>{s.label}</p>
+              <p style={{ fontSize: '22px', fontWeight: 600, marginTop: '4px' }}>{s.value}</p>
+              <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginTop: '2px' }}>{s.sub}</p>
+            </div>
+          ))}
+        </div>
+
+        <div role="status" className="card" style={{ padding: '12px 16px', borderLeft: '4px solid var(--color-primary)', marginBottom: '14px', fontSize: '14px' }}>
+          <span style={{ fontWeight: 600 }}>Next step: </span>{nextStep}
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '14px', alignItems: 'start' }}>
+          <section className="card" style={{ padding: '20px' }} aria-labelledby="checkin-heading">
+            <h2 id="checkin-heading" style={{ fontSize: '18px', fontWeight: 600, marginBottom: '4px' }}>Check-in</h2>
+            <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)', marginBottom: '16px' }}>
+              Guests scan this at the entrance and enter their email or phone.
+            </p>
+            <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <div style={{ padding: '12px', backgroundColor: '#ffffff', borderRadius: '10px', border: '1px solid var(--color-border)' }}>
+                <QRCodeSVG value={checkInUrl} size={150} marginSize={1} aria-label="Check-in QR code" />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => navigator.clipboard.writeText(checkInUrl).then(() => setCopied(true))}
+                >
+                  {copied ? 'Copied' : 'Copy check-in link'}
+                </button>
+                <a href={checkInUrl} target="_blank" rel="noopener noreferrer" className="btn-secondary">
+                  Open check-in page
+                </a>
+              </div>
+            </div>
+            <code style={{ display: 'block', marginTop: '14px', fontSize: '12px', wordBreak: 'break-all', color: 'var(--color-text-secondary)' }}>{checkInUrl}</code>
+          </section>
+
+          <RegistrationSettings eventUuid={event.id} organizationId={event.organization_id} registrations={registrations} />
+        </div>
       </div>
     </div>
   )

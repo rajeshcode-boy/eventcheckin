@@ -158,12 +158,6 @@ export default function Home() {
             </svg>
             Business travel
           </span>
-          <span className="badge b2">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />
-            </svg>
-            Growing every event
-          </span>
 
           <svg className="city" viewBox="0 0 1000 220" preserveAspectRatio="xMidYMax meet" aria-hidden="true">
             <g fill="#0A7555" opacity=".16">

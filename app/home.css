@@ -76,7 +76,6 @@
   .badge { position: absolute; left: 4%; align-items: center; gap: 8px; background: #fff; border: 1px solid var(--line); border-radius: 999px; padding: 8px 14px; font-size: 13px; font-weight: 600; box-shadow: 0 10px 22px -14px rgba(10, 60, 45, .45); animation: bob 6s ease-in-out infinite; }
   .badge svg { color: var(--green); }
   .badge.b1 { top: 130px; }
-  .badge.b2 { top: 180px; left: 9%; animation-delay: -2s; }
 
   /* Motifs: mandala flowers in the brand colours */
   .motif { position: absolute; pointer-events: none; opacity: .9; animation: spin 60s linear infinite; }

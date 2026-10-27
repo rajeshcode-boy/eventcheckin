@@ -5,7 +5,6 @@ import { supabase } from '@/lib/supabase'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { QRCodeSVG } from 'qrcode.react'
-import EventTabs from '@/components/EventTabs'
 import RegistrationSettings, { RegistrationRow } from '@/components/RegistrationSettings'
 import { publicImageUrl } from '@/lib/storage'
 import { countryName } from '@/lib/countries'
@@ -133,11 +132,12 @@ export default function EventDetailPage() {
             {s.sub && <span className="event-sidebar-count">{s.sub}</span>}
           </Link>
         ))}
+        <Link href="/events" className="event-sidebar-link event-sidebar-back">
+          <span>← All events</span>
+        </Link>
       </nav>
 
       <div className="event-main">
-        <EventTabs eventUuid={event.id} />
-
         {bannerUrl && (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={bannerUrl} alt="" style={{ width: '100%', aspectRatio: '4 / 1', objectFit: 'cover', borderRadius: '12px', marginBottom: '16px', border: '1px solid var(--color-border)' }} />

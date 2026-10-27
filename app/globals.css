@@ -267,6 +267,14 @@ select {
   color: var(--color-text-primary);
 }
 
+.event-sidebar-back {
+  margin-top: 12px;
+  color: var(--color-text-secondary);
+  border-top: 1px solid var(--color-border);
+  border-radius: 0;
+  padding-top: 14px;
+}
+
 .event-sidebar-count {
   font-size: 12px;
   color: var(--color-text-secondary);

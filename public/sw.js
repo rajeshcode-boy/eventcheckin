@@ -31,6 +31,38 @@ self.addEventListener('activate', (event) => {
   )
 })
 
+// Web push: show the notification the server sent (iOS requires showing one for every push)
+self.addEventListener('push', (event) => {
+  let data = {}
+  try {
+    data = event.data ? event.data.json() : {}
+  } catch {
+    data = { body: event.data ? event.data.text() : '' }
+  }
+  event.waitUntil(
+    self.registration.showNotification(data.title || 'EventCheckin', {
+      body: data.body || '',
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
+      tag: data.tag,
+      data: { url: data.url || '/' },
+    })
+  )
+})
+
+// Tapping a notification focuses the open app window, or opens the page it links to
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  const target = new URL(event.notification.data?.url || '/', self.location.origin).href
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      const open = clients.find((client) => client.url === target)
+      if (open) return open.focus()
+      return self.clients.openWindow(target)
+    })
+  )
+})
+
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') {
     return

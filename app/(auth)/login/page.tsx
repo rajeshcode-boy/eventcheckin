@@ -113,12 +113,12 @@ export default function LoginPage() {
           </form>
         </div>
 
-        <p style={{ marginTop: '20px', textAlign: 'center', fontSize: '14px', color: 'var(--color-text-secondary)' }}>
-          Don&apos;t have an account?{' '}
-          <Link href="/signup" style={{ color: 'var(--color-primary)', fontWeight: 600 }}>
-            Sign up
+        <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+          <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)' }}>Don&apos;t have an account?</p>
+          <Link href="/signup" className="btn-secondary" style={{ width: '100%' }}>
+            Create an account
           </Link>
-        </p>
+        </div>
       </div>
     </div>
   )

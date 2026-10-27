@@ -10,7 +10,8 @@ const MIN_PASSWORD_LENGTH = 6
 export default function SignupPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [fullName, setFullName] = useState('')
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
   const [orgName, setOrgName] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
@@ -27,6 +28,8 @@ export default function SignupPage() {
     try {
       // Sign up user; the handle_new_user DB trigger creates the
       // organization and admin profile from this metadata
+      const fullName = `${firstName.trim()} ${lastName.trim()}`
+
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
@@ -92,20 +95,38 @@ export default function SignupPage() {
               />
             </div>
 
-            <div>
-              <label htmlFor="fullName" style={fieldLabel}>
-                Full name <span aria-hidden="true" style={{ color: 'var(--color-error-red)' }}>*</span>
-              </label>
-              <input
-                id="fullName"
-                type="text"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                className="input-field"
-                placeholder="Your full name"
-                autoComplete="name"
-                required
-              />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '12px' }}>
+              <div>
+                <label htmlFor="firstName" style={fieldLabel}>
+                  First name <span aria-hidden="true" style={{ color: 'var(--color-error-red)' }}>*</span>
+                </label>
+                <input
+                  id="firstName"
+                  type="text"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  className="input-field"
+                  placeholder="First"
+                  autoComplete="given-name"
+                  required
+                />
+              </div>
+
+              <div>
+                <label htmlFor="lastName" style={fieldLabel}>
+                  Last name <span aria-hidden="true" style={{ color: 'var(--color-error-red)' }}>*</span>
+                </label>
+                <input
+                  id="lastName"
+                  type="text"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  className="input-field"
+                  placeholder="Last"
+                  autoComplete="family-name"
+                  required
+                />
+              </div>
             </div>
 
             <div>

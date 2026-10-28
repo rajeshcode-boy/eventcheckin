@@ -46,10 +46,11 @@ export function timezoneFor(country: string | null | undefined, city: string | n
   return ZONE_BY_COUNTRY[country] ?? null
 }
 
-// Short name such as "AST" or "GMT+3", as shown for the given date in that zone
+// Offset label such as "UTC+3" for the given date in that zone ("UTC" when there is no offset)
 export function zoneShortName(zone: string, isoDate: string): string {
   const date = new Date(isoDate + 'T12:00:00Z')
-  return new Intl.DateTimeFormat('en-US', { timeZone: zone, timeZoneName: 'short' })
+  const label = new Intl.DateTimeFormat('en-US', { timeZone: zone, timeZoneName: 'shortOffset' })
     .formatToParts(date)
     .find((p) => p.type === 'timeZoneName')?.value ?? zone
+  return label.replace(/^GMT/, 'UTC')
 }

@@ -13,6 +13,8 @@ export interface HolidayResult {
   // false when no source has holiday data for this country, so the page can say so
   // rather than showing an empty list that looks like "no holidays"
   covered: boolean
+  // Set when the hand-maintained list has run out of years, so organisers see it needs updating
+  listNeedsUpdate?: boolean
 }
 
 interface NagerHoliday {
@@ -32,7 +34,8 @@ export async function upcomingHolidays(country: string, fromISO: string, count =
       .filter((h) => h.date >= fromISO)
       .slice(0, count)
       .map((h) => ({ date: h.date, name: h.tentative ? `${h.name} (tentative)` : h.name }))
-    return { holidays, covered: holidays.length > 0 }
+    // Nothing left in the list means it needs new dates
+    return { holidays, covered: true, listNeedsUpdate: holidays.length === 0 }
   }
 
   const startYear = Number(fromISO.slice(0, 4))

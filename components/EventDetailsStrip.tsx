@@ -30,6 +30,7 @@ function formatHolidayDate(iso: string): string {
 export default function EventDetailsStrip({ event, compact = false }: { event: EventDetailsInput; compact?: boolean }) {
   const [holidays, setHolidays] = useState<PublicHoliday[]>([])
   const [covered, setCovered] = useState(true)
+  const [listNeedsUpdate, setListNeedsUpdate] = useState(false)
 
   const place = event.city && event.country ? `${event.city}, ${countryName(event.country)}` : event.location
   const date = new Date(event.event_date + 'T00:00:00').toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
@@ -43,10 +44,11 @@ export default function EventDetailsStrip({ event, compact = false }: { event: E
     let active = true
     fetch(`/api/holidays?country=${event.country}&from=${today}`)
       .then((r) => (r.ok ? r.json() : { holidays: [], covered: false }))
-      .then((data: { holidays: PublicHoliday[]; covered: boolean }) => {
+      .then((data: { holidays: PublicHoliday[]; covered: boolean; listNeedsUpdate?: boolean }) => {
         if (!active) return
         setHolidays(data.holidays)
         setCovered(data.covered)
+        setListNeedsUpdate(!!data.listNeedsUpdate)
       })
       .catch(() => {
         // Holidays are optional; leave the list empty
@@ -112,7 +114,11 @@ export default function EventDetailsStrip({ event, compact = false }: { event: E
             </>
           ) : (
             <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)', marginTop: '4px' }}>
-              {covered ? 'No upcoming public holidays found.' : 'Holiday information is not available for this country yet.'}
+              {listNeedsUpdate
+                ? 'No more holidays in our list for this year. The list needs updating for the coming year.'
+                : covered
+                  ? 'No upcoming public holidays found.'
+                  : 'Holiday information is not available for this country yet.'}
             </p>
           )}
         </div>

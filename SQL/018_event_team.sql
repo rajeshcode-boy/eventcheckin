@@ -2,7 +2,7 @@
 -- Admins assign people; a member can mark their own on-site status.
 -- Additive only: a new table, nothing existing changes.
 
-CREATE TABLE IF NOT EXISTS event_team_members (
+CREATE TABLE IF NOT EXISTS event_staff_assignments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
   organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -12,35 +12,35 @@ CREATE TABLE IF NOT EXISTS event_team_members (
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
   UNIQUE (event_id, profile_id)
 );
-CREATE INDEX IF NOT EXISTS idx_event_team_members_event ON event_team_members(event_id);
-CREATE INDEX IF NOT EXISTS idx_event_team_members_org ON event_team_members(organization_id);
+CREATE INDEX IF NOT EXISTS idx_event_staff_assignments_event ON event_staff_assignments(event_id);
+CREATE INDEX IF NOT EXISTS idx_event_staff_assignments_org ON event_staff_assignments(organization_id);
 
-ALTER TABLE event_team_members ENABLE ROW LEVEL SECURITY;
+ALTER TABLE event_staff_assignments ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "Users can view their org's event team" ON event_team_members;
+DROP POLICY IF EXISTS "Users can view their org's event team" ON event_staff_assignments;
 CREATE POLICY "Users can view their org's event team"
-  ON event_team_members FOR SELECT
+  ON event_staff_assignments FOR SELECT
   USING (organization_id = current_org_id());
 
-DROP POLICY IF EXISTS "Admins can assign team members in their org" ON event_team_members;
+DROP POLICY IF EXISTS "Admins can assign team members in their org" ON event_staff_assignments;
 CREATE POLICY "Admins can assign team members in their org"
-  ON event_team_members FOR INSERT
+  ON event_staff_assignments FOR INSERT
   WITH CHECK (is_org_admin() AND organization_id = current_org_id());
 
-DROP POLICY IF EXISTS "Admins can change team assignments in their org" ON event_team_members;
+DROP POLICY IF EXISTS "Admins can change team assignments in their org" ON event_staff_assignments;
 CREATE POLICY "Admins can change team assignments in their org"
-  ON event_team_members FOR UPDATE
+  ON event_staff_assignments FOR UPDATE
   USING (is_org_admin() AND organization_id = current_org_id())
   WITH CHECK (organization_id = current_org_id());
 
 -- Anyone can mark themselves on site or off, but nothing else about their assignment
-DROP POLICY IF EXISTS "Members can update their own on-site status" ON event_team_members;
+DROP POLICY IF EXISTS "Members can update their own on-site status" ON event_staff_assignments;
 CREATE POLICY "Members can update their own on-site status"
-  ON event_team_members FOR UPDATE
+  ON event_staff_assignments FOR UPDATE
   USING (profile_id = auth.uid())
   WITH CHECK (profile_id = auth.uid() AND organization_id = current_org_id());
 
-DROP POLICY IF EXISTS "Admins can remove team assignments in their org" ON event_team_members;
+DROP POLICY IF EXISTS "Admins can remove team assignments in their org" ON event_staff_assignments;
 CREATE POLICY "Admins can remove team assignments in their org"
-  ON event_team_members FOR DELETE
+  ON event_staff_assignments FOR DELETE
   USING (is_org_admin() AND organization_id = current_org_id());

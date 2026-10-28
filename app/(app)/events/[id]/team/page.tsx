@@ -58,7 +58,7 @@ export default function TeamPage() {
       const [membersRes, assignRes] = await Promise.all([
         supabase.from('profiles').select('id, full_name').eq('organization_id', profile.organization_id).order('full_name'),
         supabase
-          .from('event_team_members')
+          .from('event_staff_assignments')
           .select('id, profile_id, role, on_site, profiles(full_name)')
           .eq('event_id', eventUuid)
           .order('created_at'),
@@ -85,7 +85,7 @@ export default function TeamPage() {
 
   const addMember = async () => {
     if (!orgId || !newProfile) return
-    const { error: insertError } = await supabase.from('event_team_members').insert([
+    const { error: insertError } = await supabase.from('event_staff_assignments').insert([
       { event_id: eventUuid, organization_id: orgId, profile_id: newProfile, role: newRole },
     ])
     if (insertError) {
@@ -97,19 +97,19 @@ export default function TeamPage() {
   }
 
   const changeRole = async (id: string, role: Role) => {
-    const { error: updateError } = await supabase.from('event_team_members').update({ role }).eq('id', id)
+    const { error: updateError } = await supabase.from('event_staff_assignments').update({ role }).eq('id', id)
     if (updateError) setError(updateError.message)
     else load()
   }
 
   const toggleOnSite = async (a: Assignment) => {
-    const { error: updateError } = await supabase.from('event_team_members').update({ on_site: !a.on_site }).eq('id', a.id)
+    const { error: updateError } = await supabase.from('event_staff_assignments').update({ on_site: !a.on_site }).eq('id', a.id)
     if (updateError) setError(updateError.message)
     else load()
   }
 
   const remove = async (id: string) => {
-    const { error: deleteError } = await supabase.from('event_team_members').delete().eq('id', id)
+    const { error: deleteError } = await supabase.from('event_staff_assignments').delete().eq('id', id)
     if (deleteError) setError(deleteError.message)
     else load()
   }

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabase, generateEventId } from '@/lib/supabase'
 import { COUNTRIES, countryName, detectCountry } from '@/lib/countries'
 import { citiesFor } from '@/lib/cities'
+import { timezoneFor } from '@/lib/timezones'
 import { BANNER_RULES, LOGO_RULES } from '@/lib/images'
 import { uploadImage } from '@/lib/storage'
 import SearchSelect from './SearchSelect'
@@ -20,6 +21,7 @@ export interface EventRecord {
   city: string | null
   event_date: string
   start_time: string | null
+  timezone: string | null
   capacity: number
   banner_path: string | null
   logo_path: string | null
@@ -86,6 +88,7 @@ export default function EventForm({ event }: { event?: EventRecord }) {
       location: `${city.trim()}, ${countryName(country)}`,
       event_date: eventDate,
       start_time: startTime || null,
+      timezone: timezoneFor(country, city.trim()),
       capacity: cap,
       updated_at: new Date().toISOString(),
     }

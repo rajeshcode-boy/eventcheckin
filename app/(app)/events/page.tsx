@@ -14,6 +14,7 @@ interface Event {
   country: string | null
   city: string | null
   start_time: string | null
+  timezone: string | null
   capacity: number
   status: string
   created_at: string

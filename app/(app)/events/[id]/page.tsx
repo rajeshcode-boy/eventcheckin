@@ -19,6 +19,7 @@ interface Event {
   city: string | null
   event_date: string
   start_time: string | null
+  timezone: string | null
   capacity: number
   status: string
   banner_path: string | null

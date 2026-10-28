@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { countryName } from '@/lib/countries'
 import type { PublicHoliday } from '@/lib/holidays'
+import { zoneShortName } from '@/lib/timezones'
 
 export interface EventDetailsInput {
   location: string
@@ -10,6 +11,7 @@ export interface EventDetailsInput {
   city: string | null
   event_date: string
   start_time: string | null
+  timezone: string | null
 }
 
 // "18:30:00" -> "6:30 PM"
@@ -31,6 +33,8 @@ export default function EventDetailsStrip({ event, compact = false }: { event: E
   const place = event.city && event.country ? `${event.city}, ${countryName(event.country)}` : event.location
   const date = new Date(event.event_date + 'T00:00:00').toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
   const time = formatStartTime(event.start_time)
+  // Start time in the venue's own zone, e.g. "6:30 PM AST"
+  const zoneLabel = event.timezone && event.start_time ? zoneShortName(event.timezone, event.event_date) : ''
 
   useEffect(() => {
     if (!event.country) return
@@ -84,7 +88,7 @@ export default function EventDetailsStrip({ event, compact = false }: { event: E
         <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Date and time</p>
         <p style={{ fontSize: '15px', fontWeight: 600 }}>
           {date}
-          {time && `, ${time}`}
+          {time && `, ${time}${zoneLabel ? ` ${zoneLabel}` : ''}`}
         </p>
       </div>
       {holidays.length > 0 && (

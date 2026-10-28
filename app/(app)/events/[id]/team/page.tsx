@@ -131,7 +131,7 @@ export default function TeamPage() {
       {isAdmin && (
         <section className="card" style={card}>
           <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '10px' }}>Add someone</h3>
-          {unassigned.length === 0 ? (
+          {members.length > 0 && unassigned.length === 0 ? (
             <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px' }}>Everyone in your organisation is already on this event.</p>
           ) : (
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>

@@ -31,6 +31,7 @@ export interface EventRecord {
   capacity: number
   banner_path: string | null
   logo_path: string | null
+  archived_at?: string | null
 }
 
 const labelStyle: React.CSSProperties = { display: 'block', marginBottom: '8px', fontWeight: 500 }

@@ -39,6 +39,9 @@ export default function EventLayout({ children }: { children: React.ReactNode })
             </Link>
           )
         })}
+        <Link href={base} className="event-sidebar-link event-sidebar-back">
+          <span>← This event</span>
+        </Link>
         <Link href="/events" className="event-sidebar-link event-sidebar-back">
           <span>← All events</span>
         </Link>

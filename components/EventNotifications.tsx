@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
@@ -10,6 +11,52 @@ interface NotifItem {
   at: string
 }
 
+interface DigestItem {
+  id: string
+  text: string
+  href: string
+}
+
+const DIGEST_KEY = 'morningDigestSeenOn'
+
+// Upcoming events that still need something, shown once each morning
+async function loadMorningDigest(): Promise<DigestItem[]> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+  const { data: profile } = await supabase.from('profiles').select('organization_id').eq('id', user.id).single()
+  if (!profile) return []
+
+  const { data: events } = await supabase
+    .from('events')
+    .select('id, name, event_date, status, venue_type, start_time, registration_open')
+    .eq('organization_id', profile.organization_id)
+    .neq('status', 'closed')
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const upcoming = (events ?? []).filter((e) => new Date(e.event_date + 'T00:00:00') >= today)
+  if (upcoming.length === 0) return []
+
+  let regs: { event_id: string; registration_status: string }[] = []
+  const { data: regData } = await supabase
+    .from('registrations')
+    .select('event_id, registration_status')
+    .in('event_id', upcoming.map((e) => e.id))
+  regs = regData ?? []
+  const counts: Record<string, number> = {}
+  for (const r of regs) {
+    if (!['cancelled', 'rejected'].includes(r.registration_status)) counts[r.event_id] = (counts[r.event_id] ?? 0) + 1
+  }
+
+  return upcoming.flatMap((e) => {
+    const reasons: string[] = []
+    if (!e.venue_type || e.venue_type === 'tba') reasons.push('venue to be announced')
+    if (!e.start_time) reasons.push('no start time')
+    if (!counts[e.id]) reasons.push('no guests yet')
+    if (!e.registration_open) reasons.push('registration closed')
+    return reasons.length ? [{ id: e.id, text: `${e.name}: ${reasons.join(', ')}`, href: `/events/${e.id}` }] : []
+  })
+}
+
 export default function EventNotifications() {
   const pathname = usePathname()
   // Extract event UUID from /events/[uuid]/... paths
@@ -17,7 +64,27 @@ export default function EventNotifications() {
   const [items, setItems] = useState<NotifItem[]>([])
   const [open, setOpen] = useState(false)
   const [connected, setConnected] = useState(false)
+  const [digest, setDigest] = useState<DigestItem[]>([])
+  const [digestSeen, setDigestSeen] = useState(true)
   const panelRef = useRef<HTMLDivElement>(null)
+
+  // Morning list: loaded once per visit, badged until the bell is opened that day
+  useEffect(() => {
+    let active = true
+    loadMorningDigest()
+      .then((list) => {
+        if (!active) return
+        const today = new Date().toISOString().slice(0, 10)
+        setDigest(list)
+        setDigestSeen(localStorage.getItem(DIGEST_KEY) === today)
+      })
+      .catch(() => {
+        // The bell still works without the morning list
+      })
+    return () => {
+      active = false
+    }
+  }, [])
 
   useEffect(() => {
     if (!eventUuid) {
@@ -73,14 +140,23 @@ export default function EventNotifications() {
     return () => document.removeEventListener('mousedown', handler)
   }, [open])
 
-  const unread = items.length
+  const unread = items.length + (digestSeen ? 0 : digest.length)
+
+  const toggle = () => {
+    // Opening the bell counts the morning list as seen for today
+    if (!open && !digestSeen) {
+      localStorage.setItem(DIGEST_KEY, new Date().toISOString().slice(0, 10))
+      setDigestSeen(true)
+    }
+    setOpen(!open)
+  }
 
   return (
     <div ref={panelRef} style={{ position: 'relative' }}>
       <button
         type="button"
         aria-label={`Notifications${unread ? `, ${unread} new` : ''}`}
-        onClick={() => setOpen((o) => !o)}
+        onClick={toggle}
         style={{
           position: 'relative',
           width: '36px',
@@ -167,7 +243,23 @@ export default function EventNotifications() {
           </div>
 
           <div style={{ maxHeight: '320px', overflowY: 'auto' }}>
-            {items.length === 0 ? (
+            {digest.length > 0 && (
+              <div style={{ borderBottom: '1px solid var(--color-border)' }}>
+                <p style={{ padding: '10px 14px 4px', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--color-text-secondary)' }}>
+                  Today: {digest.length} upcoming {digest.length === 1 ? 'event needs' : 'events need'} attention
+                </p>
+                <ul style={{ listStyle: 'none', margin: 0, padding: '0 0 6px' }}>
+                  {digest.map((d) => (
+                    <li key={d.id}>
+                      <Link href={d.href} onClick={() => setOpen(false)} style={{ display: 'block', padding: '8px 14px', fontSize: '13px', lineHeight: 1.4, color: 'var(--color-text-primary)' }}>
+                        {d.text}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {items.length === 0 && digest.length > 0 ? null : items.length === 0 ? (
               <p style={{ padding: '20px 14px', fontSize: '13px', color: 'var(--color-text-secondary)', textAlign: 'center' }}>
                 {eventUuid ? 'No activity yet — updates appear here in real time.' : 'Open an event to see live activity.'}
               </p>

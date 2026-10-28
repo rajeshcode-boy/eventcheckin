@@ -19,6 +19,7 @@ export interface EventRecord {
   country: string | null
   city: string | null
   event_date: string
+  start_time: string | null
   capacity: number
   banner_path: string | null
   logo_path: string | null
@@ -37,6 +38,7 @@ export default function EventForm({ event }: { event?: EventRecord }) {
   )
   const [city, setCity] = useState(event?.city ?? (event && !event.country ? event.location : '') ?? '')
   const [eventDate, setEventDate] = useState(event?.event_date ?? '')
+  const [startTime, setStartTime] = useState(event?.start_time?.slice(0, 5) ?? '')
   const [capacity, setCapacity] = useState(String(event?.capacity ?? 500))
   const [bannerPath, setBannerPath] = useState(event?.banner_path ?? null)
   const [logoPath, setLogoPath] = useState(event?.logo_path ?? null)
@@ -83,6 +85,7 @@ export default function EventForm({ event }: { event?: EventRecord }) {
       city: city.trim(),
       location: `${city.trim()}, ${countryName(country)}`,
       event_date: eventDate,
+      start_time: startTime || null,
       capacity: cap,
       updated_at: new Date().toISOString(),
     }
@@ -178,6 +181,10 @@ export default function EventForm({ event }: { event?: EventRecord }) {
         <div>
           <label htmlFor="eventDate" style={labelStyle}>Event Date *</label>
           <input id="eventDate" type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} className="input-field" required />
+        </div>
+        <div>
+          <label htmlFor="startTime" style={labelStyle}>Start Time</label>
+          <input id="startTime" type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="input-field" />
         </div>
         <div>
           <label htmlFor="capacity" style={labelStyle}>Guest Capacity</label>

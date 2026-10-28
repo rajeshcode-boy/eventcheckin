@@ -2,6 +2,7 @@
 
 import { useParams, usePathname } from 'next/navigation'
 import Link from 'next/link'
+
 export default function EventLayout({ children }: { children: React.ReactNode }) {
   const params = useParams()
   const pathname = usePathname()

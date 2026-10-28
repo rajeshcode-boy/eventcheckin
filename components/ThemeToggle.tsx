@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react'
 
 type Theme = 'light' | 'dark'
 
-// Light or dark. The choice is stored per browser; without one the system setting applies.
+// Light or dark. Light is the default; dark only applies once the person picks it,
+// and that choice is then remembered per browser (not tied to the OS setting).
 export default function ThemeToggle() {
   const [theme, setTheme] = useState<Theme>('light')
 
@@ -13,10 +14,9 @@ export default function ThemeToggle() {
     try {
       saved = localStorage.getItem('theme')
     } catch {
-      // Storage can be blocked; fall back to the system setting
+      // Storage can be blocked; default to light
     }
-    const system = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-    const current: Theme = saved === 'light' || saved === 'dark' ? saved : system
+    const current: Theme = saved === 'dark' ? 'dark' : 'light'
     setTheme(current)
     document.documentElement.dataset.theme = current
   }, [])

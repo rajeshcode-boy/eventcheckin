@@ -5,9 +5,38 @@ import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
-const MIN_PASSWORD_LENGTH = 6
+const MIN_PASSWORD_LENGTH = 8
 
 const fieldLabel = { display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: 500 } as const
+
+// 0-4: how many of these the password meets (length, lowercase+uppercase, a digit, a symbol)
+function passwordScore(password: string): number {
+  if (!password) return 0
+  let score = 0
+  if (password.length >= MIN_PASSWORD_LENGTH) score++
+  if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score++
+  if (/\d/.test(password)) score++
+  if (/[^a-zA-Z0-9]/.test(password)) score++
+  return score
+}
+
+const STRENGTH = [
+  { label: 'Weak', color: 'var(--color-error-red)' },
+  { label: 'Weak', color: 'var(--color-error-red)' },
+  { label: 'Fair', color: 'var(--color-amber-warning)' },
+  { label: 'Good', color: 'var(--color-primary)' },
+  { label: 'Strong', color: 'var(--color-live)' },
+] as const
+
+function EyeIcon({ open }: { open: boolean }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z" />
+      <circle cx="12" cy="12" r="3" />
+      {!open && <path d="M3 3l18 18" />}
+    </svg>
+  )
+}
 
 export default function SignupPage() {
   const [email, setEmail] = useState('')
@@ -16,15 +45,23 @@ export default function SignupPage() {
   const [lastName, setLastName] = useState('')
   const [orgName, setOrgName] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [agreedToTerms, setAgreedToTerms] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
 
   const passwordLongEnough = password.length >= MIN_PASSWORD_LENGTH
+  const strength = STRENGTH[passwordScore(password)] ?? STRENGTH[0]
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+
+    if (!agreedToTerms) {
+      setError('Agree to the Terms and Conditions and Privacy Policy to continue.')
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -158,23 +195,56 @@ export default function SignupPage() {
                   autoComplete="new-password"
                   minLength={MIN_PASSWORD_LENGTH}
                   required
-                  style={{ paddingRight: '64px' }}
+                  style={{ paddingRight: '44px' }}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((s) => !s)}
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                   aria-pressed={showPassword}
-                  style={{ position: 'absolute', right: '6px', top: '50%', transform: 'translateY(-50%)', padding: '6px 10px', fontSize: '13px', fontWeight: 500, color: 'var(--color-text-secondary)', backgroundColor: 'transparent', borderRadius: '6px' }}
+                  style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', padding: '4px', color: 'var(--color-text-secondary)', backgroundColor: 'transparent', borderRadius: '6px', display: 'flex' }}
                 >
-                  {showPassword ? 'Hide' : 'Show'}
+                  <EyeIcon open={showPassword} />
                 </button>
               </div>
-              <p style={{ marginTop: '8px', fontSize: '13px', color: passwordLongEnough ? 'var(--color-live)' : 'var(--color-text-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+
+              {password && (
+                <div style={{ marginTop: '10px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '6px' }}>
+                    <span style={{ color: 'var(--color-text-secondary)' }}>Password strength:</span>
+                    <span style={{ color: strength.color, fontWeight: 600 }}>{strength.label}</span>
+                  </div>
+                  <div style={{ height: '4px', borderRadius: '999px', backgroundColor: 'var(--color-border)', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${(passwordScore(password) / 4) * 100}%`, backgroundColor: strength.color, transition: 'width 0.15s ease, background-color 0.15s ease' }} />
+                  </div>
+                </div>
+              )}
+
+              <p style={{ marginTop: '10px', fontSize: '13px', color: passwordLongEnough ? 'var(--color-live)' : 'var(--color-text-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <span aria-hidden="true">{passwordLongEnough ? '✓' : '•'}</span>
                 At least {MIN_PASSWORD_LENGTH} characters
               </p>
             </div>
+
+            <label style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', fontSize: '14px', color: 'var(--color-text-secondary)' }}>
+              <input
+                type="checkbox"
+                checked={agreedToTerms}
+                onChange={(e) => setAgreedToTerms(e.target.checked)}
+                style={{ marginTop: '3px' }}
+                required
+              />
+              <span>
+                I agree to the{' '}
+                <Link href="/terms" target="_blank" style={{ color: 'var(--color-primary)', fontWeight: 600 }}>
+                  Terms and Conditions
+                </Link>{' '}
+                and{' '}
+                <Link href="/privacy" target="_blank" style={{ color: 'var(--color-primary)', fontWeight: 600 }}>
+                  Privacy Policy
+                </Link>
+              </span>
+            </label>
 
             {error && (
               <div role="alert" className="alert-error" style={{ borderRadius: 'var(--radius-md)' }}>

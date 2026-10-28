@@ -7,7 +7,6 @@ import EventDetailsStrip from '@/components/EventDetailsStrip'
 
 interface Stats {
   registered: number
-  checkedIn: number
 }
 
 // Days from today to the event date (negative once it has passed)
@@ -26,19 +25,26 @@ function dayLabel(isoDate: string): string {
   return 'ended'
 }
 
-// "in 25 days · 120 of 300 checked in" with a bar showing how many registered guests have arrived
+// Countdown in bold ("49 days to go"), then capacity and how many have registered so far
 function EventProgressRow({ event, stats }: { event: Event; stats: Stats | undefined }) {
-  const pct = stats && stats.registered > 0 ? Math.min(100, Math.round((stats.checkedIn / stats.registered) * 100)) : 0
+  const days = daysUntil(event.event_date)
+  const pct = stats && event.capacity > 0 ? Math.min(100, Math.round((stats.registered / event.capacity) * 100)) : 0
   return (
-    <div style={{ marginTop: '8px', fontSize: '13px', color: 'var(--color-text-secondary)' }}>
-      <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>{dayLabel(event.event_date)}</span>
+    <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+      <div style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>
+        {days > 1 ? (
+          <><strong style={{ fontSize: '18px', color: 'var(--color-text-primary)' }}>{days}</strong> days to go</>
+        ) : (
+          <strong style={{ fontSize: '15px', color: 'var(--color-text-primary)' }}>{dayLabel(event.event_date)}</strong>
+        )}
+      </div>
       {stats && (
-        <>
-          <span> · {stats.checkedIn} of {stats.registered} checked in</span>
-          <div role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} style={{ marginTop: '6px', height: '6px', borderRadius: '999px', backgroundColor: 'var(--color-neutral-light)', maxWidth: '360px', overflow: 'hidden' }}>
-            <div style={{ width: `${pct}%`, height: '100%', backgroundColor: 'var(--color-live)' }} />
+        <div style={{ flex: '1 1 200px', maxWidth: '360px', fontSize: '13px', color: 'var(--color-text-secondary)' }}>
+          <span>Registered <strong style={{ color: 'var(--color-text-primary)' }}>{stats.registered}</strong> of {event.capacity} capacity</span>
+          <div role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} style={{ marginTop: '6px', height: '6px', borderRadius: '999px', backgroundColor: 'var(--color-neutral-light)', overflow: 'hidden' }}>
+            <div style={{ width: `${pct}%`, height: '100%', backgroundColor: 'var(--color-primary)' }} />
           </div>
-        </>
+        </div>
       )}
     </div>
   )
@@ -119,19 +125,15 @@ export default function EventsPage() {
 
       setEvents(data || [])
 
-      // Registration and check-in totals per event, for the progress bars
+      // Registrations so far per event, for the capacity line on each card
       const ids = (data || []).map((e) => e.id)
       if (ids.length > 0) {
-        const [regRes, chkRes] = await Promise.all([
-          supabase.from('registrations').select('event_id, registration_status').in('event_id', ids),
-          supabase.from('checkins').select('event_id').in('event_id', ids),
-        ])
+        const { data: regs } = await supabase.from('registrations').select('event_id, registration_status').in('event_id', ids)
         const next: Record<string, Stats> = {}
-        for (const id of ids) next[id] = { registered: 0, checkedIn: 0 }
-        for (const r of regRes.data ?? []) {
+        for (const id of ids) next[id] = { registered: 0 }
+        for (const r of regs ?? []) {
           if (!['cancelled', 'rejected'].includes(r.registration_status) && next[r.event_id]) next[r.event_id]!.registered += 1
         }
-        for (const c of chkRes.data ?? []) if (next[c.event_id]) next[c.event_id]!.checkedIn += 1
         setStats(next)
       }
     } catch (err) {
@@ -171,16 +173,6 @@ export default function EventsPage() {
 
   const visible = filtered.slice(0, shown)
 
-  // Upcoming events that still need something before the day
-  const attention = useMemo(() => events.flatMap((e) => {
-    if (e.status === 'closed' || daysUntil(e.event_date) < 0) return []
-    const items: string[] = []
-    if (!e.venue_type || e.venue_type === 'tba') items.push('venue to be announced')
-    if (!e.start_time) items.push('no start time')
-    if (stats[e.id]?.registered === 0) items.push('no guests yet')
-    if (!e.registration_open) items.push('registration closed')
-    return items.length ? [{ event: e, items }] : []
-  }), [events, stats])
 
   return (
     <div>
@@ -269,19 +261,6 @@ export default function EventsPage() {
               : `${filtered.length} of ${events.length} events`}
           </p>
 
-          {attention.length > 0 && (
-            <section className="card" aria-label="Needs attention" style={{ padding: '14px 18px', marginBottom: '16px' }}>
-              <h2 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '8px' }}>Needs attention</h2>
-              <ul style={{ listStyle: 'none', display: 'grid', gap: '6px', fontSize: '14px' }}>
-                {attention.map(({ event, items }) => (
-                  <li key={event.id}>
-                    <Link href={`/events/${event.id}`} style={{ fontWeight: 600 }}>{event.name}</Link>
-                    <span style={{ color: 'var(--color-text-secondary)' }}> · {items.join(', ')}</span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
 
           {filtered.length === 0 ? (
             <div className="card" style={{ padding: '32px 24px', textAlign: 'center' }}>

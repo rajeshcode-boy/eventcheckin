@@ -37,7 +37,9 @@ export async function downloadQrPdf(value: string, eventName: string, filename: 
   const title = eventName.length > 60 ? `${eventName.slice(0, 57)}...` : eventName
   const titleWidth = bold.widthOfTextAtSize(title, 24)
   page.drawText(title, { x: (595 - titleWidth) / 2, y: 740, size: 24, font: bold, color: rgb(0.08, 0.15, 0.11) })
-  page.drawText('Scan to check in', { x: 0, y: 712, size: 14, font: regular, color: rgb(0.29, 0.42, 0.37) })
+  const hint = 'Scan to check in'
+  const hintWidth = regular.widthOfTextAtSize(hint, 14)
+  page.drawText(hint, { x: (595 - hintWidth) / 2, y: 712, size: 14, font: regular, color: rgb(0.29, 0.42, 0.37) })
 
   page.drawImage(image, { x: (595 - size) / 2, y: 260, width: size, height: size })
 

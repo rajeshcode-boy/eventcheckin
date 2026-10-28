@@ -9,6 +9,7 @@ import RegistrationSettings, { RegistrationRow } from '@/components/Registration
 import { publicImageUrl } from '@/lib/storage'
 import { countryName } from '@/lib/countries'
 import EventDetailsStrip from '@/components/EventDetailsStrip'
+import { downloadQrPng, downloadQrPdf } from '@/lib/qrExport'
 
 interface Event {
   id: string
@@ -111,6 +112,14 @@ export default function EventDetailPage() {
   const place = event.city && event.country ? `${event.city}, ${countryName(event.country)}` : event.location
   const date = new Date(event.event_date + 'T00:00:00').toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })
 
+  // What the event still needs before the day, from the fields already stored
+  const readiness = [
+    { label: 'Venue confirmed', done: !!event.venue_type && event.venue_type !== 'tba' },
+    { label: 'Start time set', done: !!event.start_time },
+    { label: 'Guests added', done: stats.registered > 0 },
+    { label: 'Registration open', done: event.registration_open },
+  ]
+
   // One line that says what to do next, based on the event's state
   const nextStep = (() => {
     if (event.status === 'closed') return 'This event is closed. Guests can no longer check in.'
@@ -165,6 +174,20 @@ export default function EventDetailPage() {
 
         <EventDetailsStrip event={event} />
 
+        <section className="card" aria-label="Readiness" style={{ padding: '14px 18px', marginBottom: '14px' }}>
+          <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '8px' }}>
+            Readiness: {readiness.filter((r) => r.done).length} of {readiness.length} done
+          </h3>
+          <ul style={{ listStyle: 'none', display: 'grid', gap: '6px', fontSize: '14px' }}>
+            {readiness.map((r) => (
+              <li key={r.label} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <span aria-hidden="true" style={{ color: r.done ? 'var(--color-live)' : 'var(--color-text-secondary)', fontWeight: 700 }}>{r.done ? '✓' : '○'}</span>
+                <span style={{ color: r.done ? 'var(--color-text-primary)' : 'var(--color-text-secondary)' }}>{r.label}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', fontSize: '13px', color: 'var(--color-text-secondary)', marginBottom: '18px' }}>
           <span className="card" style={{ padding: '8px 12px' }}>
             Event ID <code style={{ fontFamily: 'ui-monospace, monospace', color: 'var(--color-text-primary)', fontWeight: 600, marginLeft: '4px' }}>{event.event_id}</code>
@@ -214,6 +237,12 @@ export default function EventDetailPage() {
                 <a href={checkInUrl} target="_blank" rel="noopener noreferrer" className="btn-secondary">
                   Open check-in page
                 </a>
+                <button type="button" className="btn-secondary" onClick={() => downloadQrPng(checkInUrl, `${event.event_id}-check-in`)}>
+                  Download QR (PNG)
+                </button>
+                <button type="button" className="btn-secondary" onClick={() => downloadQrPdf(checkInUrl, event.name, `${event.event_id}-check-in`)}>
+                  Download QR (PDF)
+                </button>
               </div>
             </div>
             <code style={{ display: 'block', marginTop: '14px', fontSize: '12px', wordBreak: 'break-all', color: 'var(--color-text-secondary)' }}>{checkInUrl}</code>

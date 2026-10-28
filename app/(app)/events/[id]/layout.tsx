@@ -2,12 +2,13 @@
 
 import { useParams, usePathname } from 'next/navigation'
 import Link from 'next/link'
+import EventNotifications from './EventNotifications'
 
-// One navigation for every event page: the event's sections in a sidebar on the left
 export default function EventLayout({ children }: { children: React.ReactNode }) {
   const params = useParams()
   const pathname = usePathname()
-  const base = `/events/${params.id as string}`
+  const eventUuid = params.id as string
+  const base = `/events/${eventUuid}`
 
   const sections = [
     { href: base, label: 'Overview', exact: true },
@@ -45,7 +46,12 @@ export default function EventLayout({ children }: { children: React.ReactNode })
         </Link>
       </nav>
 
-      <div className="event-main">{children}</div>
+      <div className="event-main">
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
+          <EventNotifications eventUuid={eventUuid} />
+        </div>
+        {children}
+      </div>
     </div>
   )
 }

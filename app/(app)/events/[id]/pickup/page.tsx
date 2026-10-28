@@ -67,6 +67,13 @@ export default function PickupPage() {
     supabase.auth.getUser().then(({ data }) => setStaffEmail(data.user?.email ?? ''))
     loadRecent()
     inputRef.current?.focus()
+
+    const channel = supabase
+      .channel(`pickup-${eventUuid}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'registrations', filter: `event_id=eq.${eventUuid}` }, loadRecent)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'registrations', filter: `event_id=eq.${eventUuid}` }, loadRecent)
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
   }, [eventUuid])
 
   const lookup = async (raw: string) => {

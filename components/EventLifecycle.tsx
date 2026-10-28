@@ -12,8 +12,7 @@ interface Props {
   logoPath: string | null
 }
 
-const DELETE_WARNING =
-  'Delete this event?\n\nAll of its information will be removed from the database: guests, registrations, check-ins, badges, team assignments and reports.\n\nThis cannot be undone.\n\nWould you still like to delete?'
+type Dialog = 'confirm-delete' | 'not-admin' | 'deleted' | null
 
 // Archive hides an event from the lists and keeps its data. Delete removes everything (admins only).
 export default function EventLifecycle({ eventUuid, name, archivedAt, bannerPath, logoPath }: Props) {
@@ -22,6 +21,7 @@ export default function EventLifecycle({ eventUuid, name, archivedAt, bannerPath
   const [archived, setArchived] = useState(!!archivedAt)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [dialog, setDialog] = useState<Dialog>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -48,12 +48,12 @@ export default function EventLifecycle({ eventUuid, name, archivedAt, bannerPath
     setArchived(!archived)
   }
 
+  const askToDelete = () => {
+    setDialog(isAdmin ? 'confirm-delete' : 'not-admin')
+  }
+
   const deleteEvent = async () => {
-    if (!isAdmin) {
-      alert('Only the admin or owner account can delete events. Ask an admin to delete this event.')
-      return
-    }
-    if (!confirm(DELETE_WARNING)) return
+    setDialog(null)
     setBusy(true)
     setError('')
 
@@ -69,9 +69,7 @@ export default function EventLifecycle({ eventUuid, name, archivedAt, bannerPath
       setError(deleteError?.message ?? 'The event could not be deleted. Only admins can delete events.')
       return
     }
-
-    alert(`Event deleted: ${name}`)
-    router.push('/events')
+    setDialog('deleted')
   }
 
   const section = { marginTop: '32px', padding: '18px', borderRadius: '10px', border: '1px solid var(--color-border)' } as const
@@ -97,7 +95,7 @@ export default function EventLifecycle({ eventUuid, name, archivedAt, bannerPath
         </p>
         <button
           type="button"
-          onClick={deleteEvent}
+          onClick={askToDelete}
           disabled={busy}
           style={{ width: 'auto', minHeight: '44px', padding: '10px 20px', borderRadius: '10px', fontWeight: 600, fontSize: '15px', color: '#fff', backgroundColor: 'var(--color-error-red)', border: 'none', cursor: 'pointer' }}
         >
@@ -106,6 +104,58 @@ export default function EventLifecycle({ eventUuid, name, archivedAt, bannerPath
       </section>
 
       {error && <p className="alert-error">{error}</p>}
+
+      {dialog && (
+        <div role="dialog" aria-modal="true" aria-labelledby="lifecycle-dialog-title" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(15, 23, 42, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', zIndex: 100 }}>
+          <div style={{ width: '100%', maxWidth: '440px', backgroundColor: 'var(--color-surface)', borderRadius: '14px', boxShadow: 'var(--shadow-pop)', padding: '24px' }}>
+            {dialog === 'confirm-delete' && (
+              <>
+                <h2 id="lifecycle-dialog-title" style={{ fontSize: '20px', fontWeight: 700, marginBottom: '10px' }}>Delete this event?</h2>
+                <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)', lineHeight: 1.6, marginBottom: '20px' }}>
+                  Everything in this event will be lost for good: guests, registrations, check-ins, badges, team assignments and reports. Download your data first if you might need it later.
+                </p>
+                <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                  <button type="button" className="btn-secondary" style={{ width: 'auto' }} onClick={() => setDialog(null)}>Cancel</button>
+                  <button
+                    type="button"
+                    onClick={deleteEvent}
+                    style={{ width: 'auto', minHeight: '44px', padding: '10px 18px', borderRadius: '10px', fontWeight: 600, fontSize: '15px', color: '#fff', backgroundColor: 'var(--color-error-red)', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                      <path d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5M11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H1.5a.5.5 0 0 0 0 1h.538l.853 10.66A2 2 0 0 0 4.885 16h6.23a2 2 0 0 0 1.994-1.84l.853-10.66h.538a.5.5 0 0 0 0-1zm1.958 1-.846 10.58a1 1 0 0 1-.997.92h-6.23a1 1 0 0 1-.997-.92L3.042 3.5zm-7.487 1a.5.5 0 0 1 .528.47l.5 8.5a.5.5 0 0 1-.998.06L5 5.03a.5.5 0 0 1 .47-.53Zm5.058 0a.5.5 0 0 1 .47.53l-.5 8.5a.5.5 0 1 1-.998-.06l.5-8.5a.5.5 0 0 1 .528-.47M8 4.5a.5.5 0 0 1 .5.5v8.5a.5.5 0 0 1-1 0V5a.5.5 0 0 1 .5-.5" />
+                    </svg>
+                    Yes, delete event
+                  </button>
+                </div>
+              </>
+            )}
+
+            {dialog === 'not-admin' && (
+              <>
+                <h2 id="lifecycle-dialog-title" style={{ fontSize: '20px', fontWeight: 700, marginBottom: '10px' }}>Only admins can delete</h2>
+                <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)', lineHeight: 1.6, marginBottom: '20px' }}>
+                  Only the admin or owner account can delete events. Ask an admin to delete this event.
+                </p>
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <button type="button" className="btn-primary" style={{ width: 'auto' }} onClick={() => setDialog(null)}>OK</button>
+                </div>
+              </>
+            )}
+
+            {dialog === 'deleted' && (
+              <>
+                <h2 id="lifecycle-dialog-title" style={{ fontSize: '20px', fontWeight: 700, marginBottom: '10px' }}>Event deleted</h2>
+                <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)', lineHeight: 1.6, marginBottom: '20px' }}>
+                  {name} and all of its information has been removed.
+                </p>
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <button type="button" className="btn-primary" style={{ width: 'auto' }} onClick={() => router.push('/events')}>OK</button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

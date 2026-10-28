@@ -10,6 +10,7 @@ const TABS = [
   { href: '/badge-design', label: 'Badge design' },
   { href: '/badges', label: 'Badges' },
   { href: '/pickup', label: 'Pickup' },
+  { href: '/team', label: 'Team' },
   { href: '/report', label: 'Report' },
   { href: '/edit', label: 'Settings' },
 ]

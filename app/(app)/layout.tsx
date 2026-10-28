@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { publicImageUrl } from '@/lib/images'
 import ThemeToggle from '@/components/ThemeToggle'
 import ProfileMenu from '@/components/ProfileMenu'
+import EventNotifications from '@/components/EventNotifications'
 
 const NAV = [
   { href: '/dashboard', label: 'Dashboard' },
@@ -122,6 +123,7 @@ export default function AppLayout({
           </nav>
         </div>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <EventNotifications />
           <ThemeToggle />
           <ProfileMenu
             name={displayName}

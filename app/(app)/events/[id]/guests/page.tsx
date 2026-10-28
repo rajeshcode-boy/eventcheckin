@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
@@ -92,9 +92,24 @@ export default function GuestsPage() {
     setLoading(false)
   }, [eventUuid])
 
+  const reloadTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const scheduleReload = useCallback(() => {
+    if (reloadTimer.current) clearTimeout(reloadTimer.current)
+    reloadTimer.current = setTimeout(loadData, 300)
+  }, [loadData])
+
   useEffect(() => {
     loadData()
-  }, [loadData])
+    const channel = supabase
+      .channel(`guests-${eventUuid}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'registrations', filter: `event_id=eq.${eventUuid}` }, scheduleReload)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'checkins', filter: `event_id=eq.${eventUuid}` }, scheduleReload)
+      .subscribe()
+    return () => {
+      if (reloadTimer.current) clearTimeout(reloadTimer.current)
+      supabase.removeChannel(channel)
+    }
+  }, [eventUuid, loadData, scheduleReload])
 
   // Filter choices come from the attendees' actual values
   const options = useMemo(() => {

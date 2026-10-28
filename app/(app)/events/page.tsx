@@ -56,6 +56,7 @@ interface Event {
   name: string
   location: string
   event_date: string
+  archived_at: string | null
   registration_open: boolean
   country: string | null
   city: string | null
@@ -77,6 +78,7 @@ const STATUS_FILTERS = [
   { value: 'upcoming', label: 'Upcoming' },
   { value: 'live', label: 'Live' },
   { value: 'closed', label: 'Closed' },
+  { value: 'archived', label: 'Archived' },
 ]
 
 const PAGE_SIZE = 10
@@ -144,15 +146,23 @@ export default function EventsPage() {
   }
 
   const counts = useMemo(() => {
-    const result: Record<string, number> = { all: events.length }
-    for (const e of events) result[e.status] = (result[e.status] ?? 0) + 1
+    const result: Record<string, number> = { all: 0 }
+    for (const e of events) {
+      if (e.archived_at) {
+        result.archived = (result.archived ?? 0) + 1
+      } else {
+        result.all = (result.all ?? 0) + 1
+        result[e.status] = (result[e.status] ?? 0) + 1
+      }
+    }
     return result
   }, [events])
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     return events.filter((e) => {
-      if (statusFilter !== 'all' && e.status !== statusFilter) return false
+      if (statusFilter === 'archived' ? !e.archived_at : e.archived_at) return false
+      if (statusFilter !== 'all' && statusFilter !== 'archived' && e.status !== statusFilter) return false
       if (!q) return true
       return [e.name, e.location, e.event_id].some((v) => v?.toLowerCase().includes(q))
     })

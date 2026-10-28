@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import EventForm, { EventRecord } from '@/components/EventForm'
+import EventLifecycle from '@/components/EventLifecycle'
 
 export default function EditEventPage() {
   const params = useParams()
@@ -15,7 +16,7 @@ export default function EditEventPage() {
   useEffect(() => {
     supabase
       .from('events')
-      .select('id, organization_id, event_id, name, location, country, city, event_date, start_time, timezone, venue_type, venue_name, venue_address, venue_map_url, virtual_platform, virtual_link, capacity, banner_path, logo_path')
+      .select('id, organization_id, event_id, name, location, country, city, event_date, start_time, timezone, venue_type, venue_name, venue_address, venue_map_url, virtual_platform, virtual_link, capacity, banner_path, logo_path, archived_at')
       .eq('id', eventUuid)
       .single()
       .then(({ data, error: fetchError }) => {
@@ -36,6 +37,17 @@ export default function EditEventPage() {
         {error && <p className="alert-error">{error}</p>}
         {!event && !error && <p>Loading event...</p>}
         {event && <EventForm event={event} />}
+        {event && (
+          <div style={{ marginTop: '32px' }}>
+            <EventLifecycle
+              eventUuid={eventUuid}
+              name={event.name}
+              archivedAt={event.archived_at ?? null}
+              bannerPath={event.banner_path}
+              logoPath={event.logo_path}
+            />
+          </div>
+        )}
       </div>
     </div>
   )

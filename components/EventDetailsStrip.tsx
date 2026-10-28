@@ -12,6 +12,12 @@ export interface EventDetailsInput {
   event_date: string
   start_time: string | null
   timezone: string | null
+  venue_type: 'in_person' | 'virtual' | 'tba' | null
+  venue_name: string | null
+  venue_address: string | null
+  venue_map_url: string | null
+  virtual_platform: string | null
+  virtual_link: string | null
 }
 
 // "18:30:00" -> "6:30 PM"
@@ -33,6 +39,29 @@ export default function EventDetailsStrip({ event, compact = false }: { event: E
   const [listNeedsUpdate, setListNeedsUpdate] = useState(false)
 
   const place = event.city && event.country ? `${event.city}, ${countryName(event.country)}` : event.location
+
+  // Venue depends on its type: a hotel and address, a virtual platform and link, or TBA
+  const venueSummary: { key: string; text: string; strong?: boolean; href?: string }[] = (() => {
+    if (event.venue_type === 'in_person') {
+      return [
+        { key: 'name', text: event.venue_name || 'Venue name to be added', strong: true },
+        ...(event.venue_address ? [{ key: 'address', text: event.venue_address }] : []),
+        ...(event.venue_map_url ? [{ key: 'map', text: 'Open in maps', href: event.venue_map_url }] : []),
+      ]
+    }
+    if (event.venue_type === 'virtual') {
+      return [
+        { key: 'platform', text: event.virtual_platform || 'Online event', strong: true },
+        ...(event.virtual_link ? [{ key: 'link', text: 'Join link', href: event.virtual_link }] : []),
+      ]
+    }
+    return [{ key: 'tba', text: 'To be announced', strong: true }]
+  })()
+  const venueShort = event.venue_type === 'in_person'
+    ? event.venue_name || 'Venue TBA'
+    : event.venue_type === 'virtual'
+      ? 'Online'
+      : 'Venue TBA'
   const date = new Date(event.event_date + 'T00:00:00').toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
   const time = formatStartTime(event.start_time)
   // Start time in the venue's own zone, e.g. "6:30 PM AST"
@@ -74,6 +103,7 @@ export default function EventDetailsStrip({ event, compact = false }: { event: E
       <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px', marginTop: '4px', overflowWrap: 'anywhere' }}>
         {place} · {date}
         {time && ` · ${time}`}
+        {' · '}{venueShort}
         {next && (
           <span style={{ marginLeft: '8px', ...chipStyle, display: 'inline-block' }}>
             Holiday: {next.name} ({formatHolidayDate(next.date)})
@@ -86,8 +116,16 @@ export default function EventDetailsStrip({ event, compact = false }: { event: E
   return (
     <section className="card" aria-label="Event details" style={{ padding: '14px 18px', display: 'flex', flexWrap: 'wrap', gap: '14px 24px', alignItems: 'center', marginBottom: '14px' }}>
       <div>
-        <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Venue</p>
+        <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Location</p>
         <p style={{ fontSize: '15px', fontWeight: 600 }}>{place}</p>
+      </div>
+      <div style={{ minWidth: 0 }}>
+        <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Venue</p>
+        {venueSummary.map((line) => (
+          <p key={line.key} style={{ fontSize: '15px', fontWeight: line.strong ? 600 : 400, overflowWrap: 'anywhere' }}>
+            {line.href ? <a href={line.href} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-primary)', textDecoration: 'underline' }}>{line.text}</a> : line.text}
+          </p>
+        ))}
       </div>
       <div>
         <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Date and time</p>

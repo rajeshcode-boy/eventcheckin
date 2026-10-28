@@ -22,12 +22,20 @@ export interface EventRecord {
   event_date: string
   start_time: string | null
   timezone: string | null
+  venue_type: VenueType | null
+  venue_name: string | null
+  venue_address: string | null
+  venue_map_url: string | null
+  virtual_platform: string | null
+  virtual_link: string | null
   capacity: number
   banner_path: string | null
   logo_path: string | null
 }
 
 const labelStyle: React.CSSProperties = { display: 'block', marginBottom: '8px', fontWeight: 500 }
+
+export type VenueType = 'in_person' | 'virtual' | 'tba'
 
 // Create (no `event`) or edit an event. The event ID is fixed after creation
 // because it is printed in QR codes and check-in links.
@@ -41,6 +49,12 @@ export default function EventForm({ event }: { event?: EventRecord }) {
   const [city, setCity] = useState(event?.city ?? (event && !event.country ? event.location : '') ?? '')
   const [eventDate, setEventDate] = useState(event?.event_date ?? '')
   const [startTime, setStartTime] = useState(event?.start_time?.slice(0, 5) ?? '')
+  const [venueType, setVenueType] = useState<VenueType>(event?.venue_type ?? 'tba')
+  const [venueName, setVenueName] = useState(event?.venue_name ?? '')
+  const [venueAddress, setVenueAddress] = useState(event?.venue_address ?? '')
+  const [venueMapUrl, setVenueMapUrl] = useState(event?.venue_map_url ?? '')
+  const [virtualPlatform, setVirtualPlatform] = useState(event?.virtual_platform ?? '')
+  const [virtualLink, setVirtualLink] = useState(event?.virtual_link ?? '')
   const [capacity, setCapacity] = useState(String(event?.capacity ?? 500))
   const [bannerPath, setBannerPath] = useState(event?.banner_path ?? null)
   const [logoPath, setLogoPath] = useState(event?.logo_path ?? null)
@@ -89,6 +103,12 @@ export default function EventForm({ event }: { event?: EventRecord }) {
       event_date: eventDate,
       start_time: startTime || null,
       timezone: timezoneFor(country, city.trim()),
+      venue_type: venueType,
+      venue_name: venueType === 'in_person' ? venueName.trim() || null : null,
+      venue_address: venueType === 'in_person' ? venueAddress.trim() || null : null,
+      venue_map_url: venueType === 'in_person' ? venueMapUrl.trim() || null : null,
+      virtual_platform: venueType === 'virtual' ? virtualPlatform.trim() || null : null,
+      virtual_link: venueType === 'virtual' ? virtualLink.trim() || null : null,
       capacity: cap,
       updated_at: new Date().toISOString(),
     }
@@ -193,6 +213,50 @@ export default function EventForm({ event }: { event?: EventRecord }) {
           <label htmlFor="capacity" style={labelStyle}>Guest Capacity</label>
           <input id="capacity" type="number" value={capacity} onChange={(e) => setCapacity(e.target.value)} className="input-field" min="1" required />
         </div>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '16px', borderRadius: '6px', border: '1px solid var(--color-border)' }}>
+        <div>
+          <label htmlFor="venueType" style={labelStyle}>Venue</label>
+          <select id="venueType" value={venueType} onChange={(e) => setVenueType(e.target.value as VenueType)} className="input-field">
+            <option value="tba">To be announced</option>
+            <option value="in_person">In person</option>
+            <option value="virtual">Virtual</option>
+          </select>
+          <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginTop: '6px' }}>
+            Leave as &quot;To be announced&quot; until the venue is confirmed. Guests will see that instead.
+          </p>
+        </div>
+
+        {venueType === 'in_person' && (
+          <div style={{ display: 'grid', gap: '12px' }}>
+            <div>
+              <label htmlFor="venueName" style={labelStyle}>Hotel or venue name</label>
+              <input id="venueName" value={venueName} onChange={(e) => setVenueName(e.target.value)} className="input-field" placeholder="e.g. Hilton Riyadh" />
+            </div>
+            <div>
+              <label htmlFor="venueAddress" style={labelStyle}>Address</label>
+              <input id="venueAddress" value={venueAddress} onChange={(e) => setVenueAddress(e.target.value)} className="input-field" placeholder="Street, area" />
+            </div>
+            <div>
+              <label htmlFor="venueMapUrl" style={labelStyle}>Map link</label>
+              <input id="venueMapUrl" type="url" value={venueMapUrl} onChange={(e) => setVenueMapUrl(e.target.value)} className="input-field" placeholder="https://maps.google.com/..." />
+            </div>
+          </div>
+        )}
+
+        {venueType === 'virtual' && (
+          <div style={{ display: 'grid', gap: '12px' }}>
+            <div>
+              <label htmlFor="virtualPlatform" style={labelStyle}>Platform</label>
+              <input id="virtualPlatform" value={virtualPlatform} onChange={(e) => setVirtualPlatform(e.target.value)} className="input-field" placeholder="e.g. Zoom, Teams" />
+            </div>
+            <div>
+              <label htmlFor="virtualLink" style={labelStyle}>Meeting link</label>
+              <input id="virtualLink" type="url" value={virtualLink} onChange={(e) => setVirtualLink(e.target.value)} className="input-field" placeholder="https://..." />
+            </div>
+          </div>
+        )}
       </div>
 
       <div style={{ padding: '16px', backgroundColor: 'var(--color-neutral-light)', borderRadius: '6px', border: '1px solid var(--color-border)' }}>

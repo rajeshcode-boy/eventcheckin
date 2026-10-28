@@ -15,6 +15,12 @@ interface Event {
   city: string | null
   start_time: string | null
   timezone: string | null
+  venue_type: 'in_person' | 'virtual' | 'tba' | null
+  venue_name: string | null
+  venue_address: string | null
+  venue_map_url: string | null
+  virtual_platform: string | null
+  virtual_link: string | null
   capacity: number
   status: string
   created_at: string

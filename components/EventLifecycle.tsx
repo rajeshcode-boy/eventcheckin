@@ -49,6 +49,10 @@ export default function EventLifecycle({ eventUuid, name, archivedAt, bannerPath
   }
 
   const deleteEvent = async () => {
+    if (!isAdmin) {
+      alert('Only the admin or owner account can delete events. Ask an admin to delete this event.')
+      return
+    }
     if (!confirm(DELETE_WARNING)) return
     setBusy(true)
     setError('')
@@ -86,22 +90,20 @@ export default function EventLifecycle({ eventUuid, name, archivedAt, bannerPath
         </button>
       </section>
 
-      {isAdmin && (
-        <section style={{ ...section, borderColor: 'var(--color-error-red)', backgroundColor: '#fff5f5' }} aria-label="Danger zone">
-          <h2 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--color-error-red)', marginBottom: '6px' }}>Delete event</h2>
-          <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)', marginBottom: '12px' }}>
-            Permanently removes this event and all of its information from the database: guests, registrations, check-ins, badges, team assignments and reports. This cannot be undone.
-          </p>
-          <button
-            type="button"
-            onClick={deleteEvent}
-            disabled={busy}
-            style={{ width: 'auto', minHeight: '44px', padding: '10px 20px', borderRadius: '10px', fontWeight: 600, fontSize: '15px', color: '#fff', backgroundColor: 'var(--color-error-red)', border: 'none', cursor: 'pointer' }}
-          >
-            Delete event
-          </button>
-        </section>
-      )}
+      <section style={{ ...section, borderColor: 'var(--color-error-red)', backgroundColor: '#fff5f5' }} aria-label="Danger zone">
+        <h2 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--color-error-red)', marginBottom: '6px' }}>Delete event</h2>
+        <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)', marginBottom: '12px' }}>
+          Permanently removes this event and all of its information from the database: guests, registrations, check-ins, badges, team assignments and reports. This cannot be undone.
+        </p>
+        <button
+          type="button"
+          onClick={deleteEvent}
+          disabled={busy}
+          style={{ width: 'auto', minHeight: '44px', padding: '10px 20px', borderRadius: '10px', fontWeight: 600, fontSize: '15px', color: '#fff', backgroundColor: 'var(--color-error-red)', border: 'none', cursor: 'pointer' }}
+        >
+          Delete event
+        </button>
+      </section>
 
       {error && <p className="alert-error">{error}</p>}
     </div>

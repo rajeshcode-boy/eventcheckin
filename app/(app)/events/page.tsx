@@ -5,12 +5,52 @@ import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import EventDetailsStrip from '@/components/EventDetailsStrip'
 
+interface Stats {
+  registered: number
+  checkedIn: number
+}
+
+// Days from today to the event date (negative once it has passed)
+function daysUntil(isoDate: string): number {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const event = new Date(isoDate + 'T00:00:00')
+  return Math.round((event.getTime() - today.getTime()) / 86_400_000)
+}
+
+function dayLabel(isoDate: string): string {
+  const d = daysUntil(isoDate)
+  if (d > 1) return `in ${d} days`
+  if (d === 1) return 'tomorrow'
+  if (d === 0) return 'today'
+  return 'ended'
+}
+
+// "in 25 days · 120 of 300 checked in" with a bar showing how many registered guests have arrived
+function EventProgressRow({ event, stats }: { event: Event; stats: Stats | undefined }) {
+  const pct = stats && stats.registered > 0 ? Math.min(100, Math.round((stats.checkedIn / stats.registered) * 100)) : 0
+  return (
+    <div style={{ marginTop: '8px', fontSize: '13px', color: 'var(--color-text-secondary)' }}>
+      <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>{dayLabel(event.event_date)}</span>
+      {stats && (
+        <>
+          <span> · {stats.checkedIn} of {stats.registered} checked in</span>
+          <div role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} style={{ marginTop: '6px', height: '6px', borderRadius: '999px', backgroundColor: 'var(--color-neutral-light)', maxWidth: '360px', overflow: 'hidden' }}>
+            <div style={{ width: `${pct}%`, height: '100%', backgroundColor: 'var(--color-live)' }} />
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 interface Event {
   id: string
   event_id: string
   name: string
   location: string
   event_date: string
+  registration_open: boolean
   country: string | null
   city: string | null
   start_time: string | null
@@ -37,6 +77,7 @@ const PAGE_SIZE = 10
 
 export default function EventsPage() {
   const [events, setEvents] = useState<Event[]>([])
+  const [stats, setStats] = useState<Record<string, Stats>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [query, setQuery] = useState('')
@@ -77,6 +118,22 @@ export default function EventsPage() {
       }
 
       setEvents(data || [])
+
+      // Registration and check-in totals per event, for the progress bars
+      const ids = (data || []).map((e) => e.id)
+      if (ids.length > 0) {
+        const [regRes, chkRes] = await Promise.all([
+          supabase.from('registrations').select('event_id, registration_status').in('event_id', ids),
+          supabase.from('checkins').select('event_id').in('event_id', ids),
+        ])
+        const next: Record<string, Stats> = {}
+        for (const id of ids) next[id] = { registered: 0, checkedIn: 0 }
+        for (const r of regRes.data ?? []) {
+          if (!['cancelled', 'rejected'].includes(r.registration_status) && next[r.event_id]) next[r.event_id]!.registered += 1
+        }
+        for (const c of chkRes.data ?? []) if (next[c.event_id]) next[c.event_id]!.checkedIn += 1
+        setStats(next)
+      }
     } catch (err) {
       setError("Couldn't load your events. Refresh the page to try again.")
     } finally {
@@ -113,6 +170,17 @@ export default function EventsPage() {
   }
 
   const visible = filtered.slice(0, shown)
+
+  // Upcoming events that still need something before the day
+  const attention = useMemo(() => events.flatMap((e) => {
+    if (e.status === 'closed' || daysUntil(e.event_date) < 0) return []
+    const items: string[] = []
+    if (!e.venue_type || e.venue_type === 'tba') items.push('venue to be announced')
+    if (!e.start_time) items.push('no start time')
+    if (stats[e.id]?.registered === 0) items.push('no guests yet')
+    if (!e.registration_open) items.push('registration closed')
+    return items.length ? [{ event: e, items }] : []
+  }), [events, stats])
 
   return (
     <div>
@@ -201,6 +269,20 @@ export default function EventsPage() {
               : `${filtered.length} of ${events.length} events`}
           </p>
 
+          {attention.length > 0 && (
+            <section className="card" aria-label="Needs attention" style={{ padding: '14px 18px', marginBottom: '16px' }}>
+              <h2 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '8px' }}>Needs attention</h2>
+              <ul style={{ listStyle: 'none', display: 'grid', gap: '6px', fontSize: '14px' }}>
+                {attention.map(({ event, items }) => (
+                  <li key={event.id}>
+                    <Link href={`/events/${event.id}`} style={{ fontWeight: 600 }}>{event.name}</Link>
+                    <span style={{ color: 'var(--color-text-secondary)' }}> · {items.join(', ')}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
           {filtered.length === 0 ? (
             <div className="card" style={{ padding: '32px 24px', textAlign: 'center' }}>
               <p style={{ fontWeight: 600, marginBottom: '4px' }}>No events match</p>
@@ -225,6 +307,7 @@ export default function EventsPage() {
                           </Link>
                         </h2>
                         <EventDetailsStrip event={event} compact />
+                        <EventProgressRow event={event} stats={stats[event.id]} />
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '10px', flexWrap: 'wrap' }}>
                           <code style={{ backgroundColor: 'var(--color-neutral-light)', color: 'var(--color-text-primary)', padding: '3px 8px', borderRadius: '6px', fontFamily: 'ui-monospace, monospace', fontSize: '12px', overflowWrap: 'anywhere' }}>
                             {event.event_id}

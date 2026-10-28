@@ -8,6 +8,7 @@ import { QRCodeSVG } from 'qrcode.react'
 import RegistrationSettings, { RegistrationRow } from '@/components/RegistrationSettings'
 import { publicImageUrl } from '@/lib/storage'
 import { countryName } from '@/lib/countries'
+import EventDetailsStrip from '@/components/EventDetailsStrip'
 
 interface Event {
   id: string
@@ -17,6 +18,14 @@ interface Event {
   country: string | null
   city: string | null
   event_date: string
+  start_time: string | null
+  timezone: string | null
+  venue_type: 'in_person' | 'virtual' | 'tba' | null
+  venue_name: string | null
+  venue_address: string | null
+  venue_map_url: string | null
+  virtual_platform: string | null
+  virtual_link: string | null
   capacity: number
   status: string
   banner_path: string | null
@@ -153,6 +162,8 @@ export default function EventDetailPage() {
             )}
           </div>
         </header>
+
+        <EventDetailsStrip event={event} />
 
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', fontSize: '13px', color: 'var(--color-text-secondary)', marginBottom: '18px' }}>
           <span className="card" style={{ padding: '8px 12px' }}>

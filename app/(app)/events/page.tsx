@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import EventDetailsStrip from '@/components/EventDetailsStrip'
 
 interface Event {
   id: string
@@ -10,6 +11,16 @@ interface Event {
   name: string
   location: string
   event_date: string
+  country: string | null
+  city: string | null
+  start_time: string | null
+  timezone: string | null
+  venue_type: 'in_person' | 'virtual' | 'tba' | null
+  venue_name: string | null
+  venue_address: string | null
+  venue_map_url: string | null
+  virtual_platform: string | null
+  virtual_link: string | null
   capacity: number
   status: string
   created_at: string
@@ -213,9 +224,7 @@ export default function EventsPage() {
                             {event.name}
                           </Link>
                         </h2>
-                        <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px', marginTop: '4px', overflowWrap: 'anywhere' }}>
-                          {event.location} · {new Date(event.event_date + 'T00:00:00').toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })}
-                        </p>
+                        <EventDetailsStrip event={event} compact />
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '10px', flexWrap: 'wrap' }}>
                           <code style={{ backgroundColor: 'var(--color-neutral-light)', color: 'var(--color-text-primary)', padding: '3px 8px', borderRadius: '6px', fontFamily: 'ui-monospace, monospace', fontSize: '12px', overflowWrap: 'anywhere' }}>
                             {event.event_id}

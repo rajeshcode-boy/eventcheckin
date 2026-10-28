@@ -15,7 +15,7 @@ export default function EditEventPage() {
   useEffect(() => {
     supabase
       .from('events')
-      .select('id, organization_id, event_id, name, location, country, city, event_date, capacity, banner_path, logo_path')
+      .select('id, organization_id, event_id, name, location, country, city, event_date, start_time, timezone, venue_type, venue_name, venue_address, venue_map_url, virtual_platform, virtual_link, capacity, banner_path, logo_path')
       .eq('id', eventUuid)
       .single()
       .then(({ data, error: fetchError }) => {

@@ -29,6 +29,7 @@ function formatHolidayDate(iso: string): string {
 // `compact` is the one-line version used on the event list.
 export default function EventDetailsStrip({ event, compact = false }: { event: EventDetailsInput; compact?: boolean }) {
   const [holidays, setHolidays] = useState<PublicHoliday[]>([])
+  const [covered, setCovered] = useState(true)
 
   const place = event.city && event.country ? `${event.city}, ${countryName(event.country)}` : event.location
   const date = new Date(event.event_date + 'T00:00:00').toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
@@ -41,9 +42,11 @@ export default function EventDetailsStrip({ event, compact = false }: { event: E
     const today = new Date().toISOString().slice(0, 10)
     let active = true
     fetch(`/api/holidays?country=${event.country}&from=${today}`)
-      .then((r) => (r.ok ? r.json() : { holidays: [] }))
-      .then((data: { holidays: PublicHoliday[] }) => {
-        if (active) setHolidays(data.holidays)
+      .then((r) => (r.ok ? r.json() : { holidays: [], covered: false }))
+      .then((data: { holidays: PublicHoliday[]; covered: boolean }) => {
+        if (!active) return
+        setHolidays(data.holidays)
+        setCovered(data.covered)
       })
       .catch(() => {
         // Holidays are optional; leave the list empty
@@ -91,16 +94,27 @@ export default function EventDetailsStrip({ event, compact = false }: { event: E
           {time && `, ${time}${zoneLabel ? ` ${zoneLabel}` : ''}`}
         </p>
       </div>
-      {holidays.length > 0 && (
+      {event.country && (
         <div style={{ minWidth: 0 }}>
           <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Upcoming public holidays</p>
-          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '4px' }}>
-            {holidays.map((h) => (
-              <span key={h.date + h.name} style={chipStyle}>
-                {h.name} · {formatHolidayDate(h.date)}
-              </span>
-            ))}
-          </div>
+          {holidays.length > 0 ? (
+            <>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '4px' }}>
+                {holidays.map((h) => (
+                  <span key={h.date + h.name} style={chipStyle}>
+                    {h.name} · {formatHolidayDate(h.date)}
+                  </span>
+                ))}
+              </div>
+              <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginTop: '6px' }}>
+                Dates are not official. Confirm with the local authority before you plan around them.
+              </p>
+            </>
+          ) : (
+            <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)', marginTop: '4px' }}>
+              {covered ? 'No upcoming public holidays found.' : 'Holiday information is not available for this country yet.'}
+            </p>
+          )}
         </div>
       )}
     </section>

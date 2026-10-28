@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
 interface NotifItem {
@@ -9,13 +10,21 @@ interface NotifItem {
   at: string
 }
 
-export default function EventNotifications({ eventUuid }: { eventUuid: string }) {
+export default function EventNotifications() {
+  const pathname = usePathname()
+  // Extract event UUID from /events/[uuid]/... paths
+  const eventUuid = pathname?.match(/^\/events\/([^/]+)/)?.[1] ?? null
   const [items, setItems] = useState<NotifItem[]>([])
   const [open, setOpen] = useState(false)
   const [connected, setConnected] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    if (!eventUuid) {
+      setConnected(false)
+      return
+    }
+
     const push = (text: string) =>
       setItems((prev) => [{ id: crypto.randomUUID(), text, at: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }, ...prev].slice(0, 30))
 
@@ -160,7 +169,7 @@ export default function EventNotifications({ eventUuid }: { eventUuid: string })
           <div style={{ maxHeight: '320px', overflowY: 'auto' }}>
             {items.length === 0 ? (
               <p style={{ padding: '20px 14px', fontSize: '13px', color: 'var(--color-text-secondary)', textAlign: 'center' }}>
-                No activity yet — updates appear here in real time.
+                {eventUuid ? 'No activity yet — updates appear here in real time.' : 'Open an event to see live activity.'}
               </p>
             ) : (
               <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>

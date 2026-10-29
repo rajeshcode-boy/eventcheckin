@@ -13,6 +13,7 @@ import { BADGE_BACKGROUND_RULES, ImageRules, LOGO_RULES, validateImageFile } fro
 import { uploadImage } from '@/lib/storage'
 import { useEventRole } from '@/components/EventRoleContext'
 import { canManageEvent } from '@/lib/permissions'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useConfirm } from '@/components/ConfirmDialog'
 
 interface EventInfo {
@@ -67,6 +68,7 @@ export default function BadgeDesignPage() {
   const eventUuid = params.id as string
   const [event, setEvent] = useState<EventInfo | null>(null)
   const role = useEventRole()
+  const [tab, setTab] = useState<'canvas' | 'branding' | 'fields'>('canvas')
   const isAdmin = canManageEvent(role)
   const [designs, setDesigns] = useState<SavedDesign[]>([])
   const [attendees, setAttendees] = useState<PreviewAttendee[]>([])
@@ -279,6 +281,11 @@ export default function BadgeDesignPage() {
     return attendee ? badgeDataFor(attendee, event) : { ...SAMPLE_BADGE_DATA, ...pickEvent(badgeDataFor({ full_name: '', registration_id: '' }, event)) }
   }, [attendees, previewId, event])
 
+  // Picking an element on the canvas opens the Fields tab, where its properties are
+  useEffect(() => {
+    if (selectedId) setTab('fields')
+  }, [selectedId])
+
   if (!event) return error ? <p className="alert-error">{error}</p> : <p>Loading badge designer...</p>
 
   const fitScale = Math.min(560 / design.widthMm, 480 / design.heightMm)
@@ -295,7 +302,7 @@ export default function BadgeDesignPage() {
         <div>
           <h1 style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '8px' }}>Badge Design</h1>
           <p style={{ color: 'var(--color-text-secondary)' }}>
-            {event.name} • Drag elements to move them, drag the blue corner to resize, or use the exact values on the right.
+            {event.name} • Drag elements to move them, drag the blue corner to resize, or type exact values in the panel.
           </p>
         </div>
         <Link href={`/events/${event.id}/badges`} className="btn-secondary">Go to Badge Printing →</Link>
@@ -341,9 +348,76 @@ export default function BadgeDesignPage() {
       {error && <div className="alert-error" style={{ marginBottom: '16px' }}>{error}</div>}
       {notice && <div className="alert-success" style={{ marginBottom: '16px' }}>{notice}</div>}
 
-      <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
-        {/* Live preview */}
-        <div style={{ flex: '1 1 560px', minWidth: 0 }}>
+      {/* Workbench: controls scroll on their own on the left, the preview stays in view on the right */}
+      <div className="grid gap-6 lg:sticky lg:top-[4.5rem] lg:h-[calc(100vh-5.5rem)] lg:min-h-[28rem] lg:grid-cols-[minmax(20rem,26rem)_minmax(0,1fr)]">
+        <div className="order-2 min-h-0 lg:order-1 lg:overflow-y-auto lg:pr-2">
+          <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
+            <TabsList variant="line" aria-label="Badge controls" className="sticky top-0 z-10 w-full justify-start bg-background">
+              <TabsTrigger value="canvas" className="flex-none px-3">Canvas size</TabsTrigger>
+              <TabsTrigger value="branding" className="flex-none px-3">Branding</TabsTrigger>
+              <TabsTrigger value="fields" className="flex-none px-3">Fields{design.elements.length ? ` (${design.elements.length})` : ''}</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="canvas" className="grid gap-3 pt-3">
+              <CanvasSettings design={design} change={change} />
+            </TabsContent>
+
+            <TabsContent value="branding" className="grid gap-3 pt-3">
+              <BrandingSettings design={design} change={change} folder={folder} />
+            </TabsContent>
+
+            <TabsContent value="fields" className="grid gap-3 pt-3">
+            <div style={section}>
+              <h2 style={{ fontSize: '16px', fontWeight: 600 }}>Add element</h2>
+              <AddField onAdd={(field) => addElement(textElement({ ...centred(60, 10), field, size: 14 }))} />
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <button style={small} className="btn-secondary" onClick={() => addElement(textElement({ ...centred(60, 8), source: 'static', text: 'Text', size: 12 }))}>+ Static text</button>
+                <button style={small} className="btn-secondary" onClick={() => addElement({ id: newElementId(), type: 'image', ...centred(24, 16), source: 'event_logo', path: null, label: 'Event logo', keepAspect: true })}>+ Event logo</button>
+                <button style={small} className="btn-secondary" onClick={() => addElement({ id: newElementId(), type: 'image', ...centred(24, 16), source: 'org_logo', path: null, label: 'Organizer logo', keepAspect: true })}>+ Organizer logo</button>
+                <UploadButton
+                  text="+ Sponsor logo"
+                  rules={LOGO_RULES}
+                  folder={folder}
+                  kind="sponsor"
+                  onUploaded={(path) => addElement({ id: newElementId(), type: 'image', ...centred(24, 12), source: 'sponsor', path, label: 'Sponsor logo', keepAspect: true })}
+                  onError={setError}
+                />
+                <button style={small} className="btn-secondary" onClick={() => addElement({ id: newElementId(), type: 'qr', ...centred(18, 18), color: '#111827' })}>+ QR code</button>
+                <button style={small} className="btn-secondary" onClick={() => addElement({ id: newElementId(), type: 'rect', ...centred(40, 10), fill: '#10b981', stroke: null, strokeWidth: 0, radius: 0 })}>+ Shape</button>
+              </div>
+              {!images.eventLogoPath && !images.orgLogoPath && (
+                <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>
+                  No event or organizer logo yet. Add one under <Link href={`/events/${event.id}/edit`} style={{ textDecoration: 'underline' }}>Edit Event</Link> or <Link href="/organization" style={{ textDecoration: 'underline' }}>Organization</Link>.
+                </p>
+              )}
+            </div>
+
+            <div style={section}>
+              <h2 style={{ fontSize: '16px', fontWeight: 600 }}>Layers <span style={{ fontWeight: 400, fontSize: '13px', color: 'var(--color-text-secondary)' }}>(top of list is drawn on top)</span></h2>
+              {design.elements.length === 0 && <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>No elements.</p>}
+              <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                {[...design.elements].reverse().map((el) => (
+                  <li key={el.id} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 6px', borderRadius: '4px', backgroundColor: el.id === selectedId ? 'var(--color-neutral-light)' : undefined }}>
+                    <button onClick={() => setSelectedId(el.id)} style={{ flex: 1, textAlign: 'left', background: 'none', color: 'inherit', fontSize: '13px', padding: '6px 4px', fontWeight: el.id === selectedId ? 600 : 400 }}>
+                      {elementName(el)}
+                    </button>
+                    <button title="Bring forward" aria-label="Bring forward" className="btn-secondary" style={{ ...small, padding: '4px 8px' }} onClick={() => moveLayer(el.id, 1)}>↑</button>
+                    <button title="Send backward" aria-label="Send backward" className="btn-secondary" style={{ ...small, padding: '4px 8px' }} onClick={() => moveLayer(el.id, -1)}>↓</button>
+                    <button title="Duplicate" aria-label="Duplicate" className="btn-secondary" style={{ ...small, padding: '4px 8px' }} onClick={() => duplicateElement(el)}>⧉</button>
+                    <button title="Remove" aria-label="Remove" className="btn-secondary" style={{ ...small, padding: '4px 8px', color: 'var(--color-error-red)' }} onClick={() => removeElement(el.id)}>✕</button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {selected && (
+              <ElementProperties key={selected.id} el={selected} design={design} onChange={updateElement} folder={folder} onError={setError} />
+            )}
+            </TabsContent>
+          </Tabs>
+        </div>
+
+        <div className="order-1 min-h-0 lg:order-2 lg:overflow-y-auto">
           <div style={{ padding: '24px', backgroundColor: 'var(--color-neutral-light)', borderRadius: '8px', overflow: 'auto', display: 'flex', justifyContent: 'center' }}>
             <BadgePreview
               design={design}
@@ -372,58 +446,6 @@ export default function BadgeDesignPage() {
               {round(design.widthMm)} × {round(design.heightMm)} mm • Arrow keys nudge (Shift = 5 mm), Delete removes
             </span>
           </div>
-        </div>
-
-        {/* Editing panel */}
-        <div style={{ flex: '1 1 340px', maxWidth: '460px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <BadgeSettings design={design} change={change} folder={folder} />
-
-          <div style={section}>
-            <h2 style={{ fontSize: '16px', fontWeight: 600 }}>Add element</h2>
-            <AddField onAdd={(field) => addElement(textElement({ ...centred(60, 10), field, size: 14 }))} />
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              <button style={small} className="btn-secondary" onClick={() => addElement(textElement({ ...centred(60, 8), source: 'static', text: 'Text', size: 12 }))}>+ Static text</button>
-              <button style={small} className="btn-secondary" onClick={() => addElement({ id: newElementId(), type: 'image', ...centred(24, 16), source: 'event_logo', path: null, label: 'Event logo', keepAspect: true })}>+ Event logo</button>
-              <button style={small} className="btn-secondary" onClick={() => addElement({ id: newElementId(), type: 'image', ...centred(24, 16), source: 'org_logo', path: null, label: 'Organizer logo', keepAspect: true })}>+ Organizer logo</button>
-              <UploadButton
-                text="+ Sponsor logo"
-                rules={LOGO_RULES}
-                folder={folder}
-                kind="sponsor"
-                onUploaded={(path) => addElement({ id: newElementId(), type: 'image', ...centred(24, 12), source: 'sponsor', path, label: 'Sponsor logo', keepAspect: true })}
-                onError={setError}
-              />
-              <button style={small} className="btn-secondary" onClick={() => addElement({ id: newElementId(), type: 'qr', ...centred(18, 18), color: '#111827' })}>+ QR code</button>
-              <button style={small} className="btn-secondary" onClick={() => addElement({ id: newElementId(), type: 'rect', ...centred(40, 10), fill: '#10b981', stroke: null, strokeWidth: 0, radius: 0 })}>+ Shape</button>
-            </div>
-            {!images.eventLogoPath && !images.orgLogoPath && (
-              <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>
-                No event or organizer logo yet. Add one under <Link href={`/events/${event.id}/edit`} style={{ textDecoration: 'underline' }}>Edit Event</Link> or <Link href="/organization" style={{ textDecoration: 'underline' }}>Organization</Link>.
-              </p>
-            )}
-          </div>
-
-          <div style={section}>
-            <h2 style={{ fontSize: '16px', fontWeight: 600 }}>Layers <span style={{ fontWeight: 400, fontSize: '13px', color: 'var(--color-text-secondary)' }}>(top of list is drawn on top)</span></h2>
-            {design.elements.length === 0 && <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>No elements.</p>}
-            <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              {[...design.elements].reverse().map((el) => (
-                <li key={el.id} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 6px', borderRadius: '4px', backgroundColor: el.id === selectedId ? 'var(--color-neutral-light)' : undefined }}>
-                  <button onClick={() => setSelectedId(el.id)} style={{ flex: 1, textAlign: 'left', background: 'none', color: 'inherit', fontSize: '13px', padding: '6px 4px', fontWeight: el.id === selectedId ? 600 : 400 }}>
-                    {elementName(el)}
-                  </button>
-                  <button title="Bring forward" aria-label="Bring forward" className="btn-secondary" style={{ ...small, padding: '4px 8px' }} onClick={() => moveLayer(el.id, 1)}>↑</button>
-                  <button title="Send backward" aria-label="Send backward" className="btn-secondary" style={{ ...small, padding: '4px 8px' }} onClick={() => moveLayer(el.id, -1)}>↓</button>
-                  <button title="Duplicate" aria-label="Duplicate" className="btn-secondary" style={{ ...small, padding: '4px 8px' }} onClick={() => duplicateElement(el)}>⧉</button>
-                  <button title="Remove" aria-label="Remove" className="btn-secondary" style={{ ...small, padding: '4px 8px', color: 'var(--color-error-red)' }} onClick={() => removeElement(el.id)}>✕</button>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {selected && (
-            <ElementProperties key={selected.id} el={selected} design={design} onChange={updateElement} folder={folder} onError={setError} />
-          )}
         </div>
       </div>
     </div>
@@ -502,14 +524,13 @@ function AddField({ onAdd }: { onAdd: (field: TextElement['field']) => void }) {
   )
 }
 
-function BadgeSettings({ design, change, folder }: { design: BadgeDesign; change: (d: BadgeDesign) => void; folder: string }) {
-  const [error, setError] = useState('')
+function CanvasSettings({ design, change }: { design: BadgeDesign; change: (d: BadgeDesign) => void }) {
   const presetIndex = SIZE_PRESETS.findIndex((p) => Math.abs(p.w - design.widthMm) < 0.2 && Math.abs(p.h - design.heightMm) < 0.2)
   const landscape = design.widthMm >= design.heightMm
 
   return (
     <div style={section}>
-      <h2 style={{ fontSize: '16px', fontWeight: 600 }}>Badge</h2>
+      <h2 style={{ fontSize: '16px', fontWeight: 600 }}>Canvas size</h2>
       <div>
         <label style={label} htmlFor="size-preset">Size</label>
         <select
@@ -539,6 +560,16 @@ function BadgeSettings({ design, change, folder }: { design: BadgeDesign; change
         <button className={landscape ? 'btn-primary' : 'btn-secondary'} style={{ ...small, flex: 1 }} onClick={() => !landscape && change(rotateDesign(design))}>Landscape</button>
         <button className={!landscape ? 'btn-primary' : 'btn-secondary'} style={{ ...small, flex: 1 }} onClick={() => landscape && change(rotateDesign(design))}>Portrait</button>
       </div>
+    </div>
+  )
+}
+
+function BrandingSettings({ design, change, folder }: { design: BadgeDesign; change: (d: BadgeDesign) => void; folder: string }) {
+  const [error, setError] = useState('')
+
+  return (
+    <div style={section}>
+      <h2 style={{ fontSize: '16px', fontWeight: 600 }}>Branding</h2>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
         <div>
           <label style={label} htmlFor="bg-color">Background</label>

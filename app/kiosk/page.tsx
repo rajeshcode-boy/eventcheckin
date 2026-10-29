@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils'
 import { clearAll, dequeue, enqueue, getGuests, getQueue, putGuest, replaceGuests } from '@/lib/kiosk/db'
 import { matchScan, searchGuests } from '@/lib/kiosk/search'
 import { clearSession, loadSession, saveSession } from '@/lib/kiosk/session'
-import { describeConflict, flushQueue } from '@/lib/kiosk/sync'
+import { describeConflict, flushQueue, isOwnRecentCheckin } from '@/lib/kiosk/sync'
 import type { KioskGuest, KioskSession, QueuedScan, SyncResult } from '@/lib/kiosk/types'
 import { useConfirm } from '@/components/ConfirmDialog'
 
@@ -218,6 +218,8 @@ function Desk({ session, onUnpair }: { session: KioskSession; onUnpair: () => vo
   }, [])
 
   const checkIn = async (g: KioskGuest, method: 'qr' | 'manual') => {
+    // Camera re-reading the code of someone this kiosk just checked in: keep the success banner
+    if (method === 'qr' && isOwnRecentCheckin(g, session.kioskCode)) return
     setQuery('')
     inputRef.current?.focus()
     if (g.checked_in_at) {

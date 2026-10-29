@@ -1,5 +1,5 @@
 import { matchScan, searchGuests, sha256Hex } from '../lib/kiosk/search'
-import { BATCH_SIZE, describeConflict, flushQueue } from '../lib/kiosk/sync'
+import { BATCH_SIZE, describeConflict, flushQueue, isOwnRecentCheckin, RESCAN_WINDOW_MS } from '../lib/kiosk/sync'
 import type { KioskGuest, QueuedScan, SyncResult } from '../lib/kiosk/types'
 
 const guest = (over: Partial<KioskGuest>): KioskGuest => ({
@@ -101,5 +101,21 @@ describe('describeConflict', () => {
   it('uses a friendly label when known and falls back to the desk', () => {
     expect(describeConflict({ by_kiosk: 'KSK-GATE-02', checked_in_at: '2026-01-01T10:14:00Z' }, { 'KSK-GATE-02': 'Gate 2' })).toContain('by Gate 2')
     expect(describeConflict({ checked_in_at: undefined })).toBe('Already checked in at earlier by the desk')
+  })
+})
+
+describe('isOwnRecentCheckin', () => {
+  const now = Date.parse('2026-01-01T10:00:30Z')
+  const at = (secondsAgo: number) => new Date(now - secondsAgo * 1000).toISOString()
+
+  it('ignores a rescan of someone this kiosk just checked in', () => {
+    expect(isOwnRecentCheckin({ checked_in_at: at(5), checked_in_by: 'KSK-A' }, 'KSK-A', now)).toBe(true)
+  })
+  it('does not hide a real conflict later, or one made by another kiosk', () => {
+    expect(isOwnRecentCheckin({ checked_in_at: at(RESCAN_WINDOW_MS / 1000 + 5), checked_in_by: 'KSK-A' }, 'KSK-A', now)).toBe(false)
+    expect(isOwnRecentCheckin({ checked_in_at: at(5), checked_in_by: 'KSK-B' }, 'KSK-A', now)).toBe(false)
+  })
+  it('is false for guests not checked in', () => {
+    expect(isOwnRecentCheckin({ checked_in_at: null, checked_in_by: null }, 'KSK-A', now)).toBe(false)
   })
 })

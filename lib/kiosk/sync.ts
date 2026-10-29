@@ -42,3 +42,18 @@ export function describeConflict(r: Pick<SyncResult, 'checked_in_at' | 'by_kiosk
   const by = r.by_kiosk ? (labels[r.by_kiosk] ?? r.by_kiosk) : 'the desk'
   return `Already checked in at ${time} by ${by}`
 }
+
+export const RESCAN_WINDOW_MS = 15000
+
+// The camera keeps reading a QR code that is still in front of it. A guest this kiosk checked in a
+// moment ago is the same scan again, not a conflict, so it should be ignored instead of shown as
+// "already checked in" over the success banner.
+export function isOwnRecentCheckin(
+  g: { checked_in_at: string | null; checked_in_by: string | null },
+  kioskCode: string,
+  now = Date.now()
+): boolean {
+  if (!g.checked_in_at || g.checked_in_by !== kioskCode) return false
+  const age = now - new Date(g.checked_in_at).getTime()
+  return age >= 0 && age < RESCAN_WINDOW_MS
+}

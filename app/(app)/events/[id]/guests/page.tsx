@@ -21,7 +21,6 @@ import GuestDrawer from './GuestDrawer'
 import { useEventRole } from '@/components/EventRoleContext'
 import { canManageGuests } from '@/lib/permissions'
 import { Alert } from '@/components/ui/alert'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { NativeSelect } from '@/components/ui/native-select'
@@ -492,28 +491,17 @@ export default function GuestsPage() {
           </div>
 
           {/* Pagination */}
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-x-6 gap-y-2 text-sm text-muted-foreground">
-            <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-              <span>
-                {filtered.length === 0 ? '0' : `${(currentPage - 1) * pageSize + 1}–${(currentPage - 1) * pageSize + pageRows.length}`} of {filtered.length}
-              </span>
-              <label className="flex items-center gap-2">
-                Rows per page
-                <NativeSelect value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))} className="h-8 w-[76px]">
-                  {PAGE_SIZES.map((n) => <option key={n} value={n}>{n}</option>)}
-                </NativeSelect>
-              </label>
-            </div>
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+            <label className="flex items-center gap-2 text-sm">
+              Rows per page
+              <NativeSelect value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))} className="h-10 w-[90px]">
+                {PAGE_SIZES.map((n) => <option key={n} value={n}>{n}</option>)}
+              </NativeSelect>
+            </label>
             <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={() => setPage(currentPage - 1)} disabled={currentPage <= 1}>
-                <ChevronLeft aria-hidden="true" />
-                Previous
-              </Button>
-              <span className="px-1 text-foreground">Page {currentPage} of {pageCount}</span>
-              <Button variant="outline" onClick={() => setPage(currentPage + 1)} disabled={currentPage >= pageCount}>
-                Next
-                <ChevronRight aria-hidden="true" />
-              </Button>
+              <Button variant="outline" onClick={() => setPage(currentPage - 1)} disabled={currentPage <= 1}>Previous</Button>
+              <span className="text-sm">Page {currentPage} of {pageCount}</span>
+              <Button variant="outline" onClick={() => setPage(currentPage + 1)} disabled={currentPage >= pageCount}>Next</Button>
             </div>
           </div>
         </>

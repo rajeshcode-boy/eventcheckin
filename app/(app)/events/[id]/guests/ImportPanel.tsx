@@ -2,6 +2,11 @@
 
 import { useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { Alert } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { NativeSelect } from '@/components/ui/native-select'
+import { cn } from '@/lib/utils'
 import {
   DuplicateConflict,
   GUEST_FIELDS,
@@ -19,12 +24,8 @@ import {
   rowsToGuests,
 } from '@/lib/guests'
 
-export const panelStyle: React.CSSProperties = {
-  padding: '16px',
-  border: '1px solid var(--color-border)',
-  borderRadius: '6px',
-  marginBottom: '24px',
-}
+// Shared look of the add, edit, bulk-edit and import panels
+export const panelClass = 'mb-6 rounded-md border border-border p-4'
 
 const MAPPING_STORAGE_KEY = 'eventcheckin.columnMapping'
 const MAX_ROWS = 5000
@@ -200,54 +201,53 @@ export default function ImportPanel({
     (g && [g.full_name, g.email, g.phone, g.company].filter(Boolean).join(' • ')) || '(empty)'
 
   return (
-    <div style={panelStyle}>
-      <h2 style={{ fontSize: '20px', fontWeight: 600, marginBottom: '16px' }}>Import attendees</h2>
+    <div className={panelClass}>
+      <h2 className="mb-4 text-xl font-semibold">Import attendees</h2>
 
       {stage === 'file' && (
         <div>
-          <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)', marginBottom: '12px' }}>
+          <p className="mb-3 text-sm text-muted-foreground">
             Upload a .csv, .xlsx or .xls file. The first row must be column headers. Only the first sheet is read.
           </p>
-          <input
+          <Input
             type="file"
             accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
             onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
             disabled={busy}
-            className="input-field"
+            className="h-auto py-2"
             aria-label="Attendee list file"
           />
-          {busy && <p style={{ marginTop: '8px' }}>Reading file...</p>}
+          {busy && <p className="mt-2">Reading file...</p>}
         </div>
       )}
 
       {stage === 'map' && (
         <div>
-          <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)', marginBottom: '12px' }}>
+          <p className="mb-3 text-sm text-muted-foreground">
             <strong>{fileName}</strong>: {rows.length} row(s). Match each column to a guest field. Your choices are remembered for the next upload.
           </p>
-          <div style={{ overflowX: 'auto', marginBottom: '16px' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+          <div className="mb-4 overflow-x-auto">
+            <table className="w-full border-collapse text-sm">
               <thead>
-                <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--color-border)' }}>
-                  <th style={cell}>Column in file</th>
-                  <th style={cell}>Example</th>
-                  <th style={cell}>Import as</th>
+                <tr className="border-b border-border text-left">
+                  <th className={cell}>Column in file</th>
+                  <th className={cell}>Example</th>
+                  <th className={cell}>Import as</th>
                 </tr>
               </thead>
               <tbody>
                 {headers.map((h, i) => (
-                  <tr key={i} style={{ borderBottom: '1px solid var(--color-border)' }}>
-                    <td style={{ ...cell, fontWeight: 500 }}>{h || `(column ${i + 1})`}</td>
-                    <td style={{ ...cell, color: 'var(--color-text-secondary)', maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <tr key={i} className="border-b border-border">
+                    <td className={cn(cell, 'font-medium')}>{h || `(column ${i + 1})`}</td>
+                    <td className={cn(cell, 'max-w-[220px] overflow-hidden text-ellipsis text-muted-foreground')}>
                       {rows.find((r) => r[i]?.trim())?.[i] ?? ''}
                     </td>
-                    <td style={cell}>
-                      <select
+                    <td className={cell}>
+                      <NativeSelect
                         value={mapping[i]}
                         onChange={(e) => setColumnField(i, e.target.value as GuestField | '')}
-                        className="input-field"
+                        className="h-10 min-w-[200px]"
                         aria-label={`Field for column ${h}`}
-                        style={{ minWidth: '200px' }}
                       >
                         <option value="">— Ignore —</option>
                         {GUEST_FIELDS.map((f) => (
@@ -255,27 +255,23 @@ export default function ImportPanel({
                             {f.label}
                           </option>
                         ))}
-                      </select>
+                      </NativeSelect>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-            <button className="btn-primary" onClick={handleCheck}>
-              Check for duplicates
-            </button>
-            <button className="btn-secondary" onClick={() => setStage('file')}>
-              Choose another file
-            </button>
+          <div className="flex flex-wrap gap-3">
+            <Button onClick={handleCheck}>Check for duplicates</Button>
+            <Button variant="outline" onClick={() => setStage('file')}>Choose another file</Button>
           </div>
         </div>
       )}
 
       {stage === 'review' && (
         <div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px', marginBottom: '16px' }}>
+          <div className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-3">
             <Stat label="Rows in file" value={guests.length} />
             <Stat label="Will be added" value={plan.inserts.length} />
             <Stat label="Will update" value={plan.updates.length} />
@@ -284,22 +280,22 @@ export default function ImportPanel({
           </div>
 
           {conflicts.length > 0 && (
-            <div style={{ marginBottom: '16px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
-                <h3 style={{ fontSize: '16px', fontWeight: 600 }}>Duplicates found</h3>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', fontSize: '14px' }}>
+            <div className="mb-4">
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-base font-semibold">Duplicates found</h3>
+                <div className="flex flex-wrap items-center gap-2 text-sm">
                   Set all:
                   {(['first', 'second', 'both'] as Resolution[]).map((r) => (
-                    <button key={r} type="button" className="btn-secondary" onClick={() => setAll(r)} style={{ padding: '4px 12px', minHeight: '32px' }}>
+                    <Button key={r} type="button" variant="outline" size="sm" onClick={() => setAll(r)}>
                       {RESOLUTION_LABELS[r]}
-                    </button>
+                    </Button>
                   ))}
                 </div>
               </div>
-              <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)', marginBottom: '8px' }}>
+              <p className="mb-2 text-sm text-muted-foreground">
                 &quot;First&quot; is the guest already on the list (or the earlier row). &quot;Second&quot; replaces it with the new row. &quot;Keep both&quot; isn&apos;t possible for the same email.
               </p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div className="flex flex-col gap-2">
                 {conflicts.map((c) => {
                   const first = c.match.kind === 'existing' ? c.match.guest : guests[c.match.rowIndex]
                   const firstLabel = c.match.kind === 'existing'
@@ -307,15 +303,15 @@ export default function ImportPanel({
                     : `Row ${c.match.rowIndex + 2} of file`
                   const current = resolutions[c.rowIndex] ?? 'first'
                   return (
-                    <div key={c.rowIndex} className="alert-warning" style={{ fontSize: '14px' }}>
-                      <p style={{ fontWeight: 600, marginBottom: '4px' }}>
+                    <Alert key={c.rowIndex} variant="warning">
+                      <p className="mb-1 font-semibold">
                         Same {c.reason === 'email' ? 'email' : 'name + company'}
                       </p>
                       <p>First — {firstLabel}: {describeRow(first)}</p>
-                      <p style={{ marginBottom: '8px' }}>Second — Row {c.rowIndex + 2} of file: {describeRow(guests[c.rowIndex])}</p>
-                      <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+                      <p className="mb-2">Second — Row {c.rowIndex + 2} of file: {describeRow(guests[c.rowIndex])}</p>
+                      <div className="flex flex-wrap gap-4">
                         {allowedResolutions(c).map((r) => (
-                          <label key={r} style={{ display: 'flex', alignItems: 'center', gap: '6px', minHeight: '32px' }}>
+                          <label key={r} className="flex min-h-8 items-center gap-1.5">
                             <input
                               type="radio"
                               name={`dup-${c.rowIndex}`}
@@ -326,7 +322,7 @@ export default function ImportPanel({
                           </label>
                         ))}
                       </div>
-                    </div>
+                    </Alert>
                   )
                 })}
               </div>
@@ -334,11 +330,11 @@ export default function ImportPanel({
           )}
 
           {plan.skipped.length > 0 && (
-            <details style={{ marginBottom: '16px', fontSize: '14px' }}>
-              <summary style={{ cursor: 'pointer', fontWeight: 500 }}>
+            <details className="mb-4 text-sm">
+              <summary className="cursor-pointer font-medium">
                 {plan.skipped.length} row(s) will be skipped
               </summary>
-              <ul style={{ marginTop: '8px', paddingLeft: '20px' }}>
+              <ul className="mt-2 pl-5">
                 {plan.skipped.map((s) => (
                   <li key={s.rowIndex}>
                     Row {s.rowIndex + 2}: {s.reason}
@@ -348,37 +344,33 @@ export default function ImportPanel({
             </details>
           )}
 
-          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-            <button
-              className="btn-primary"
-              onClick={handleImport}
-              disabled={busy || plan.inserts.length + plan.updates.length === 0}
-            >
+          <div className="flex flex-wrap gap-3">
+            <Button onClick={handleImport} disabled={busy || plan.inserts.length + plan.updates.length === 0}>
               {busy ? 'Importing...' : `Import ${plan.inserts.length} guest(s)${plan.updates.length ? ` and update ${plan.updates.length}` : ''}`}
-            </button>
-            <button className="btn-secondary" onClick={() => setStage('map')} disabled={busy}>
+            </Button>
+            <Button variant="outline" onClick={() => setStage('map')} disabled={busy}>
               Back to column matching
-            </button>
+            </Button>
           </div>
         </div>
       )}
 
       {error && (
-        <div className="alert-error" style={{ marginTop: '16px', whiteSpace: 'pre-line' }}>
+        <Alert variant="error" className="mt-4 whitespace-pre-line">
           {error}
-        </div>
+        </Alert>
       )}
     </div>
   )
 }
 
-const cell: React.CSSProperties = { padding: '8px 12px', whiteSpace: 'nowrap' }
+const cell = 'whitespace-nowrap px-3 py-2'
 
 function Stat({ label, value }: { label: string; value: number }) {
   return (
-    <div style={{ padding: '12px', border: '1px solid var(--color-border)', borderRadius: '6px' }}>
-      <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)' }}>{label}</p>
-      <p style={{ fontSize: '20px', fontWeight: 600 }}>{value}</p>
+    <div className="rounded-md border border-border p-3">
+      <p className="text-sm text-muted-foreground">{label}</p>
+      <p className="text-xl font-semibold">{value}</p>
     </div>
   )
 }

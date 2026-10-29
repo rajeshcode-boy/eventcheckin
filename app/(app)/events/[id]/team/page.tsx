@@ -4,6 +4,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useEventRole } from '@/components/EventRoleContext'
+import { Alert } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import { NativeSelect } from '@/components/ui/native-select'
+import { cn } from '@/lib/utils'
 import { canAssignOwner, canManageTeam, EVENT_ROLES, ROLE_DESCRIPTIONS, ROLE_LABELS, type EventRole as Role } from '@/lib/permissions'
 
 const ROLES: { value: Role; label: string }[] = EVENT_ROLES.map((value) => ({ value, label: ROLE_LABELS[value] }))
@@ -112,73 +116,76 @@ export default function TeamPage() {
 
   if (loading) return <p>Loading team...</p>
 
-  const card = { padding: '16px 18px' } as const
+  const card = 'rounded-xl border border-border bg-card p-4'
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      <section className="card" style={card}>
-        <h2 style={{ fontSize: '18px', fontWeight: 600 }}>Team on this event</h2>
-        <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px', marginTop: '4px' }}>
+    <div className="flex flex-col gap-4">
+      <section className={card}>
+        <h2 className="text-lg font-semibold">Team on this event</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
           {assignments.length} assigned · {onSiteCount} on site now
         </p>
-        <ul style={{ listStyle: 'none', marginTop: '10px', display: 'grid', gap: '4px', fontSize: '13px', color: 'var(--color-text-secondary)' }}>
+        <ul className="mt-2.5 grid gap-1 text-[13px] text-muted-foreground">
           {assignable.map((r) => <li key={r.value}><b>{r.label}:</b> {ROLE_DESCRIPTIONS[r.value]}</li>)}
         </ul>
-        {error && <p className="alert-error" style={{ marginTop: '12px' }}>{error}</p>}
+        {error && <Alert variant="error" className="mt-3">{error}</Alert>}
       </section>
 
       {isAdmin && (
-        <section className="card" style={card}>
-          <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '10px' }}>Add someone</h3>
+        <section className={card}>
+          <h3 className="mb-2.5 text-base font-semibold">Add someone</h3>
           {members.length > 0 && unassigned.length === 0 ? (
-            <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px' }}>Everyone in your organisation is already on this event.</p>
+            <p className="text-sm text-muted-foreground">Everyone in your organisation is already on this event.</p>
           ) : (
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              <select value={newProfile} onChange={(e) => setNewProfile(e.target.value)} className="input-field" style={{ maxWidth: '260px' }} aria-label="Team member">
+            <div className="flex flex-wrap gap-2">
+              <NativeSelect value={newProfile} onChange={(e) => setNewProfile(e.target.value)} className="max-w-65" aria-label="Team member">
                 <option value="">Choose a person</option>
                 {unassigned.map((m) => (
                   <option key={m.id} value={m.id}>{m.full_name || 'Unnamed member'}</option>
                 ))}
-              </select>
-              <select value={newRole} onChange={(e) => setNewRole(e.target.value as Role)} className="input-field" style={{ maxWidth: '200px' }} aria-label="Role">
+              </NativeSelect>
+              <NativeSelect value={newRole} onChange={(e) => setNewRole(e.target.value as Role)} className="max-w-50" aria-label="Role">
                 {assignable.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
-              </select>
-              <button type="button" className="btn-primary" style={{ width: 'auto' }} onClick={addMember} disabled={!newProfile}>Add</button>
+              </NativeSelect>
+              <Button type="button" onClick={addMember} disabled={!newProfile}>Add</Button>
             </div>
           )}
         </section>
       )}
 
-      <section className="card" style={card}>
+      <section className={card}>
         {assignments.length === 0 ? (
-          <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px' }}>No one is assigned to this event yet.</p>
+          <p className="text-sm text-muted-foreground">No one is assigned to this event yet.</p>
         ) : (
-          <ul style={{ listStyle: 'none', display: 'grid', gap: '10px' }}>
+          <ul className="grid gap-2.5">
             {assignments.map((a) => {
               const mine = a.profile_id === me
               return (
-                <li key={a.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap', borderBottom: '1px solid var(--color-border)', paddingBottom: '10px' }}>
+                <li key={a.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-2.5 last:border-b-0 last:pb-0">
                   <div>
-                    <p style={{ fontWeight: 600 }}>{a.profiles?.full_name || 'Unnamed member'}{mine && <span style={{ color: 'var(--color-text-secondary)', fontWeight: 400 }}> (you)</span>}</p>
+                    <p className="font-semibold">
+                      {a.profiles?.full_name || 'Unnamed member'}
+                      {mine && <span className="font-normal text-muted-foreground"> (you)</span>}
+                    </p>
                     {isAdmin && (a.role !== 'owner' || canAssignOwner(myRole)) ? (
-                      <select value={a.role} onChange={(e) => changeRole(a.id, e.target.value as Role)} className="input-field" style={{ marginTop: '4px', maxWidth: '200px' }} aria-label={`Role for ${a.profiles?.full_name ?? 'member'}`}>
+                      <NativeSelect value={a.role} onChange={(e) => changeRole(a.id, e.target.value as Role)} className="mt-1 max-w-50" aria-label={`Role for ${a.profiles?.full_name ?? 'member'}`}>
                         {assignable.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
-                      </select>
+                      </NativeSelect>
                     ) : (
-                      <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>{ROLES.find((r) => r.value === a.role)?.label}</p>
+                      <p className="text-[13px] text-muted-foreground">{ROLES.find((r) => r.value === a.role)?.label}</p>
                     )}
                   </div>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <span style={{ fontSize: '13px', fontWeight: 600, color: a.on_site ? 'var(--color-live)' : 'var(--color-text-secondary)' }}>
+                  <div className="flex items-center gap-2">
+                    <span className={cn('text-[13px] font-semibold', a.on_site ? 'text-[var(--color-live)]' : 'text-muted-foreground')}>
                       {a.on_site ? 'On site' : 'Off site'}
                     </span>
                     {mine && (
-                      <button type="button" className="btn-secondary" style={{ width: 'auto', minHeight: '36px' }} onClick={() => toggleOnSite(a)}>
+                      <Button type="button" variant="outline" size="sm" onClick={() => toggleOnSite(a)}>
                         {a.on_site ? 'Mark off site' : 'Mark on site'}
-                      </button>
+                      </Button>
                     )}
                     {isAdmin && (
-                      <button type="button" className="btn-secondary" style={{ width: 'auto', minHeight: '36px' }} onClick={() => remove(a.id)}>Remove</button>
+                      <Button type="button" variant="outline" size="sm" onClick={() => remove(a.id)}>Remove</Button>
                     )}
                   </div>
                 </li>

@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { Input } from '@/components/ui/input'
+import { cn } from '@/lib/utils'
 
 export interface SearchOption {
   value: string
@@ -90,8 +92,8 @@ export default function SearchSelect({ id, options, value, onChange, placeholder
   }
 
   return (
-    <div ref={wrapRef} style={{ position: 'relative' }}>
-      <input
+    <div ref={wrapRef} className="relative">
+      <Input
         id={id}
         type="text"
         role="combobox"
@@ -100,7 +102,7 @@ export default function SearchSelect({ id, options, value, onChange, placeholder
         aria-autocomplete="list"
         aria-label={ariaLabel}
         autoComplete="off"
-        className="input-field"
+        className="h-10 text-base"
         value={text}
         placeholder={placeholder}
         required={required}
@@ -118,11 +120,7 @@ export default function SearchSelect({ id, options, value, onChange, placeholder
         <ul
           id={listId}
           role="listbox"
-          style={{
-            position: 'absolute', zIndex: 20, left: 0, right: 0, top: '100%', marginTop: '4px', maxHeight: '240px',
-            overflowY: 'auto', listStyle: 'none', backgroundColor: 'var(--color-white)', border: '1px solid var(--color-border)',
-            borderRadius: '6px', boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
-          }}
+          className="absolute inset-x-0 top-full z-20 mt-1 max-h-60 overflow-y-auto rounded-md border border-border bg-card shadow-lg"
         >
           {matches.map((o, i) => (
             <li
@@ -134,11 +132,7 @@ export default function SearchSelect({ id, options, value, onChange, placeholder
                 pick(o)
               }}
               onMouseEnter={() => setActive(i)}
-              style={{
-                padding: '10px 12px', cursor: 'pointer', fontSize: '15px',
-                backgroundColor: i === active ? 'var(--color-neutral-light)' : undefined,
-                fontWeight: o.value === value ? 600 : undefined,
-              }}
+              className={cn('cursor-pointer px-3 py-2.5 text-[15px]', i === active && 'bg-muted', o.value === value && 'font-semibold')}
             >
               {o.label}
             </li>

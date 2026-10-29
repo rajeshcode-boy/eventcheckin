@@ -3,6 +3,16 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import { toast } from 'sonner'
+import { Search, X, Copy, Check, CalendarDays } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
+import { Card } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Alert } from '@/components/ui/alert'
+import { cn } from '@/lib/utils'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import EventDetailsStrip from '@/components/EventDetailsStrip'
 
 interface Stats {
@@ -30,19 +40,20 @@ function EventProgressRow({ event, stats }: { event: Event; stats: Stats | undef
   const days = daysUntil(event.event_date)
   const pct = stats && event.capacity > 0 ? Math.min(100, Math.round((stats.registered / event.capacity) * 100)) : 0
   return (
-    <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-      <div style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>
+    <div className="mt-2.5 flex flex-wrap items-center gap-4">
+      <div className="text-[13px] text-muted-foreground">
         {days > 1 ? (
-          <><strong style={{ fontSize: '18px', color: 'var(--color-text-primary)' }}>{days}</strong> days to go</>
+          <><strong className="text-lg text-foreground">{days}</strong> days to go</>
         ) : (
-          <strong style={{ fontSize: '15px', color: 'var(--color-text-primary)' }}>{dayLabel(event.event_date)}</strong>
+          <strong className="text-[15px] text-foreground">{dayLabel(event.event_date)}</strong>
         )}
       </div>
       {stats && (
-        <div style={{ flex: '1 1 200px', maxWidth: '360px', fontSize: '13px', color: 'var(--color-text-secondary)' }}>
-          <span>Registered <strong style={{ color: 'var(--color-text-primary)' }}>{stats.registered}</strong> of {event.capacity} capacity</span>
-          <div role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} style={{ marginTop: '6px', height: '6px', borderRadius: '999px', backgroundColor: 'var(--color-neutral-light)', overflow: 'hidden' }}>
-            <div style={{ width: `${pct}%`, height: '100%', backgroundColor: 'var(--color-primary)' }} />
+        <div className="max-w-[360px] flex-1 basis-[200px] text-[13px] text-muted-foreground">
+          <span>Registered <strong className="text-foreground">{stats.registered}</strong> of {event.capacity} capacity</span>
+          <div role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted">
+            {/* the width is data, so it stays inline */}
+            <div className="h-full bg-primary" style={{ width: `${pct}%` }} />
           </div>
         </div>
       )}
@@ -91,7 +102,6 @@ export default function EventsPage() {
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [shown, setShown] = useState(PAGE_SIZE)
-  const [copiedId, setCopiedId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchEvents()
@@ -170,8 +180,7 @@ export default function EventsPage() {
 
   const copyId = (eventId: string) => {
     navigator.clipboard.writeText(eventId).then(() => {
-      setCopiedId(eventId)
-      setTimeout(() => setCopiedId((id) => (id === eventId ? null : id)), 1500)
+      toast.success('Copied!', { description: eventId })
     })
   }
 
@@ -186,162 +195,105 @@ export default function EventsPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '16px', flexWrap: 'wrap', marginBottom: '24px' }}>
-        <div style={{ minWidth: 0 }}>
-          <h1 style={{ fontSize: '28px', fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.2 }}>My events</h1>
-          <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px', marginTop: '6px' }}>
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-[28px] leading-tight font-bold tracking-[-0.02em]">My events</h1>
+          <p className="mt-1.5 text-sm text-muted-foreground">
             Manage guests, check-in and badges for each event.
           </p>
         </div>
-        <Link href="/events/create" className="btn-primary" style={{ width: 'auto' }}>
-          + New event
-        </Link>
+        <Button render={<Link href="/events/create" />}>+ New event</Button>
       </div>
 
       {error && (
-        <div className="alert-error" role="alert" style={{ marginBottom: '24px' }}>
+        <Alert variant="error" className="mb-6">
           {error}
-        </div>
+        </Alert>
       )}
 
       {loading ? (
-        <div aria-busy="true" aria-label="Loading events" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div aria-busy="true" aria-label="Loading events" className="flex flex-col gap-2.5">
           {[0, 1, 2].map((i) => (
-            <div key={i} className="card" style={{ height: '96px', backgroundColor: 'var(--color-surface-muted)' }} />
+            <Skeleton key={i} className="h-[72px] w-full" />
           ))}
         </div>
       ) : events.length === 0 ? (
-        <div className="card" style={{ padding: '48px 24px', textAlign: 'center' }}>
-          <div aria-hidden="true" style={{ width: '48px', height: '48px', margin: '0 auto 16px', borderRadius: '14px', backgroundColor: 'var(--color-primary-soft)', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', fontWeight: 700 }}>
-            +
+        <Card className="px-6 py-12 text-center">
+          <div aria-hidden="true" className="mx-auto mb-4 flex size-12 items-center justify-center rounded-[14px] bg-accent text-primary">
+            <CalendarDays size={22} />
           </div>
-          <p style={{ fontWeight: 600, fontSize: '16px', marginBottom: '6px' }}>No events yet</p>
-          <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px', maxWidth: '360px', margin: '0 auto 20px', lineHeight: 1.5 }}>
+          <p className="mb-1.5 text-base font-semibold">No events yet</p>
+          <p className="mx-auto mb-5 max-w-[360px] text-sm leading-normal text-muted-foreground">
             An event is one gathering you check guests in for. Create one, then add its guests and print badges.
           </p>
-          <Link href="/events/create" className="btn-primary" style={{ width: 'auto' }}>
-            + Create your first event
-          </Link>
-        </div>
+          <Button render={<Link href="/events/create" />}>+ Create your first event</Button>
+        </Card>
       ) : (
         <>
-          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '16px' }}>
-            <input
-              type="search"
-              className="input-field"
-              value={query}
-              onChange={(e) => { setQuery(e.target.value); setShown(PAGE_SIZE) }}
-              placeholder="Search by name, location or ID"
-              aria-label="Search events"
-              style={{ flex: '1 1 240px', width: 'auto' }}
-            />
-            <div role="group" aria-label="Filter by status" style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-              {STATUS_FILTERS.map((f) => {
-                const active = statusFilter === f.value
-                return (
-                  <button
-                    key={f.value}
-                    type="button"
-                    aria-pressed={active}
-                    onClick={() => { setStatusFilter(f.value); setShown(PAGE_SIZE) }}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      padding: '8px 14px',
-                      minHeight: '40px',
-                      borderRadius: '999px',
-                      fontSize: '14px',
-                      fontWeight: active ? 600 : 500,
-                      color: active ? 'var(--color-primary)' : 'var(--color-text-secondary)',
-                      backgroundColor: active ? 'var(--color-primary-soft)' : 'transparent',
-                    }}
-                  >
-                    {f.label}
-                    <span style={{ fontSize: '12px', fontWeight: 600, opacity: 0.8 }}>{counts[f.value] ?? 0}</span>
-                  </button>
-                )
-              })}
+          <div className="mb-4 flex flex-wrap items-center gap-3">
+            <div className="relative flex-1 basis-60">
+              <Search size={16} className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                type="search"
+                value={query}
+                onChange={(e) => { setQuery(e.target.value); setShown(PAGE_SIZE) }}
+                placeholder="Search by name, location or ID"
+                aria-label="Search events"
+                className={cn('h-9 pl-8', query && 'pr-8')}
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => setQuery('')}
+                  aria-label="Clear search"
+                  className="absolute top-1/2 right-1.5 flex -translate-y-1/2 text-muted-foreground"
+                >
+                  <X size={16} />
+                </button>
+              )}
             </div>
+            <Tabs value={statusFilter} onValueChange={(v) => { setStatusFilter(v as string); setShown(PAGE_SIZE) }}>
+              <TabsList>
+                {STATUS_FILTERS.map((f) => (
+                  <TabsTrigger key={f.value} value={f.value} className="gap-1.5">
+                    {f.label}
+                    <Badge variant="secondary" className="h-4 px-1.5 text-[11px]">
+                      {counts[f.value] ?? 0}
+                    </Badge>
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
           </div>
 
-          <p aria-live="polite" style={{ color: 'var(--color-text-secondary)', fontSize: '13px', marginBottom: '12px' }}>
+          <p aria-live="polite" className="mb-3 text-[13px] text-muted-foreground">
             {filtered.length === events.length
               ? `${events.length} ${events.length === 1 ? 'event' : 'events'}`
               : `${filtered.length} of ${events.length} events`}
           </p>
 
-
           {filtered.length === 0 ? (
-            <div className="card" style={{ padding: '32px 24px', textAlign: 'center' }}>
-              <p style={{ fontWeight: 600, marginBottom: '4px' }}>No events match</p>
-              <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px', marginBottom: '16px' }}>
+            <Card className="px-6 py-8 text-center">
+              <p className="mb-1 font-semibold">No events match</p>
+              <p className="mb-4 text-sm text-muted-foreground">
                 Try a different name, location or ID, or show all statuses.
               </p>
-              <button type="button" onClick={clearFilters} className="btn-secondary" style={{ width: 'auto' }}>
-                Clear search and filters
-              </button>
-            </div>
+              <Button variant="outline" onClick={clearFilters}>Clear search and filters</Button>
+            </Card>
           ) : (
-            <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {visible.map((event) => {
-                const live = event.status === 'live'
-                return (
-                  <li key={event.id} className="card event-row" style={{ position: 'relative', padding: '16px 18px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
-                      <div style={{ minWidth: 0, flex: '1 1 auto' }}>
-                        <h2 style={{ fontSize: '17px', fontWeight: 600, lineHeight: 1.3, overflowWrap: 'anywhere' }}>
-                          <Link href={`/events/${event.id}`} className="event-row-link" style={{ color: 'inherit' }}>
-                            {event.name}
-                          </Link>
-                        </h2>
-                        <EventDetailsStrip event={event} compact />
-                        <EventProgressRow event={event} stats={stats[event.id]} />
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '10px', flexWrap: 'wrap' }}>
-                          <code style={{ backgroundColor: 'var(--color-neutral-light)', color: 'var(--color-text-primary)', padding: '3px 8px', borderRadius: '6px', fontFamily: 'ui-monospace, monospace', fontSize: '12px', overflowWrap: 'anywhere' }}>
-                            {event.event_id}
-                          </code>
-                          <button
-                            type="button"
-                            onClick={() => copyId(event.event_id)}
-                            aria-label={`Copy event ID ${event.event_id}`}
-                            style={{ position: 'relative', zIndex: 1, fontSize: '12px', fontWeight: 500, color: 'var(--color-text-secondary)', padding: '4px 10px', borderRadius: '6px', border: '1px solid var(--color-border)', minHeight: '28px', backgroundColor: 'var(--color-surface)' }}
-                          >
-                            {copiedId === event.event_id ? 'Copied' : 'Copy'}
-                          </button>
-                        </div>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
-                        <span style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          padding: '4px 10px',
-                          borderRadius: '999px',
-                          fontSize: '12px',
-                          fontWeight: 600,
-                          textTransform: 'capitalize',
-                          backgroundColor: live ? 'var(--color-live-soft)' : 'var(--color-neutral-light)',
-                          color: live ? 'var(--color-live)' : 'var(--color-text-secondary)',
-                        }}>
-                          {live && <span aria-hidden="true" style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--color-live)' }} />}
-                          {event.status}
-                        </span>
-                        <span aria-hidden="true" style={{ color: 'var(--color-text-secondary)', fontSize: '18px', lineHeight: 1 }}>›</span>
-                      </div>
-                    </div>
-                  </li>
-                )
-              })}
+            <ul className="flex flex-col gap-2">
+              {visible.map((event) => (
+                <EventRow key={event.id} event={event} stats={stats[event.id]} onCopyId={copyId} />
+              ))}
             </ul>
           )}
 
           {shown < filtered.length && (
-            <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-              <button type="button" onClick={() => setShown((s) => s + PAGE_SIZE)} className="btn-secondary" style={{ width: 'auto' }}>
+            <div className="mt-5 flex flex-col items-center gap-2">
+              <Button variant="outline" onClick={() => setShown((s) => s + PAGE_SIZE)}>
                 Load more
-              </button>
-              <p style={{ color: 'var(--color-text-secondary)', fontSize: '13px' }}>
+              </Button>
+              <p className="text-[13px] text-muted-foreground">
                 Showing {visible.length} of {filtered.length}
               </p>
             </div>
@@ -349,5 +301,60 @@ export default function EventsPage() {
         </>
       )}
     </div>
+  )
+}
+
+const STATUS_BADGE: Record<string, { className: string; label: string; dot?: boolean }> = {
+  upcoming: { className: 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300', label: 'Upcoming' },
+  live: { className: 'bg-[var(--color-live-soft)] text-[var(--color-live)]', label: 'Live', dot: true },
+  closed: { className: 'bg-muted text-muted-foreground', label: 'Closed' },
+}
+
+function EventRow({ event, stats, onCopyId }: { event: Event; stats: Stats | undefined; onCopyId: (id: string) => void }) {
+  const [copied, setCopied] = useState(false)
+  const badge = STATUS_BADGE[event.status] ?? STATUS_BADGE.closed!
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    onCopyId(event.event_id)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1200)
+  }
+
+  return (
+    <li>
+      {/* Card isn't polymorphic, so the clickable "whole row" is a styled Link. */}
+      <Link
+        href={`/events/${event.id}/enter`}
+        className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3 hover:border-muted-foreground"
+      >
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-[15px] font-semibold [overflow-wrap:anywhere]">{event.name}</h2>
+            <Badge className={badge.className}>
+              {badge.dot && <span aria-hidden="true" className="size-1.5 rounded-full bg-(--color-live)" />}
+              {badge.label}
+            </Badge>
+          </div>
+          <EventDetailsStrip event={event} compact />
+          <EventProgressRow event={event} stats={stats} />
+          <div className="mt-1.5 flex items-center gap-1">
+            <code className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-[11px] text-foreground [overflow-wrap:anywhere]">
+              {event.event_id}
+            </code>
+            <button
+              type="button"
+              onClick={handleCopy}
+              aria-label={`Copy event ID ${event.event_id}`}
+              className="relative z-10 flex rounded-md p-1 text-muted-foreground"
+            >
+              {copied ? <Check size={13} /> : <Copy size={13} />}
+            </button>
+          </div>
+        </div>
+        <span aria-hidden="true" className="shrink-0 text-lg leading-none text-muted-foreground">›</span>
+      </Link>
+    </li>
   )
 }

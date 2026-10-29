@@ -11,6 +11,11 @@ import {
 } from '@/lib/badgeDesign'
 import type { PrintLayout } from '@/lib/badgePdf'
 import BadgePreview from '@/components/BadgePreview'
+import { Alert } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { NativeSelect } from '@/components/ui/native-select'
+import { cn } from '@/lib/utils'
 
 interface EventInfo {
   id: string
@@ -108,6 +113,12 @@ export default function BadgesPage() {
     loadData()
   }, [loadData])
 
+  // Arriving from a guest's drawer (?guest=<id>): start with that guest selected
+  useEffect(() => {
+    const guestId = new URLSearchParams(window.location.search).get('guest')
+    if (guestId) setSelected(new Set([guestId]))
+  }, [])
+
   // Saved design chosen for printing, or the built-in default template
   const design: BadgeDesign = useMemo(() => {
     const saved = designs.find((d) => d.id === designId)
@@ -177,93 +188,92 @@ export default function BadgesPage() {
     loadData()
   }
 
-  if (!event) return error ? <p className="alert-error">{error}</p> : <p>Loading badges...</p>
+  if (!event) return error ? <Alert variant="error">{error}</Alert> : <p>Loading badges...</p>
 
   const grid = sheetGrid(layout.paper, design.widthMm, design.heightMm)
   const cardScale = CARD_WIDTH_PX / design.widthMm
   const selectedList = attendees.filter((a) => selected.has(a.id))
 
   return (
-    <div style={{ maxWidth: '1400px' }}>
-
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', flexWrap: 'wrap', gap: '16px', marginBottom: '16px' }}>
+    <div className="max-w-[1400px]">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '8px' }}>Badge Printing</h1>
-          <p style={{ color: 'var(--color-text-secondary)', fontSize: '16px' }}>
+          <h1 className="mb-2 text-[28px] font-bold">Badge Printing</h1>
+          <p className="text-base text-muted-foreground">
             {event.name} • {attendees.length} attendee{attendees.length === 1 ? '' : 's'} • {lastPrint.size} printed
           </p>
         </div>
-        <Link href={`/events/${event.id}/badge-design`} className="btn-secondary">Edit badge design</Link>
+        <Button variant="outline" render={<Link href={`/events/${event.id}/badge-design`} />} nativeButton={false}>Edit badge design</Button>
       </div>
 
       {/* Design and page layout */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', padding: '12px', border: '1px solid var(--color-border)', borderRadius: '6px', marginBottom: '16px' }}>
-        <label style={{ fontSize: '14px' }}>
+      <div className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3 rounded-md border border-border p-3">
+        <label className="grid gap-1 text-sm">
           Design
-          <select className="input-field" value={designId} onChange={(e) => setDesignId(e.target.value)} style={{ marginTop: '4px' }}>
+          <NativeSelect className="h-10" value={designId} onChange={(e) => setDesignId(e.target.value)}>
             {designs.length === 0 && <option value="">Default template</option>}
             {designs.map((d) => <option key={d.id} value={d.id}>{d.name}{d.is_default ? ' (default)' : ''}</option>)}
-          </select>
+          </NativeSelect>
         </label>
-        <label style={{ fontSize: '14px' }}>
+        <label className="grid gap-1 text-sm">
           Page layout
-          <select className="input-field" value={layout.mode} onChange={(e) => setLayout({ ...layout, mode: e.target.value as PrintLayout['mode'] })} style={{ marginTop: '4px' }}>
+          <NativeSelect className="h-10" value={layout.mode} onChange={(e) => setLayout({ ...layout, mode: e.target.value as PrintLayout['mode'] })}>
             <option value="single">One badge per page (badge printers)</option>
             <option value="sheet">Several per sheet (office printers)</option>
-          </select>
+          </NativeSelect>
         </label>
         {layout.mode === 'sheet' && (
           <>
-            <label style={{ fontSize: '14px' }}>
+            <label className="grid gap-1 text-sm">
               Paper
-              <select className="input-field" value={layout.paper} onChange={(e) => setLayout({ ...layout, paper: e.target.value as Paper })} style={{ marginTop: '4px' }}>
+              <NativeSelect className="h-10" value={layout.paper} onChange={(e) => setLayout({ ...layout, paper: e.target.value as Paper })}>
                 {(Object.keys(PAPER_SIZES) as Paper[]).map((p) => <option key={p} value={p}>{PAPER_SIZES[p].label}</option>)}
-              </select>
+              </NativeSelect>
             </label>
-            <div style={{ fontSize: '14px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', gap: '6px' }}>
-              <label style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <div className="flex flex-col justify-end gap-1.5 text-sm">
+              <label className="flex items-center gap-2">
                 <input type="checkbox" checked={layout.guides} onChange={(e) => setLayout({ ...layout, guides: e.target.checked })} /> Cut guides
               </label>
-              <span style={{ color: grid.perPage ? 'var(--color-text-secondary)' : 'var(--color-error-red)' }}>
+              <span className={grid.perPage ? 'text-muted-foreground' : 'text-destructive'}>
                 {grid.perPage ? `${grid.perPage} badges per sheet (${grid.cols} × ${grid.rows})` : 'Badge is too large for this paper'}
               </span>
             </div>
           </>
         )}
       </div>
-      <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginBottom: '16px' }}>
+      <p className="mb-4 text-[13px] text-muted-foreground">
         Badge size {Math.round(design.widthMm * 10) / 10} × {Math.round(design.heightMm * 10) / 10} mm. In the print dialog choose &quot;Actual size&quot; (100%) so badges aren&apos;t rescaled.
       </p>
 
-      {notice && <div className="alert-success" style={{ marginBottom: '16px' }}>{notice}</div>}
-      {error && <div className="alert-error" style={{ marginBottom: '16px' }}>{error}</div>}
+      {notice && <Alert variant="success" className="mb-4">{notice}</Alert>}
+      {error && <Alert variant="error" className="mb-4">{error}</Alert>}
 
-      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '16px' }}>
-        <input
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <Input
           type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="input-field"
+          className="h-10 min-w-[280px] flex-1"
           placeholder="Search name, company, designation or reg ID"
           aria-label="Search attendees"
-          style={{ flex: '1 1 280px' }}
         />
-        <button className="btn-primary" onClick={() => openPreview(selectedList)} disabled={busy || selectedList.length === 0}>
+        <Button onClick={() => openPreview(selectedList)} disabled={busy || selectedList.length === 0}>
           Print selected ({selectedList.length})
-        </button>
-        <button className="btn-secondary" onClick={() => openPreview(filtered)} disabled={busy || filtered.length === 0}>
+        </Button>
+        <Button variant="outline" onClick={() => openPreview(filtered)} disabled={busy || filtered.length === 0}>
           Print all shown ({filtered.length})
-        </button>
-        {selected.size > 0 && <button className="btn-secondary" onClick={() => setSelected(new Set())}>Clear selection</button>}
-        {busy && <span style={{ fontSize: '14px' }}>Preparing PDF...</span>}
+        </Button>
+        {selected.size > 0 && <Button variant="outline" onClick={() => setSelected(new Set())}>Clear selection</Button>}
+        {busy && <span className="text-sm">Preparing PDF...</span>}
       </div>
 
       {filtered.length === 0 ? (
-        <div style={{ padding: '32px', textAlign: 'center', border: '1px solid var(--color-border)', borderRadius: '6px', color: 'var(--color-text-secondary)' }}>
+        <div className="rounded-md border border-border p-8 text-center text-muted-foreground">
           {attendees.length === 0 ? 'No attendees yet. Add them in Attendees.' : 'No attendees match your search.'}
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${CARD_WIDTH_PX + 26}px, 1fr))`, gap: '16px' }}>
+        // 326px = CARD_WIDTH_PX (300) plus the card's padding and border
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(326px,1fr))] gap-4">
           {filtered.map((a) => (
             <BadgeCard
               key={a.id}
@@ -330,24 +340,24 @@ function PrintPreview({ preview, onClose, onPrinted, fileName }: { preview: Prev
   }, [onClose])
 
   return (
-    <div role="dialog" aria-modal="true" aria-label="Print preview" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 50, display: 'flex', flexDirection: 'column', padding: '16px' }}>
-      <div style={{ backgroundColor: 'var(--color-white)', borderRadius: '8px', display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', maxWidth: '1100px', width: '100%', margin: '0 auto' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap', padding: '12px 16px', borderBottom: '1px solid var(--color-border)' }}>
+    <div role="dialog" aria-modal="true" aria-label="Print preview" className="fixed inset-0 z-50 flex flex-col bg-black/60 p-4">
+      <div className="mx-auto flex w-full max-w-[1100px] flex-1 flex-col overflow-hidden rounded-lg bg-background">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
           <div>
-            <h2 style={{ fontSize: '18px', fontWeight: 600 }}>Print preview</h2>
-            <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>
+            <h2 className="text-lg font-semibold">Print preview</h2>
+            <p className="text-[13px] text-muted-foreground">
               {preview.attendees.length} badge{preview.attendees.length === 1 ? '' : 's'} on {preview.pages} page{preview.pages === 1 ? '' : 's'}
               {recorded ? ' • print recorded' : ''}
             </p>
           </div>
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            <button className="btn-primary" onClick={print}>Print</button>
-            <a className="btn-secondary" href={preview.url} download={fileName} onClick={markPrinted}>Download PDF</a>
-            <a className="btn-secondary" href={preview.url} target="_blank" rel="noopener noreferrer">Open in new tab</a>
-            <button className="btn-secondary" onClick={onClose}>Close</button>
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={print}>Print</Button>
+            <Button variant="outline" render={<a href={preview.url} download={fileName} onClick={markPrinted} />} nativeButton={false}>Download PDF</Button>
+            <Button variant="outline" render={<a href={preview.url} target="_blank" rel="noopener noreferrer" />} nativeButton={false}>Open in new tab</Button>
+            <Button variant="outline" onClick={onClose}>Close</Button>
           </div>
         </div>
-        <iframe ref={frameRef} src={preview.url} title="Badge PDF preview" style={{ flex: 1, border: 'none', width: '100%', backgroundColor: '#525659' }} />
+        <iframe ref={frameRef} src={preview.url} title="Badge PDF preview" className="w-full flex-1 border-0 bg-[#525659]" />
       </div>
     </div>
   )
@@ -405,34 +415,34 @@ function BadgeCard({
   }
 
   return (
-    <div style={{ border: `1px solid ${selected ? 'var(--color-primary)' : 'var(--color-border)'}`, borderRadius: '6px', padding: '12px' }}>
-      <label style={{ display: 'flex', gap: '8px', alignItems: 'center', fontSize: '14px', marginBottom: '8px' }}>
+    <div className={cn('rounded-md border p-3', selected ? 'border-primary' : 'border-border')}>
+      <label className="mb-2 flex items-center gap-2 text-sm">
         <input type="checkbox" checked={selected} onChange={onToggle} />
-        <span style={{ fontWeight: 600 }}>{attendee.full_name}</span>
-        <span style={{ fontFamily: 'monospace', color: 'var(--color-text-secondary)' }}>{attendee.registration_id}</span>
+        <span className="font-semibold">{attendee.full_name}</span>
+        <span className="font-mono text-muted-foreground">{attendee.registration_id}</span>
       </label>
-      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '12px', padding: '8px', backgroundColor: 'var(--color-neutral-light)', borderRadius: '6px' }}>
+      <div className="mb-3 flex justify-center rounded-md bg-muted p-2">
         {preview}
       </div>
 
       {editing ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <input value={name} onChange={(e) => setName(e.target.value)} className="input-field" aria-label="Name on badge" placeholder="Name" maxLength={120} />
-          <input value={designation} onChange={(e) => setDesignation(e.target.value)} className="input-field" aria-label="Designation on badge" placeholder="Designation" maxLength={120} />
-          {error && <div className="alert-error" style={{ fontSize: '14px' }}>{error}</div>}
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button className="btn-primary" onClick={save} disabled={saving} style={{ flex: 1 }}>{saving ? 'Saving...' : 'Save'}</button>
-            <button className="btn-secondary" onClick={onCancel} disabled={saving} style={{ flex: 1 }}>Cancel</button>
+        <div className="flex flex-col gap-2">
+          <Input value={name} onChange={(e) => setName(e.target.value)} className="h-10" aria-label="Name on badge" placeholder="Name" maxLength={120} />
+          <Input value={designation} onChange={(e) => setDesignation(e.target.value)} className="h-10" aria-label="Designation on badge" placeholder="Designation" maxLength={120} />
+          {error && <Alert variant="error">{error}</Alert>}
+          <div className="flex gap-2">
+            <Button className="flex-1" onClick={save} disabled={saving}>{saving ? 'Saving...' : 'Save'}</Button>
+            <Button variant="outline" className="flex-1" onClick={onCancel} disabled={saving}>Cancel</Button>
           </div>
         </div>
       ) : (
         <>
-          <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginBottom: '8px', minHeight: '18px' }}>
+          <p className="mb-2 min-h-[18px] text-[13px] text-muted-foreground">
             {last ? `Last printed: ${formatDateTime(last.printed_at)} by ${last.printed_by}${last.count > 1 ? ` (${last.count} prints)` : ''}` : 'Not printed yet'}
           </p>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button className="btn-primary" onClick={onPrint} disabled={busy} style={{ flex: 1 }}>{last ? 'Print again' : 'Print'}</button>
-            <button className="btn-secondary" onClick={onEdit} disabled={busy} style={{ flex: 1 }}>Edit</button>
+          <div className="flex gap-2">
+            <Button className="flex-1" onClick={onPrint} disabled={busy}>{last ? 'Print again' : 'Print'}</Button>
+            <Button variant="outline" className="flex-1" onClick={onEdit} disabled={busy}>Edit</Button>
           </div>
         </>
       )}

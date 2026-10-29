@@ -3,6 +3,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import { Alert } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 
 interface EventRow {
   id: string
@@ -26,10 +29,10 @@ interface CheckinRow {
   event_id: string
 }
 
-const STATUS_COLOR: Record<string, string> = {
-  live: 'var(--color-live)',
-  upcoming: 'var(--color-amber-warning)',
-  closed: 'var(--color-text-secondary)',
+const STATUS_DOT: Record<string, string> = {
+  live: 'bg-(--color-live)',
+  upcoming: 'bg-amber-500',
+  closed: 'bg-muted-foreground',
 }
 
 const TREND_DAYS = 14
@@ -134,68 +137,70 @@ export default function OrgDashboardPage() {
 
   if (loading) return <p>Loading dashboard...</p>
 
+  const card = 'rounded-xl border border-border bg-card p-5'
+
   return (
-    <div style={{ maxWidth: '1100px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '16px', flexWrap: 'wrap', marginBottom: '24px' }}>
+    <div className="max-w-[1100px]">
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 style={{ fontSize: '28px', fontWeight: 700, letterSpacing: '-0.02em' }}>Dashboard</h1>
-          <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px', marginTop: '6px' }}>
+          <h1 className="text-[28px] font-bold tracking-[-0.02em]">Dashboard</h1>
+          <p className="mt-1.5 text-sm text-muted-foreground">
             An overview across all of your events.
           </p>
         </div>
-        <button type="button" onClick={load} className="btn-secondary" style={{ width: 'auto' }}>
+        <Button type="button" variant="outline" onClick={load}>
           Refresh
-        </button>
+        </Button>
       </div>
 
-      {error && <div className="alert-error" style={{ marginBottom: '20px' }}>{error}</div>}
+      {error && <Alert variant="error" className="mb-5">{error}</Alert>}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '14px', marginBottom: '24px' }}>
+      <div className="mb-6 grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3.5">
         <StatCard label="Total events" value={stats.totalEvents} note={`${stats.thisMonth} this month`} />
         <StatCard label="Total attendees" value={stats.totalAttendees} note="across all events" />
-        <StatCard label="Checked in" value={stats.checkedIn} note="across all events" color="var(--color-primary)" />
-        <StatCard label="This month" value={stats.thisMonth} note="events scheduled" color="var(--color-live)" />
+        <StatCard label="Checked in" value={stats.checkedIn} note="across all events" accent="border-t-primary" />
+        <StatCard label="This month" value={stats.thisMonth} note="events scheduled" accent="border-t-(--color-live)" />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px', alignItems: 'start' }}>
-        <section className="card" style={{ padding: '20px' }} aria-labelledby="trend-heading">
-          <h2 id="trend-heading" style={{ fontSize: '16px', fontWeight: 600, marginBottom: '4px' }}>Registration trend</h2>
-          <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginBottom: '16px' }}>Last {TREND_DAYS} days</p>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(320px,1fr))] items-start gap-4">
+        <section className={card} aria-labelledby="trend-heading">
+          <h2 id="trend-heading" className="mb-1 text-base font-semibold">Registration trend</h2>
+          <p className="mb-4 text-[13px] text-muted-foreground">Last {TREND_DAYS} days</p>
           <TrendChart days={trend} />
         </section>
 
-        <section className="card" style={{ padding: '20px' }} aria-labelledby="status-heading">
-          <h2 id="status-heading" style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px' }}>Events by status</h2>
-          <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <section className={card} aria-labelledby="status-heading">
+          <h2 id="status-heading" className="mb-4 text-base font-semibold">Events by status</h2>
+          <ul className="flex flex-col gap-2.5">
             {(['live', 'upcoming', 'closed'] as const).map((status) => (
-              <li key={status} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '14px' }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '8px', textTransform: 'capitalize' }}>
-                  <span aria-hidden="true" style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: STATUS_COLOR[status] }} />
+              <li key={status} className="flex items-center justify-between text-sm">
+                <span className="flex items-center gap-2 capitalize">
+                  <span aria-hidden="true" className={cn('size-2 rounded-full', STATUS_DOT[status])} />
                   {status}
                 </span>
-                <span style={{ fontWeight: 600 }}>{byStatus[status] ?? 0}</span>
+                <span className="font-semibold">{byStatus[status] ?? 0}</span>
               </li>
             ))}
           </ul>
         </section>
       </div>
 
-      <section className="card" style={{ padding: '20px', marginTop: '16px' }} aria-labelledby="recent-heading">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-          <h2 id="recent-heading" style={{ fontSize: '16px', fontWeight: 600 }}>Recent events</h2>
-          <Link href="/events" style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-primary)' }}>
+      <section className={cn(card, 'mt-4')} aria-labelledby="recent-heading">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 id="recent-heading" className="text-base font-semibold">Recent events</h2>
+          <Link href="/events" className="text-[13px] font-semibold text-primary">
             View all →
           </Link>
         </div>
         {recentEvents.length === 0 ? (
-          <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px' }}>No events yet.</p>
+          <p className="text-sm text-muted-foreground">No events yet.</p>
         ) : (
-          <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column' }}>
-            {recentEvents.map((e, i) => (
-              <li key={e.id} style={{ borderTop: i === 0 ? 'none' : '1px solid var(--color-border)', padding: '10px 0' }}>
-                <Link href={`/events/${e.id}`} style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
-                  <span style={{ fontWeight: 500 }}>{e.name}</span>
-                  <span style={{ color: 'var(--color-text-secondary)', fontSize: '13px' }}>
+          <ul className="flex flex-col">
+            {recentEvents.map((e) => (
+              <li key={e.id} className="border-t border-border py-2.5 first:border-t-0">
+                <Link href={`/events/${e.id}/enter`} className="flex flex-wrap justify-between gap-3">
+                  <span className="font-medium">{e.name}</span>
+                  <span className="text-[13px] text-muted-foreground">
                     {e.location} · {new Date(e.event_date + 'T00:00:00').toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })}
                   </span>
                 </Link>
@@ -208,12 +213,12 @@ export default function OrgDashboardPage() {
   )
 }
 
-function StatCard({ label, value, note, color }: { label: string; value: number; note?: string; color?: string }) {
+function StatCard({ label, value, note, accent }: { label: string; value: number; note?: string; accent?: string }) {
   return (
-    <div className="card" style={{ padding: '14px 16px', borderTop: color ? `3px solid ${color}` : undefined }}>
-      <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>{label}</p>
-      <p style={{ fontSize: '24px', fontWeight: 700, marginTop: '4px' }}>{value}</p>
-      {note && <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginTop: '2px' }}>{note}</p>}
+    <div className={cn('rounded-xl border border-border bg-card px-4 py-3.5', accent && 'border-t-[3px]', accent)}>
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="mt-1 text-2xl font-bold">{value}</p>
+      {note && <p className="mt-0.5 text-xs text-muted-foreground">{note}</p>}
     </div>
   )
 }
@@ -222,20 +227,16 @@ function StatCard({ label, value, note, color }: { label: string; value: number;
 function TrendChart({ days }: { days: { label: string; count: number }[] }) {
   const max = Math.max(1, ...days.map((d) => d.count))
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-end', gap: '4px', height: '120px' }}>
+    <div className="flex h-[120px] items-end gap-1">
       {days.map((d, i) => (
-        <div key={i} title={`${d.label}: ${d.count}`} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', height: '100%', justifyContent: 'flex-end' }}>
+        <div key={i} title={`${d.label}: ${d.count}`} className="flex h-full flex-1 flex-col items-center justify-end gap-1">
+          {/* the bar height is data, so it stays inline */}
           <div
-            style={{
-              width: '100%',
-              maxWidth: '18px',
-              height: `${Math.max(2, (d.count / max) * 100)}%`,
-              backgroundColor: d.count > 0 ? 'var(--color-primary)' : 'var(--color-border)',
-              borderRadius: '3px 3px 0 0',
-            }}
+            className={cn('w-full max-w-[18px] rounded-t-[3px]', d.count > 0 ? 'bg-primary' : 'bg-border')}
+            style={{ height: `${Math.max(2, (d.count / max) * 100)}%` }}
           />
           {i % 3 === 0 && (
-            <span style={{ fontSize: '10px', color: 'var(--color-text-secondary)', whiteSpace: 'nowrap' }}>{d.label}</span>
+            <span className="whitespace-nowrap text-[10px] text-muted-foreground">{d.label}</span>
           )}
         </div>
       ))}

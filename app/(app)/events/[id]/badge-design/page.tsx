@@ -13,6 +13,13 @@ import { BADGE_BACKGROUND_RULES, ImageRules, LOGO_RULES, validateImageFile } fro
 import { uploadImage } from '@/lib/storage'
 import { useEventRole } from '@/components/EventRoleContext'
 import { canManageEvent } from '@/lib/permissions'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useConfirm } from '@/components/ConfirmDialog'
+import { Alert } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { NativeSelect } from '@/components/ui/native-select'
+import { cn } from '@/lib/utils'
 
 interface EventInfo {
   id: string
@@ -48,9 +55,8 @@ interface PreviewAttendee {
   registration_status: string | null
 }
 
-const label: React.CSSProperties = { display: 'block', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }
-const section: React.CSSProperties = { padding: '12px', border: '1px solid var(--color-border)', borderRadius: '6px', display: 'flex', flexDirection: 'column', gap: '10px' }
-const small: React.CSSProperties = { minHeight: '36px', padding: '6px 10px', fontSize: '13px' }
+const label = 'mb-1 block text-[13px] font-medium'
+const section = 'flex flex-col gap-2.5 rounded-md border border-border p-3'
 const round = (v: number) => Math.round(v * 10) / 10
 
 function elementName(el: BadgeElement): string {
@@ -61,10 +67,12 @@ function elementName(el: BadgeElement): string {
 }
 
 export default function BadgeDesignPage() {
+  const { confirm, dialog } = useConfirm()
   const params = useParams()
   const eventUuid = params.id as string
   const [event, setEvent] = useState<EventInfo | null>(null)
   const role = useEventRole()
+  const [tab, setTab] = useState<'canvas' | 'branding' | 'fields'>('canvas')
   const isAdmin = canManageEvent(role)
   const [designs, setDesigns] = useState<SavedDesign[]>([])
   const [attendees, setAttendees] = useState<PreviewAttendee[]>([])
@@ -231,7 +239,7 @@ export default function BadgeDesignPage() {
   const deleteDesign = async () => {
     if (!currentId) return
     const current = designs.find((d) => d.id === currentId)
-    if (!confirm(`Delete the design "${current?.name}"? This cannot be undone.`)) return
+    if (!(await confirm({ title: `Delete the design "${current?.name}"?`, description: 'This cannot be undone.', confirmLabel: 'Delete', destructive: true }))) return
     setBusy(true)
     const { error: deleteError } = await supabase.from('badge_designs').delete().eq('id', currentId)
     setBusy(false)
@@ -251,8 +259,8 @@ export default function BadgeDesignPage() {
     setNotice('Design deleted.')
   }
 
-  const newDesign = () => {
-    if (dirty && !confirm('Discard unsaved changes?')) return
+  const newDesign = async () => {
+    if (dirty && !(await confirm({ title: 'Discard unsaved changes?', confirmLabel: 'Discard', destructive: true }))) return
     setCurrentId(null)
     setName(designs.length ? `Badge ${designs.length + 1}` : 'Default badge')
     setDesign(defaultDesign())
@@ -260,8 +268,8 @@ export default function BadgeDesignPage() {
     setSelectedId(null)
   }
 
-  const restoreDefault = () => {
-    if (!confirm('Replace this design with the default template? Unsaved changes are lost; save afterwards to keep it.')) return
+  const restoreDefault = async () => {
+    if (!(await confirm({ title: 'Replace this design with the default template?', description: 'Unsaved changes are lost. Save afterwards to keep it.', confirmLabel: 'Replace', destructive: true }))) return
     change(defaultDesign())
     setSelectedId(null)
   }
@@ -277,7 +285,12 @@ export default function BadgeDesignPage() {
     return attendee ? badgeDataFor(attendee, event) : { ...SAMPLE_BADGE_DATA, ...pickEvent(badgeDataFor({ full_name: '', registration_id: '' }, event)) }
   }, [attendees, previewId, event])
 
-  if (!event) return error ? <p className="alert-error">{error}</p> : <p>Loading badge designer...</p>
+  // Picking an element on the canvas opens the Fields tab, where its properties are
+  useEffect(() => {
+    if (selectedId) setTab('fields')
+  }, [selectedId])
+
+  if (!event) return error ? <Alert variant="error">{error}</Alert> : <p>Loading badge designer...</p>
 
   const fitScale = Math.min(560 / design.widthMm, 480 / design.heightMm)
   const scale = fitScale * zoom
@@ -285,62 +298,131 @@ export default function BadgeDesignPage() {
   const folder = `${event.organization_id}/events/${event.id}/badge`
 
   return (
-    <div style={{ maxWidth: '1400px' }}>
+    <>
+    {dialog}
+    <div className="max-w-[1400px]">
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', flexWrap: 'wrap', gap: '16px', marginBottom: '16px' }}>
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '8px' }}>Badge Design</h1>
-          <p style={{ color: 'var(--color-text-secondary)' }}>
-            {event.name} • Drag elements to move them, drag the blue corner to resize, or use the exact values on the right.
+          <h1 className="mb-2 text-[28px] font-bold">Badge Design</h1>
+          <p className="text-muted-foreground">
+            {event.name} • Drag elements to move them, drag the blue corner to resize, or type exact values in the panel.
           </p>
         </div>
-        <Link href={`/events/${event.id}/badges`} className="btn-secondary">Go to Badge Printing →</Link>
+        <Button variant="outline" render={<Link href={`/events/${event.id}/badges`} />} nativeButton={false}>Go to Badge Printing →</Button>
       </div>
 
-      {!isAdmin && <div className="alert-warning" style={{ marginBottom: '16px' }}>Only owners and managers can save badge designs.</div>}
+      {!isAdmin && <Alert variant="warning" className="mb-4">Only owners and managers can save badge designs.</Alert>}
 
       {/* Design selection and saving */}
-      <div style={{ ...section, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: '16px' }}>
-        <div style={{ flex: '1 1 200px' }}>
-          <label style={label} htmlFor="design-select">Design</label>
-          <select
+      <div className={cn(section, 'mb-4 flex-row flex-wrap items-end')}>
+        <div className="flex-1 basis-[200px]">
+          <label className={label} htmlFor="design-select">Design</label>
+          <NativeSelect
             id="design-select"
-            className="input-field"
+            className="h-10"
             value={currentId ?? ''}
-            onChange={(e) => {
+            onChange={async (e) => {
               const d = designs.find((x) => x.id === e.target.value)
-              if (d && (!dirty || confirm('Discard unsaved changes?'))) openDesign(d)
+              if (d && (!dirty || (await confirm({ title: 'Discard unsaved changes?', confirmLabel: 'Discard', destructive: true })))) openDesign(d)
             }}
           >
             {!currentId && <option value="">{name} (not saved yet)</option>}
             {designs.map((d) => <option key={d.id} value={d.id}>{d.name}{d.is_default ? ' — used for printing' : ''}</option>)}
-          </select>
+          </NativeSelect>
         </div>
-        <div style={{ flex: '1 1 200px' }}>
-          <label style={label} htmlFor="design-name">Name</label>
-          <input id="design-name" className="input-field" value={name} maxLength={80} onChange={(e) => { setName(e.target.value); setDirty(true) }} />
+        <div className="flex-1 basis-[200px]">
+          <label className={label} htmlFor="design-name">Name</label>
+          <Input id="design-name" className="h-10" value={name} maxLength={80} onChange={(e) => { setName(e.target.value); setDirty(true) }} />
         </div>
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          <button className="btn-primary" onClick={() => save()} disabled={busy || !isAdmin}>{busy ? 'Saving...' : dirty ? 'Save design' : 'Saved'}</button>
-          <button className="btn-secondary" onClick={() => save(true)} disabled={busy || !isAdmin}>Duplicate</button>
+        <div className="flex flex-wrap gap-2">
+          <Button  onClick={() => save()} disabled={busy || !isAdmin}>{busy ? 'Saving...' : dirty ? 'Save design' : 'Saved'}</Button>
+          <Button variant="outline" onClick={() => save(true)} disabled={busy || !isAdmin}>Duplicate</Button>
           {currentSaved && !currentSaved.is_default && (
-            <button className="btn-secondary" onClick={setAsDefault} disabled={busy || !isAdmin}>Use for printing</button>
+            <Button variant="outline" onClick={setAsDefault} disabled={busy || !isAdmin}>Use for printing</Button>
           )}
-          <button className="btn-secondary" onClick={newDesign} disabled={busy}>New design</button>
-          <button className="btn-secondary" onClick={restoreDefault} disabled={busy}>Restore default</button>
+          <Button variant="outline" onClick={newDesign} disabled={busy}>New design</Button>
+          <Button variant="outline" onClick={restoreDefault} disabled={busy}>Restore default</Button>
           {currentId && (
-            <button className="btn-secondary" onClick={deleteDesign} disabled={busy || !isAdmin} style={{ color: 'var(--color-error-red)' }}>Delete</button>
+            <Button variant="outline" className="text-destructive" onClick={deleteDesign} disabled={busy || !isAdmin}>Delete</Button>
           )}
         </div>
       </div>
 
-      {error && <div className="alert-error" style={{ marginBottom: '16px' }}>{error}</div>}
-      {notice && <div className="alert-success" style={{ marginBottom: '16px' }}>{notice}</div>}
+      {error && <Alert variant="error" className="mb-4">{error}</Alert>}
+      {notice && <Alert variant="success" className="mb-4">{notice}</Alert>}
 
-      <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
-        {/* Live preview */}
-        <div style={{ flex: '1 1 560px', minWidth: 0 }}>
-          <div style={{ padding: '24px', backgroundColor: 'var(--color-neutral-light)', borderRadius: '8px', overflow: 'auto', display: 'flex', justifyContent: 'center' }}>
+      {/* Workbench: controls scroll on their own on the left, the preview stays in view on the right */}
+      <div className="grid gap-6 lg:sticky lg:top-[4.5rem] lg:h-[calc(100vh-5.5rem)] lg:min-h-[28rem] lg:grid-cols-[minmax(20rem,26rem)_minmax(0,1fr)]">
+        <div className="order-2 min-h-0 lg:order-1 lg:overflow-y-auto lg:pr-2">
+          <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
+            <TabsList variant="line" aria-label="Badge controls" className="sticky top-0 z-10 w-full justify-start bg-background">
+              <TabsTrigger value="canvas" className="flex-none px-3">Canvas size</TabsTrigger>
+              <TabsTrigger value="branding" className="flex-none px-3">Branding</TabsTrigger>
+              <TabsTrigger value="fields" className="flex-none px-3">Fields{design.elements.length ? ` (${design.elements.length})` : ''}</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="canvas" className="grid gap-3 pt-3">
+              <CanvasSettings design={design} change={change} />
+            </TabsContent>
+
+            <TabsContent value="branding" className="grid gap-3 pt-3">
+              <BrandingSettings design={design} change={change} folder={folder} />
+            </TabsContent>
+
+            <TabsContent value="fields" className="grid gap-3 pt-3">
+            <div className={section}>
+              <h2 className="text-base font-semibold">Add element</h2>
+              <AddField onAdd={(field) => addElement(textElement({ ...centred(60, 10), field, size: 14 }))} />
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" variant="outline" onClick={() => addElement(textElement({ ...centred(60, 8), source: 'static', text: 'Text', size: 12 }))}>+ Static text</Button>
+                <Button size="sm" variant="outline" onClick={() => addElement({ id: newElementId(), type: 'image', ...centred(24, 16), source: 'event_logo', path: null, label: 'Event logo', keepAspect: true })}>+ Event logo</Button>
+                <Button size="sm" variant="outline" onClick={() => addElement({ id: newElementId(), type: 'image', ...centred(24, 16), source: 'org_logo', path: null, label: 'Organizer logo', keepAspect: true })}>+ Organizer logo</Button>
+                <UploadButton
+                  text="+ Sponsor logo"
+                  rules={LOGO_RULES}
+                  folder={folder}
+                  kind="sponsor"
+                  onUploaded={(path) => addElement({ id: newElementId(), type: 'image', ...centred(24, 12), source: 'sponsor', path, label: 'Sponsor logo', keepAspect: true })}
+                  onError={setError}
+                />
+                <Button size="sm" variant="outline" onClick={() => addElement({ id: newElementId(), type: 'qr', ...centred(18, 18), color: '#111827' })}>+ QR code</Button>
+                <Button size="sm" variant="outline" onClick={() => addElement({ id: newElementId(), type: 'rect', ...centred(40, 10), fill: '#10b981', stroke: null, strokeWidth: 0, radius: 0 })}>+ Shape</Button>
+              </div>
+              {!images.eventLogoPath && !images.orgLogoPath && (
+                <p className="text-xs text-muted-foreground">
+                  No event or organizer logo yet. Add one under <Link href={`/events/${event.id}/edit`} className="underline">Edit Event</Link> or <Link href="/organization" className="underline">Organization</Link>.
+                </p>
+              )}
+            </div>
+
+            <div className={section}>
+              <h2 className="text-base font-semibold">Layers <span className="text-[13px] font-normal text-muted-foreground">(top of list is drawn on top)</span></h2>
+              {design.elements.length === 0 && <p className="text-[13px] text-muted-foreground">No elements.</p>}
+              <ul className="flex flex-col gap-1">
+                {[...design.elements].reverse().map((el) => (
+                  <li key={el.id} className={cn('flex items-center gap-1 rounded px-1.5 py-1', el.id === selectedId && 'bg-muted')}>
+                    <button type="button" onClick={() => setSelectedId(el.id)} className={cn('flex-1 bg-transparent px-1 py-1.5 text-left text-[13px] text-inherit', el.id === selectedId ? 'font-semibold' : 'font-normal')}>
+                      {elementName(el)}
+                    </button>
+                    <Button title="Bring forward" aria-label="Bring forward" variant="outline" size="sm" className="px-2" onClick={() => moveLayer(el.id, 1)}>↑</Button>
+                    <Button title="Send backward" aria-label="Send backward" variant="outline" size="sm" className="px-2" onClick={() => moveLayer(el.id, -1)}>↓</Button>
+                    <Button title="Duplicate" aria-label="Duplicate" variant="outline" size="sm" className="px-2" onClick={() => duplicateElement(el)}>⧉</Button>
+                    <Button title="Remove" aria-label="Remove" variant="outline" size="sm" className="px-2 text-destructive" onClick={() => removeElement(el.id)}>✕</Button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {selected && (
+              <ElementProperties key={selected.id} el={selected} design={design} onChange={updateElement} folder={folder} onError={setError} />
+            )}
+            </TabsContent>
+          </Tabs>
+        </div>
+
+        <div className="order-1 min-h-0 lg:order-2 lg:overflow-y-auto">
+          <div className="flex justify-center overflow-auto rounded-lg bg-muted p-6">
             <BadgePreview
               design={design}
               data={previewData}
@@ -352,77 +434,26 @@ export default function BadgeDesignPage() {
               onElementChange={updateElement}
             />
           </div>
-          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', marginTop: '12px' }}>
-            <label style={{ fontSize: '14px', display: 'flex', gap: '8px', alignItems: 'center', flex: '1 1 240px' }}>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <label className="flex flex-1 basis-60 items-center gap-2 text-sm">
               Preview with
-              <select className="input-field" value={previewId} onChange={(e) => setPreviewId(e.target.value)}>
+              <NativeSelect className="h-10" value={previewId} onChange={(e) => setPreviewId(e.target.value)}>
                 <option value="">Sample attendee</option>
                 {attendees.map((a) => <option key={a.id} value={a.id}>{a.full_name} ({a.registration_id})</option>)}
-              </select>
+              </NativeSelect>
             </label>
-            <label style={{ fontSize: '14px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <label className="flex items-center gap-2 text-sm">
               Zoom
               <input type="range" min={0.5} max={2} step={0.1} value={zoom} onChange={(e) => setZoom(Number(e.target.value))} />
             </label>
-            <span style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>
+            <span className="text-[13px] text-muted-foreground">
               {round(design.widthMm)} × {round(design.heightMm)} mm • Arrow keys nudge (Shift = 5 mm), Delete removes
             </span>
           </div>
         </div>
-
-        {/* Editing panel */}
-        <div style={{ flex: '1 1 340px', maxWidth: '460px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <BadgeSettings design={design} change={change} folder={folder} />
-
-          <div style={section}>
-            <h2 style={{ fontSize: '16px', fontWeight: 600 }}>Add element</h2>
-            <AddField onAdd={(field) => addElement(textElement({ ...centred(60, 10), field, size: 14 }))} />
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              <button style={small} className="btn-secondary" onClick={() => addElement(textElement({ ...centred(60, 8), source: 'static', text: 'Text', size: 12 }))}>+ Static text</button>
-              <button style={small} className="btn-secondary" onClick={() => addElement({ id: newElementId(), type: 'image', ...centred(24, 16), source: 'event_logo', path: null, label: 'Event logo', keepAspect: true })}>+ Event logo</button>
-              <button style={small} className="btn-secondary" onClick={() => addElement({ id: newElementId(), type: 'image', ...centred(24, 16), source: 'org_logo', path: null, label: 'Organizer logo', keepAspect: true })}>+ Organizer logo</button>
-              <UploadButton
-                text="+ Sponsor logo"
-                rules={LOGO_RULES}
-                folder={folder}
-                kind="sponsor"
-                onUploaded={(path) => addElement({ id: newElementId(), type: 'image', ...centred(24, 12), source: 'sponsor', path, label: 'Sponsor logo', keepAspect: true })}
-                onError={setError}
-              />
-              <button style={small} className="btn-secondary" onClick={() => addElement({ id: newElementId(), type: 'qr', ...centred(18, 18), color: '#111827' })}>+ QR code</button>
-              <button style={small} className="btn-secondary" onClick={() => addElement({ id: newElementId(), type: 'rect', ...centred(40, 10), fill: '#10b981', stroke: null, strokeWidth: 0, radius: 0 })}>+ Shape</button>
-            </div>
-            {!images.eventLogoPath && !images.orgLogoPath && (
-              <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>
-                No event or organizer logo yet. Add one under <Link href={`/events/${event.id}/edit`} style={{ textDecoration: 'underline' }}>Edit Event</Link> or <Link href="/organization" style={{ textDecoration: 'underline' }}>Organization</Link>.
-              </p>
-            )}
-          </div>
-
-          <div style={section}>
-            <h2 style={{ fontSize: '16px', fontWeight: 600 }}>Layers <span style={{ fontWeight: 400, fontSize: '13px', color: 'var(--color-text-secondary)' }}>(top of list is drawn on top)</span></h2>
-            {design.elements.length === 0 && <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>No elements.</p>}
-            <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              {[...design.elements].reverse().map((el) => (
-                <li key={el.id} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 6px', borderRadius: '4px', backgroundColor: el.id === selectedId ? 'var(--color-neutral-light)' : undefined }}>
-                  <button onClick={() => setSelectedId(el.id)} style={{ flex: 1, textAlign: 'left', background: 'none', color: 'inherit', fontSize: '13px', padding: '6px 4px', fontWeight: el.id === selectedId ? 600 : 400 }}>
-                    {elementName(el)}
-                  </button>
-                  <button title="Bring forward" aria-label="Bring forward" className="btn-secondary" style={{ ...small, padding: '4px 8px' }} onClick={() => moveLayer(el.id, 1)}>↑</button>
-                  <button title="Send backward" aria-label="Send backward" className="btn-secondary" style={{ ...small, padding: '4px 8px' }} onClick={() => moveLayer(el.id, -1)}>↓</button>
-                  <button title="Duplicate" aria-label="Duplicate" className="btn-secondary" style={{ ...small, padding: '4px 8px' }} onClick={() => duplicateElement(el)}>⧉</button>
-                  <button title="Remove" aria-label="Remove" className="btn-secondary" style={{ ...small, padding: '4px 8px', color: 'var(--color-error-red)' }} onClick={() => removeElement(el.id)}>✕</button>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {selected && (
-            <ElementProperties key={selected.id} el={selected} design={design} onChange={updateElement} folder={folder} onError={setError} />
-          )}
-        </div>
       </div>
     </div>
+    </>
   )
 }
 
@@ -433,11 +464,11 @@ function pickEvent(d: ReturnType<typeof badgeDataFor>) {
 
 function NumberInput({ id, value, onChange, min, max, step = 0.5, suffix }: { id: string; value: number; onChange: (v: number) => void; min?: number; max?: number; step?: number; suffix?: string }) {
   return (
-    <div style={{ position: 'relative' }}>
-      <input
+    <div className="relative">
+      <Input
         id={id}
         type="number"
-        className="input-field"
+        className={cn('h-10', suffix && 'pr-9')}
         value={round(value)}
         min={min}
         max={max}
@@ -446,15 +477,14 @@ function NumberInput({ id, value, onChange, min, max, step = 0.5, suffix }: { id
           const v = Number(e.target.value)
           if (Number.isFinite(v)) onChange(min !== undefined && max !== undefined ? Math.min(max, Math.max(min, v)) : v)
         }}
-        style={{ paddingRight: suffix ? '36px' : undefined }}
       />
-      {suffix && <span style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '12px', color: 'var(--color-text-secondary)' }}>{suffix}</span>}
+      {suffix && <span className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 text-xs text-muted-foreground">{suffix}</span>}
     </div>
   )
 }
 
 function ColorInput({ id, value, onChange }: { id: string; value: string; onChange: (v: string) => void }) {
-  return <input id={id} type="color" value={value} onChange={(e) => onChange(e.target.value)} style={{ width: '100%', height: '40px', border: '1px solid var(--color-border)', borderRadius: '6px', background: 'none' }} />
+  return <input id={id} type="color" value={value} onChange={(e) => onChange(e.target.value)} className="h-10 w-full rounded-md border border-border bg-transparent" />
 }
 
 function UploadButton({ text, rules, folder, kind, onUploaded, onError }: { text: string; rules: ImageRules; folder: string; kind: string; onUploaded: (path: string) => void; onError: (msg: string) => void }) {
@@ -479,8 +509,8 @@ function UploadButton({ text, rules, folder, kind, onUploaded, onError }: { text
   }
   return (
     <>
-      <button style={small} className="btn-secondary" onClick={() => ref.current?.click()} disabled={busy}>{busy ? 'Uploading...' : text}</button>
-      <input ref={ref} type="file" accept="image/png,image/jpeg,image/webp" style={{ display: 'none' }} onChange={(e) => choose(e.target.files?.[0])} aria-label={text} />
+      <Button size="sm" variant="outline" onClick={() => ref.current?.click()} disabled={busy}>{busy ? 'Uploading...' : text}</Button>
+      <input ref={ref} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => choose(e.target.files?.[0])} aria-label={text} />
     </>
   )
 }
@@ -488,28 +518,27 @@ function UploadButton({ text, rules, folder, kind, onUploaded, onError }: { text
 function AddField({ onAdd }: { onAdd: (field: TextElement['field']) => void }) {
   const [field, setField] = useState<TextElement['field']>('full_name')
   return (
-    <div style={{ display: 'flex', gap: '8px' }}>
-      <select className="input-field" value={field} onChange={(e) => setField(e.target.value as TextElement['field'])} aria-label="Attendee field">
+    <div className="flex gap-2">
+      <NativeSelect className="h-10" value={field} onChange={(e) => setField(e.target.value as TextElement['field'])} aria-label="Attendee field">
         {BADGE_FIELDS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
-      </select>
-      <button className="btn-secondary" style={{ ...small, whiteSpace: 'nowrap' }} onClick={() => onAdd(field)}>+ Add field</button>
+      </NativeSelect>
+      <Button variant="outline" size="sm" className="whitespace-nowrap" onClick={() => onAdd(field)}>+ Add field</Button>
     </div>
   )
 }
 
-function BadgeSettings({ design, change, folder }: { design: BadgeDesign; change: (d: BadgeDesign) => void; folder: string }) {
-  const [error, setError] = useState('')
+function CanvasSettings({ design, change }: { design: BadgeDesign; change: (d: BadgeDesign) => void }) {
   const presetIndex = SIZE_PRESETS.findIndex((p) => Math.abs(p.w - design.widthMm) < 0.2 && Math.abs(p.h - design.heightMm) < 0.2)
   const landscape = design.widthMm >= design.heightMm
 
   return (
-    <div style={section}>
-      <h2 style={{ fontSize: '16px', fontWeight: 600 }}>Badge</h2>
+    <div className={section}>
+      <h2 className="text-base font-semibold">Canvas size</h2>
       <div>
-        <label style={label} htmlFor="size-preset">Size</label>
-        <select
+        <label className={label} htmlFor="size-preset">Size</label>
+        <NativeSelect
           id="size-preset"
-          className="input-field"
+          className="h-10"
           value={presetIndex}
           onChange={(e) => {
             const p = SIZE_PRESETS[Number(e.target.value)]
@@ -518,30 +547,40 @@ function BadgeSettings({ design, change, folder }: { design: BadgeDesign; change
         >
           {presetIndex === -1 && <option value={-1}>Custom</option>}
           {SIZE_PRESETS.map((p, i) => <option key={p.label} value={i}>{p.label}</option>)}
-        </select>
+        </NativeSelect>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+      <div className="grid grid-cols-2 gap-2">
         <div>
-          <label style={label} htmlFor="badge-w">Width</label>
+          <label className={label} htmlFor="badge-w">Width</label>
           <NumberInput id="badge-w" value={design.widthMm} min={LIMITS.minSide} max={LIMITS.maxSide} suffix="mm" onChange={(v) => change(resizeDesign(design, v, design.heightMm))} />
         </div>
         <div>
-          <label style={label} htmlFor="badge-h">Height</label>
+          <label className={label} htmlFor="badge-h">Height</label>
           <NumberInput id="badge-h" value={design.heightMm} min={LIMITS.minSide} max={LIMITS.maxSide} suffix="mm" onChange={(v) => change(resizeDesign(design, design.widthMm, v))} />
         </div>
       </div>
-      <div style={{ display: 'flex', gap: '8px' }}>
-        <button className={landscape ? 'btn-primary' : 'btn-secondary'} style={{ ...small, flex: 1 }} onClick={() => !landscape && change(rotateDesign(design))}>Landscape</button>
-        <button className={!landscape ? 'btn-primary' : 'btn-secondary'} style={{ ...small, flex: 1 }} onClick={() => landscape && change(rotateDesign(design))}>Portrait</button>
+      <div className="flex gap-2">
+        <Button variant={landscape ? 'default' : 'outline'} size="sm" className="flex-1" onClick={() => !landscape && change(rotateDesign(design))}>Landscape</Button>
+        <Button variant={!landscape ? 'default' : 'outline'} size="sm" className="flex-1" onClick={() => landscape && change(rotateDesign(design))}>Portrait</Button>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+    </div>
+  )
+}
+
+function BrandingSettings({ design, change, folder }: { design: BadgeDesign; change: (d: BadgeDesign) => void; folder: string }) {
+  const [error, setError] = useState('')
+
+  return (
+    <div className={section}>
+      <h2 className="text-base font-semibold">Branding</h2>
+      <div className="grid grid-cols-2 gap-2">
         <div>
-          <label style={label} htmlFor="bg-color">Background</label>
+          <label className={label} htmlFor="bg-color">Background</label>
           <ColorInput id="bg-color" value={design.background.color} onChange={(v) => change({ ...design, background: { ...design.background, color: v } })} />
         </div>
         <div>
-          <span style={label}>Background image</span>
-          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+          <span className={label}>Background image</span>
+          <div className="flex flex-wrap gap-1.5">
             <UploadButton
               text={design.background.imagePath ? 'Replace' : 'Upload'}
               rules={BADGE_BACKGROUND_RULES}
@@ -551,26 +590,26 @@ function BadgeSettings({ design, change, folder }: { design: BadgeDesign; change
               onError={setError}
             />
             {design.background.imagePath && (
-              <button style={{ ...small, color: 'var(--color-error-red)' }} className="btn-secondary" onClick={() => change({ ...design, background: { ...design.background, imagePath: null } })}>Remove</button>
+              <Button size="sm" className="text-destructive" variant="outline" onClick={() => change({ ...design, background: { ...design.background, imagePath: null } })}>Remove</Button>
             )}
           </div>
         </div>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
+      <div className="grid grid-cols-3 gap-2">
         <div>
-          <label style={label} htmlFor="border-w">Border</label>
+          <label className={label} htmlFor="border-w">Border</label>
           <NumberInput id="border-w" value={design.border.width} min={0} max={10} step={0.25} suffix="mm" onChange={(v) => change({ ...design, border: { ...design.border, width: v } })} />
         </div>
         <div>
-          <label style={label} htmlFor="border-c">Border colour</label>
+          <label className={label} htmlFor="border-c">Border colour</label>
           <ColorInput id="border-c" value={design.border.color} onChange={(v) => change({ ...design, border: { ...design.border, color: v } })} />
         </div>
         <div>
-          <label style={label} htmlFor="border-r">Corners</label>
+          <label className={label} htmlFor="border-r">Corners</label>
           <NumberInput id="border-r" value={design.border.radius} min={0} max={30} suffix="mm" onChange={(v) => change({ ...design, border: { ...design.border, radius: v } })} />
         </div>
       </div>
-      {error && <div className="alert-error" style={{ fontSize: '13px' }}>{error}</div>}
+      {error && <Alert variant="error" className="text-[13px]">{error}</Alert>}
     </div>
   )
 }
@@ -582,83 +621,83 @@ function ElementProperties({ el, design, onChange, folder, onError }: { el: Badg
   const setH = (h: number) => set(lockRatio ? { h, w: round((h * el.w) / el.h) } : el.type === 'qr' ? { w: h, h } : { h })
 
   return (
-    <div style={section}>
-      <h2 style={{ fontSize: '16px', fontWeight: 600 }}>{elementName(el)}</h2>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '8px' }}>
-        <div><label style={label} htmlFor="el-x">X</label><NumberInput id="el-x" value={el.x} onChange={(x) => set({ x })} /></div>
-        <div><label style={label} htmlFor="el-y">Y</label><NumberInput id="el-y" value={el.y} onChange={(y) => set({ y })} /></div>
-        <div><label style={label} htmlFor="el-w">Width</label><NumberInput id="el-w" value={el.w} min={2} max={LIMITS.maxSide} onChange={setW} /></div>
-        <div><label style={label} htmlFor="el-h">Height</label><NumberInput id="el-h" value={el.h} min={2} max={LIMITS.maxSide} onChange={setH} /></div>
+    <div className={section}>
+      <h2 className="text-base font-semibold">{elementName(el)}</h2>
+      <div className="grid grid-cols-4 gap-2">
+        <div><label className={label} htmlFor="el-x">X</label><NumberInput id="el-x" value={el.x} onChange={(x) => set({ x })} /></div>
+        <div><label className={label} htmlFor="el-y">Y</label><NumberInput id="el-y" value={el.y} onChange={(y) => set({ y })} /></div>
+        <div><label className={label} htmlFor="el-w">Width</label><NumberInput id="el-w" value={el.w} min={2} max={LIMITS.maxSide} onChange={setW} /></div>
+        <div><label className={label} htmlFor="el-h">Height</label><NumberInput id="el-h" value={el.h} min={2} max={LIMITS.maxSide} onChange={setH} /></div>
       </div>
       <div>
-        <span style={label}>Align on badge</span>
-        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-          <button className="btn-secondary" style={small} onClick={() => set({ x: 0 })}>Left</button>
-          <button className="btn-secondary" style={small} onClick={() => set({ x: round((design.widthMm - el.w) / 2) })}>Centre</button>
-          <button className="btn-secondary" style={small} onClick={() => set({ x: round(design.widthMm - el.w) })}>Right</button>
-          <button className="btn-secondary" style={small} onClick={() => set({ y: 0 })}>Top</button>
-          <button className="btn-secondary" style={small} onClick={() => set({ y: round((design.heightMm - el.h) / 2) })}>Middle</button>
-          <button className="btn-secondary" style={small} onClick={() => set({ y: round(design.heightMm - el.h) })}>Bottom</button>
-          <button className="btn-secondary" style={small} onClick={() => set({ x: 0, w: design.widthMm })}>Full width</button>
+        <span className={label}>Align on badge</span>
+        <div className="flex flex-wrap gap-1">
+          <Button variant="outline" size="sm" onClick={() => set({ x: 0 })}>Left</Button>
+          <Button variant="outline" size="sm" onClick={() => set({ x: round((design.widthMm - el.w) / 2) })}>Centre</Button>
+          <Button variant="outline" size="sm" onClick={() => set({ x: round(design.widthMm - el.w) })}>Right</Button>
+          <Button variant="outline" size="sm" onClick={() => set({ y: 0 })}>Top</Button>
+          <Button variant="outline" size="sm" onClick={() => set({ y: round((design.heightMm - el.h) / 2) })}>Middle</Button>
+          <Button variant="outline" size="sm" onClick={() => set({ y: round(design.heightMm - el.h) })}>Bottom</Button>
+          <Button variant="outline" size="sm" onClick={() => set({ x: 0, w: design.widthMm })}>Full width</Button>
         </div>
       </div>
 
       {el.type === 'text' && (
         <>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+          <div className="grid grid-cols-2 gap-2">
             <div>
-              <label style={label} htmlFor="el-source">Content</label>
-              <select id="el-source" className="input-field" value={el.source === 'static' ? '__static' : el.field} onChange={(e) => set(e.target.value === '__static' ? { source: 'static' } : { source: 'field', field: e.target.value as TextElement['field'] })}>
+              <label className={label} htmlFor="el-source">Content</label>
+              <NativeSelect id="el-source" className="h-10" value={el.source === 'static' ? '__static' : el.field} onChange={(e) => set(e.target.value === '__static' ? { source: 'static' } : { source: 'field', field: e.target.value as TextElement['field'] })}>
                 {BADGE_FIELDS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
                 <option value="__static">Static text</option>
-              </select>
+              </NativeSelect>
             </div>
             <div>
-              <label style={label} htmlFor="el-font">Font</label>
-              <select id="el-font" className="input-field" value={el.font} onChange={(e) => set({ font: e.target.value as TextElement['font'] })}>
+              <label className={label} htmlFor="el-font">Font</label>
+              <NativeSelect id="el-font" className="h-10" value={el.font} onChange={(e) => set({ font: e.target.value as TextElement['font'] })}>
                 <option value="helvetica">Helvetica (sans)</option>
                 <option value="times">Times (serif)</option>
                 <option value="courier">Courier (mono)</option>
-              </select>
+              </NativeSelect>
             </div>
           </div>
           {el.source === 'static' && (
             <div>
-              <label style={label} htmlFor="el-text">Text</label>
-              <input id="el-text" className="input-field" value={el.text} maxLength={200} onChange={(e) => set({ text: e.target.value })} />
+              <label className={label} htmlFor="el-text">Text</label>
+              <Input id="el-text" className="h-10" value={el.text} maxLength={200} onChange={(e) => set({ text: e.target.value })} />
             </div>
           )}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
-            <div><label style={label} htmlFor="el-size">Size</label><NumberInput id="el-size" value={el.size} min={LIMITS.minFont} max={LIMITS.maxFont} step={1} suffix="pt" onChange={(size) => set({ size })} /></div>
-            <div><label style={label} htmlFor="el-min">Shrink to</label><NumberInput id="el-min" value={el.minSize} min={LIMITS.minFont} max={LIMITS.maxFont} step={1} suffix="pt" onChange={(minSize) => set({ minSize })} /></div>
-            <div><label style={label} htmlFor="el-color">Colour</label><ColorInput id="el-color" value={el.color} onChange={(color) => set({ color })} /></div>
+          <div className="grid grid-cols-3 gap-2">
+            <div><label className={label} htmlFor="el-size">Size</label><NumberInput id="el-size" value={el.size} min={LIMITS.minFont} max={LIMITS.maxFont} step={1} suffix="pt" onChange={(size) => set({ size })} /></div>
+            <div><label className={label} htmlFor="el-min">Shrink to</label><NumberInput id="el-min" value={el.minSize} min={LIMITS.minFont} max={LIMITS.maxFont} step={1} suffix="pt" onChange={(minSize) => set({ minSize })} /></div>
+            <div><label className={label} htmlFor="el-color">Colour</label><ColorInput id="el-color" value={el.color} onChange={(color) => set({ color })} /></div>
           </div>
-          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+          <div className="flex flex-wrap gap-1">
             {(['left', 'center', 'right'] as const).map((a) => (
-              <button key={a} className={el.align === a ? 'btn-primary' : 'btn-secondary'} style={small} onClick={() => set({ align: a })}>{a === 'center' ? 'Centre' : a[0]!.toUpperCase() + a.slice(1)}</button>
+              <Button key={a} variant={el.align === a ? 'default' : 'outline'} size="sm" onClick={() => set({ align: a })}>{a === 'center' ? 'Centre' : a[0]!.toUpperCase() + a.slice(1)}</Button>
             ))}
-            <button className={el.bold ? 'btn-primary' : 'btn-secondary'} style={{ ...small, fontWeight: 700 }} onClick={() => set({ bold: !el.bold })}>Bold</button>
-            <button className={el.italic ? 'btn-primary' : 'btn-secondary'} style={{ ...small, fontStyle: 'italic' }} onClick={() => set({ italic: !el.italic })}>Italic</button>
-            <button className={el.uppercase ? 'btn-primary' : 'btn-secondary'} style={small} onClick={() => set({ uppercase: !el.uppercase })}>ABC</button>
+            <Button variant={el.bold ? 'default' : 'outline'} size="sm" className="font-bold" onClick={() => set({ bold: !el.bold })}>Bold</Button>
+            <Button variant={el.italic ? 'default' : 'outline'} size="sm" className="italic" onClick={() => set({ italic: !el.italic })}>Italic</Button>
+            <Button variant={el.uppercase ? 'default' : 'outline'} size="sm" onClick={() => set({ uppercase: !el.uppercase })}>ABC</Button>
           </div>
-          <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>Long text shrinks down to the &quot;Shrink to&quot; size, then wraps onto more lines inside the box.</p>
+          <p className="text-xs text-muted-foreground">Long text shrinks down to the &quot;Shrink to&quot; size, then wraps onto more lines inside the box.</p>
         </>
       )}
 
       {el.type === 'image' && (
         <>
           <div>
-            <label style={label} htmlFor="el-label">Label</label>
-            <input id="el-label" className="input-field" value={el.label} maxLength={60} onChange={(e) => set({ label: e.target.value })} />
+            <label className={label} htmlFor="el-label">Label</label>
+            <Input id="el-label" className="h-10" value={el.label} maxLength={60} onChange={(e) => set({ label: e.target.value })} />
           </div>
-          <label style={{ display: 'flex', gap: '8px', alignItems: 'center', fontSize: '14px' }}>
+          <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={el.keepAspect} onChange={(e) => set({ keepAspect: e.target.checked } as Partial<ImageElement>)} />
             Keep aspect ratio (unlock to stretch the image to the box)
           </label>
           {el.source === 'sponsor' ? (
             <UploadButton text="Replace logo" rules={LOGO_RULES} folder={folder} kind="sponsor" onUploaded={(path) => set({ path } as Partial<ImageElement>)} onError={onError} />
           ) : (
-            <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>
+            <p className="text-xs text-muted-foreground">
               {el.source === 'event_logo' ? 'Uses the event logo (or the organizer logo if the event has none).' : 'Uses the organizer company logo.'}
             </p>
           )}
@@ -667,30 +706,30 @@ function ElementProperties({ el, design, onChange, folder, onError }: { el: Badg
 
       {el.type === 'qr' && (
         <div>
-          <label style={label} htmlFor="el-qr">QR colour</label>
+          <label className={label} htmlFor="el-qr">QR colour</label>
           <ColorInput id="el-qr" value={el.color} onChange={(color) => set({ color })} />
-          <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginTop: '4px' }}>Encodes the attendee&apos;s registration ID. Keep it dark on a light background so scanners can read it.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Encodes the attendee&apos;s registration ID. Keep it dark on a light background so scanners can read it.</p>
         </div>
       )}
 
       {el.type === 'rect' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+        <div className="grid grid-cols-2 gap-2">
           <div>
-            <label style={label} htmlFor="el-fill">Fill</label>
+            <label className={label} htmlFor="el-fill">Fill</label>
             <ColorInput id="el-fill" value={el.fill ?? '#ffffff'} onChange={(fill) => set({ fill } as Partial<RectElement>)} />
-            <label style={{ fontSize: '12px', display: 'flex', gap: '6px', marginTop: '4px' }}>
+            <label className="mt-1 flex gap-1.5 text-xs">
               <input type="checkbox" checked={!el.fill} onChange={(e) => set({ fill: e.target.checked ? null : '#10b981' } as Partial<RectElement>)} /> No fill
             </label>
           </div>
           <div>
-            <label style={label} htmlFor="el-stroke">Outline</label>
+            <label className={label} htmlFor="el-stroke">Outline</label>
             <ColorInput id="el-stroke" value={el.stroke ?? '#111827'} onChange={(stroke) => set({ stroke, strokeWidth: el.strokeWidth || 0.5 } as Partial<RectElement>)} />
-            <label style={{ fontSize: '12px', display: 'flex', gap: '6px', marginTop: '4px' }}>
+            <label className="mt-1 flex gap-1.5 text-xs">
               <input type="checkbox" checked={!el.stroke} onChange={(e) => set({ stroke: e.target.checked ? null : '#111827', strokeWidth: el.strokeWidth || 0.5 } as Partial<RectElement>)} /> No outline
             </label>
           </div>
-          <div><label style={label} htmlFor="el-sw">Outline width</label><NumberInput id="el-sw" value={el.strokeWidth} min={0} max={10} step={0.25} suffix="mm" onChange={(strokeWidth) => set({ strokeWidth } as Partial<RectElement>)} /></div>
-          <div><label style={label} htmlFor="el-radius">Corners</label><NumberInput id="el-radius" value={el.radius} min={0} max={50} suffix="mm" onChange={(radius) => set({ radius } as Partial<RectElement>)} /></div>
+          <div><label className={label} htmlFor="el-sw">Outline width</label><NumberInput id="el-sw" value={el.strokeWidth} min={0} max={10} step={0.25} suffix="mm" onChange={(strokeWidth) => set({ strokeWidth } as Partial<RectElement>)} /></div>
+          <div><label className={label} htmlFor="el-radius">Corners</label><NumberInput id="el-radius" value={el.radius} min={0} max={50} suffix="mm" onChange={(radius) => set({ radius } as Partial<RectElement>)} /></div>
         </div>
       )}
     </div>

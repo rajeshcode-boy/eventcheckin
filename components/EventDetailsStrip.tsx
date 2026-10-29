@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { countryName } from '@/lib/countries'
 import type { PublicHoliday } from '@/lib/holidays'
 import { zoneShortName } from '@/lib/timezones'
+import { cn } from '@/lib/utils'
 
 export interface EventDetailsInput {
   location: string
@@ -87,25 +88,17 @@ export default function EventDetailsStrip({ event, compact = false }: { event: E
     }
   }, [event.country])
 
-  const chipStyle: React.CSSProperties = {
-    fontSize: '12px',
-    fontWeight: 600,
-    padding: '4px 10px',
-    borderRadius: '999px',
-    backgroundColor: 'var(--color-neutral-light)',
-    color: 'var(--color-text-primary)',
-    whiteSpace: 'nowrap',
-  }
+  const chip = 'rounded-full bg-muted px-2.5 py-1 text-xs font-semibold whitespace-nowrap text-foreground'
 
   if (compact) {
     const next = holidays[0]
     return (
-      <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px', marginTop: '4px', overflowWrap: 'anywhere' }}>
+      <p className="mt-1 text-sm text-muted-foreground [overflow-wrap:anywhere]">
         {place} · {date}
         {time && ` · ${time}`}
         {' · '}{venueShort}
         {next && (
-          <span style={{ marginLeft: '8px', ...chipStyle, display: 'inline-block' }}>
+          <span className={`${chip} ml-2 inline-block`}>
             Holiday: {next.name} ({formatHolidayDate(next.date)})
           </span>
         )}
@@ -113,45 +106,47 @@ export default function EventDetailsStrip({ event, compact = false }: { event: E
     )
   }
 
+  const heading = 'text-xs font-semibold tracking-wide text-muted-foreground uppercase'
+
   return (
-    <section className="card" aria-label="Event details" style={{ padding: '14px 18px', display: 'flex', flexWrap: 'wrap', gap: '14px 24px', alignItems: 'center', marginBottom: '14px' }}>
+    <section className="flex flex-wrap items-center gap-x-6 gap-y-3.5 rounded-xl border border-border bg-card px-4.5 py-3.5" aria-label="Event details">
       <div>
-        <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Location</p>
-        <p style={{ fontSize: '15px', fontWeight: 600 }}>{place}</p>
+        <p className={heading}>Location</p>
+        <p className="text-[15px] font-semibold">{place}</p>
       </div>
-      <div style={{ minWidth: 0 }}>
-        <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Venue</p>
+      <div className="min-w-0">
+        <p className={heading}>Venue</p>
         {venueSummary.map((line) => (
-          <p key={line.key} style={{ fontSize: '15px', fontWeight: line.strong ? 600 : 400, overflowWrap: 'anywhere' }}>
-            {line.href ? <a href={line.href} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-primary)', textDecoration: 'underline' }}>{line.text}</a> : line.text}
+          <p key={line.key} className={cn('text-[15px] [overflow-wrap:anywhere]', line.strong ? 'font-semibold' : 'font-normal')}>
+            {line.href ? <a href={line.href} target="_blank" rel="noopener noreferrer" className="text-primary underline">{line.text}</a> : line.text}
           </p>
         ))}
       </div>
       <div>
-        <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Date and time</p>
-        <p style={{ fontSize: '15px', fontWeight: 600 }}>
+        <p className={heading}>Date and time</p>
+        <p className="text-[15px] font-semibold">
           {date}
           {time && `, ${time}${zoneLabel ? ` ${zoneLabel}` : ''}`}
         </p>
       </div>
       {event.country && (
-        <div style={{ minWidth: 0 }}>
-          <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Upcoming public holidays</p>
+        <div className="min-w-0">
+          <p className={heading}>Upcoming public holidays</p>
           {holidays.length > 0 ? (
             <>
-              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '4px' }}>
+              <div className="mt-1 flex flex-wrap gap-1.5">
                 {holidays.map((h) => (
-                  <span key={h.date + h.name} style={chipStyle}>
+                  <span key={h.date + h.name} className={chip}>
                     {h.name} · {formatHolidayDate(h.date)}
                   </span>
                 ))}
               </div>
-              <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginTop: '6px' }}>
+              <p className="mt-1.5 text-xs text-muted-foreground">
                 Dates are not official. Confirm with the local authority before you plan around them.
               </p>
             </>
           ) : (
-            <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)', marginTop: '4px' }}>
+            <p className="mt-1 text-sm text-muted-foreground">
               {listNeedsUpdate
                 ? 'No more holidays in our list for this year. The list needs updating for the coming year.'
                 : covered

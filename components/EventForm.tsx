@@ -10,6 +10,10 @@ import { BANNER_RULES, LOGO_RULES } from '@/lib/images'
 import { uploadImage } from '@/lib/storage'
 import SearchSelect from './SearchSelect'
 import ImageUpload, { PendingImage } from './ImageUpload'
+import { Alert } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { NativeSelect } from '@/components/ui/native-select'
 
 export interface EventRecord {
   id: string
@@ -34,7 +38,7 @@ export interface EventRecord {
   archived_at?: string | null
 }
 
-const labelStyle: React.CSSProperties = { display: 'block', marginBottom: '8px', fontWeight: 500 }
+const labelClass = 'mb-2 block font-medium'
 
 export type VenueType = 'in_person' | 'virtual' | 'tba'
 
@@ -164,15 +168,15 @@ export default function EventForm({ event }: { event?: EventRecord }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <div>
-        <label htmlFor="name" style={labelStyle}>Event Name *</label>
-        <input id="name" type="text" value={name} onChange={(e) => setName(e.target.value)} className="input-field" placeholder="e.g., Tech Fest" required maxLength={120} />
+        <label htmlFor="name" className={labelClass}>Event Name *</label>
+        <Input id="name" type="text" value={name} onChange={(e) => setName(e.target.value)} className="h-10" placeholder="e.g., Tech Fest" required maxLength={120} />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4">
         <div>
-          <label htmlFor="country" style={labelStyle}>Country *</label>
+          <label htmlFor="country" className={labelClass}>Country *</label>
           <SearchSelect
             id="country"
             options={countryOptions}
@@ -187,7 +191,7 @@ export default function EventForm({ event }: { event?: EventRecord }) {
           />
         </div>
         <div>
-          <label htmlFor="city" style={labelStyle}>City *</label>
+          <label htmlFor="city" className={labelClass}>City *</label>
           <SearchSelect
             id="city"
             options={cityOptions}
@@ -201,79 +205,79 @@ export default function EventForm({ event }: { event?: EventRecord }) {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4">
         <div>
-          <label htmlFor="eventDate" style={labelStyle}>Event Date *</label>
-          <input id="eventDate" type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} className="input-field" required />
+          <label htmlFor="eventDate" className={labelClass}>Event Date *</label>
+          <Input id="eventDate" type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} className="h-10" required />
         </div>
         <div>
-          <label htmlFor="startTime" style={labelStyle}>Start Time</label>
-          <input id="startTime" type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="input-field" />
+          <label htmlFor="startTime" className={labelClass}>Start Time</label>
+          <Input id="startTime" type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="h-10" />
         </div>
         <div>
-          <label htmlFor="capacity" style={labelStyle}>Guest Capacity</label>
-          <input id="capacity" type="number" value={capacity} onChange={(e) => setCapacity(e.target.value)} className="input-field" min="1" required />
+          <label htmlFor="capacity" className={labelClass}>Guest Capacity</label>
+          <Input id="capacity" type="number" value={capacity} onChange={(e) => setCapacity(e.target.value)} className="h-10" min="1" required />
         </div>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '16px', borderRadius: '6px', border: '1px solid var(--color-border)' }}>
+      <div className="flex flex-col gap-3 rounded-md border border-border p-4">
         <div>
-          <label htmlFor="venueType" style={labelStyle}>Venue</label>
-          <select id="venueType" value={venueType} onChange={(e) => setVenueType(e.target.value as VenueType)} className="input-field">
+          <label htmlFor="venueType" className={labelClass}>Venue</label>
+          <NativeSelect id="venueType" className="h-10" value={venueType} onChange={(e) => setVenueType(e.target.value as VenueType)}>
             <option value="tba">To be announced</option>
             <option value="in_person">In person</option>
             <option value="virtual">Virtual</option>
-          </select>
-          <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginTop: '6px' }}>
+          </NativeSelect>
+          <p className="mt-1.5 text-[13px] text-muted-foreground">
             Leave as &quot;To be announced&quot; until the venue is confirmed. Guests will see that instead.
           </p>
         </div>
 
         {venueType === 'in_person' && (
-          <div style={{ display: 'grid', gap: '12px' }}>
+          <div className="grid gap-3">
             <div>
-              <label htmlFor="venueName" style={labelStyle}>Hotel or venue name</label>
-              <input id="venueName" value={venueName} onChange={(e) => setVenueName(e.target.value)} className="input-field" placeholder="e.g. Hilton Riyadh" />
+              <label htmlFor="venueName" className={labelClass}>Hotel or venue name</label>
+              <Input id="venueName" value={venueName} onChange={(e) => setVenueName(e.target.value)} className="h-10" placeholder="e.g. Hilton Riyadh" />
             </div>
             <div>
-              <label htmlFor="venueAddress" style={labelStyle}>Address</label>
-              <input id="venueAddress" value={venueAddress} onChange={(e) => setVenueAddress(e.target.value)} className="input-field" placeholder="Street, area" />
+              <label htmlFor="venueAddress" className={labelClass}>Address</label>
+              <Input id="venueAddress" value={venueAddress} onChange={(e) => setVenueAddress(e.target.value)} className="h-10" placeholder="Street, area" />
             </div>
             <div>
-              <label htmlFor="venueMapUrl" style={labelStyle}>Map link</label>
-              <input id="venueMapUrl" type="url" value={venueMapUrl} onChange={(e) => setVenueMapUrl(e.target.value)} className="input-field" placeholder="https://maps.google.com/..." />
+              <label htmlFor="venueMapUrl" className={labelClass}>Map link</label>
+              <Input id="venueMapUrl" type="url" value={venueMapUrl} onChange={(e) => setVenueMapUrl(e.target.value)} className="h-10" placeholder="https://maps.google.com/..." />
             </div>
           </div>
         )}
 
         {venueType === 'virtual' && (
-          <div style={{ display: 'grid', gap: '12px' }}>
+          <div className="grid gap-3">
             <div>
-              <label htmlFor="virtualPlatform" style={labelStyle}>Platform</label>
-              <input id="virtualPlatform" value={virtualPlatform} onChange={(e) => setVirtualPlatform(e.target.value)} className="input-field" placeholder="e.g. Zoom, Teams" />
+              <label htmlFor="virtualPlatform" className={labelClass}>Platform</label>
+              <Input id="virtualPlatform" value={virtualPlatform} onChange={(e) => setVirtualPlatform(e.target.value)} className="h-10" placeholder="e.g. Zoom, Teams" />
             </div>
             <div>
-              <label htmlFor="virtualLink" style={labelStyle}>Meeting link</label>
-              <input id="virtualLink" type="url" value={virtualLink} onChange={(e) => setVirtualLink(e.target.value)} className="input-field" placeholder="https://..." />
+              <label htmlFor="virtualLink" className={labelClass}>Meeting link</label>
+              <Input id="virtualLink" type="url" value={virtualLink} onChange={(e) => setVirtualLink(e.target.value)} className="h-10" placeholder="https://..." />
             </div>
           </div>
         )}
       </div>
 
-      <div style={{ padding: '16px', backgroundColor: 'var(--color-neutral-light)', borderRadius: '6px', border: '1px solid var(--color-border)' }}>
-        <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)', marginBottom: '8px' }}>Event ID</p>
-        <p style={{ fontFamily: 'monospace', fontSize: '18px', fontWeight: 600 }}>
+      <div className="rounded-md border border-border bg-muted p-4">
+        <p className="mb-2 text-sm text-muted-foreground">Event ID</p>
+        <p className="font-mono text-lg font-semibold">
           {editing ? event.event_id : previewId || '—'}
         </p>
-        <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginTop: '8px' }}>
+        <p className="mt-2 text-xs text-muted-foreground">
           {editing
             ? 'The event ID stays the same so printed QR codes and check-in links keep working.'
             : 'Generated from name, city and date: NAME-CITY-DDMONYYYY (e.g., TECHFEST-BLR-15NOV2026).'}
         </p>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', padding: '16px', border: '1px solid var(--color-border)', borderRadius: '6px' }}>
-        <h2 style={{ fontSize: '18px', fontWeight: 600 }}>Branding</h2>
+      <div className="flex flex-col gap-5 rounded-md border border-border p-4">
+        <h2 className="text-lg font-semibold">Branding</h2>
         {editing ? (
           <>
             <ImageUpload
@@ -303,12 +307,12 @@ export default function EventForm({ event }: { event?: EventRecord }) {
         )}
       </div>
 
-      {error && <div className="alert-error">{error}</div>}
-      {notice && <div className="alert-success">{notice}</div>}
+      {error && <Alert variant="error">{error}</Alert>}
+      {notice && <Alert variant="success">{notice}</Alert>}
 
-      <button type="submit" disabled={saving} className="btn-primary" style={{ width: '100%' }}>
+      <Button type="submit" className="w-full" disabled={saving}>
         {saving ? 'Saving...' : editing ? 'Save changes' : 'Create Event'}
-      </button>
+      </Button>
     </form>
   )
 }

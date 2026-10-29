@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { Alert } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
 
 interface EventInfo {
   name: string
@@ -117,60 +119,60 @@ export default function ReportPage() {
   }
 
   if (loading) return <p>Loading report...</p>
-  if (error || !event) return <p className="alert-error">{error || 'Event not found'}</p>
+  if (error || !event) return <Alert variant="error">{error || 'Event not found'}</Alert>
 
-  const card = { padding: '16px 18px' } as const
-  const label = { fontSize: '12px', color: 'var(--color-text-secondary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' } as const
+  const card = 'rounded-xl border border-border bg-card px-4.5 py-4'
+  const label = 'text-xs font-semibold uppercase tracking-wide text-muted-foreground'
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', flexWrap: 'wrap' }}>
+    <div className="flex flex-col gap-4">
+      <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 style={{ fontSize: '22px', fontWeight: 700 }}>Event report</h2>
-          <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px', marginTop: '4px' }}>
+          <h2 className="text-[22px] font-bold">Event report</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
             {event.name} · {new Date(event.event_date + 'T00:00:00').toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })}
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button type="button" className="btn-secondary" onClick={() => window.print()}>Print</button>
-          <button type="button" className="btn-primary" onClick={downloadGuestList} disabled={registrations.length === 0}>Download guest list (CSV)</button>
+        <div className="flex gap-2">
+          <Button type="button" variant="outline" onClick={() => window.print()}>Print</Button>
+          <Button type="button" onClick={downloadGuestList} disabled={registrations.length === 0}>Download guest list (CSV)</Button>
         </div>
       </header>
 
-      <section style={{ display: 'grid', gap: '12px', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
-        <div className="card" style={card}>
-          <p style={label}>Registered</p>
-          <p style={{ fontSize: '24px', fontWeight: 700 }}>{summary.registered}</p>
+      <section className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3">
+        <div className={card}>
+          <p className={label}>Registered</p>
+          <p className="text-2xl font-bold">{summary.registered}</p>
         </div>
-        <div className="card" style={card}>
-          <p style={label}>Attended</p>
-          <p style={{ fontSize: '24px', fontWeight: 700 }}>{summary.attended}</p>
-          <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>{summary.rate}% of registered</p>
+        <div className={card}>
+          <p className={label}>Attended</p>
+          <p className="text-2xl font-bold">{summary.attended}</p>
+          <p className="text-[13px] text-muted-foreground">{summary.rate}% of registered</p>
         </div>
-        <div className="card" style={card}>
-          <p style={label}>No-shows</p>
-          <p style={{ fontSize: '24px', fontWeight: 700 }}>{summary.noShows.length}</p>
+        <div className={card}>
+          <p className={label}>No-shows</p>
+          <p className="text-2xl font-bold">{summary.noShows.length}</p>
         </div>
-        <div className="card" style={card}>
-          <p style={label}>Badges collected</p>
-          <p style={{ fontSize: '24px', fontWeight: 700 }}>{summary.badgesPrinted}</p>
+        <div className={card}>
+          <p className={label}>Badges collected</p>
+          <p className="text-2xl font-bold">{summary.badgesPrinted}</p>
         </div>
-        <div className="card" style={card}>
-          <p style={label}>Busiest hour</p>
-          <p style={{ fontSize: '18px', fontWeight: 700 }}>{summary.peak ? `${formatHour(summary.peak[0])} · ${summary.peak[1]} arrivals` : 'No check-ins yet'}</p>
+        <div className={card}>
+          <p className={label}>Busiest hour</p>
+          <p className="text-lg font-bold">{summary.peak ? `${formatHour(summary.peak[0])} · ${summary.peak[1]} arrivals` : 'No check-ins yet'}</p>
         </div>
       </section>
 
-      <section className="card" style={card}>
-        <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '10px' }}>No-shows ({summary.noShows.length})</h3>
+      <section className={card}>
+        <h3 className="mb-2.5 text-base font-semibold">No-shows ({summary.noShows.length})</h3>
         {summary.noShows.length === 0 ? (
-          <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px' }}>Everyone registered has checked in.</p>
+          <p className="text-sm text-muted-foreground">Everyone registered has checked in.</p>
         ) : (
-          <ul style={{ listStyle: 'none', display: 'grid', gap: '6px', fontSize: '14px' }}>
+          <ul className="grid gap-1.5 text-sm">
             {summary.noShows.map((r) => (
               <li key={r.id}>
                 {r.full_name || 'Unnamed guest'}
-                {r.company && <span style={{ color: 'var(--color-text-secondary)' }}> · {r.company}</span>}
+                {r.company && <span className="text-muted-foreground"> · {r.company}</span>}
               </li>
             ))}
           </ul>

@@ -5,6 +5,7 @@ import { useParams, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import EventForm, { EventRecord } from '@/components/EventForm'
 import EventLifecycle from '@/components/EventLifecycle'
+import { Alert } from '@/components/ui/alert'
 
 export default function EditEventPage() {
   const params = useParams()
@@ -26,19 +27,19 @@ export default function EditEventPage() {
   }, [eventUuid])
 
   return (
-    <div style={{ maxWidth: '900px' }}>
-      <div style={{ maxWidth: '640px' }}>
-        <h1 style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '24px' }}>Edit Event</h1>
+    <div className="max-w-[900px]">
+      <div className="max-w-[640px]">
+        <h1 className="mb-6 text-[28px] font-bold">Edit Event</h1>
         {searchParams.get('branding') === 'failed' && (
-          <div className="alert-warning" style={{ marginBottom: '16px' }}>
+          <Alert variant="warning" className="mb-4">
             The event was created, but the banner or logo could not be uploaded. Add them again below.
-          </div>
+          </Alert>
         )}
-        {error && <p className="alert-error">{error}</p>}
+        {error && <Alert variant="error">{error}</Alert>}
         {!event && !error && <p>Loading event...</p>}
         {event && <EventForm event={event} />}
         {event && (
-          <div style={{ marginTop: '32px' }}>
+          <div className="mt-8">
             <EventLifecycle
               eventUuid={eventUuid}
               name={event.name}

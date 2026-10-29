@@ -5,6 +5,8 @@ import { supabase } from '@/lib/supabase'
 import { toCsv } from '@/lib/guests'
 import { REPORT_HEADERS, ReportCheckin, ReportRegistration, ReportRow, buildReport, rowToCells } from '@/lib/report'
 import { formatDateTime } from '@/lib/time'
+import { Alert } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
 
 type Format = 'xlsx' | 'csv' | 'pdf'
 
@@ -94,19 +96,19 @@ export default function ExportButtons({ event }: Props) {
   }
 
   return (
-    <div style={{ marginBottom: '32px' }}>
-      <h2 style={{ fontSize: '20px', fontWeight: 600, marginBottom: '12px' }}>Export report</h2>
-      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+    <div className="mb-8">
+      <h2 className="mb-3 text-xl font-semibold">Export report</h2>
+      <div className="flex flex-wrap gap-3">
         {(['xlsx', 'csv', 'pdf'] as Format[]).map((f) => (
-          <button key={f} className="btn-secondary" onClick={() => exportReport(f)} disabled={busy !== null}>
+          <Button key={f} variant="outline" onClick={() => exportReport(f)} disabled={busy !== null}>
             {busy === f ? 'Preparing...' : { xlsx: 'Excel (.xlsx)', csv: 'CSV (.csv)', pdf: 'PDF (.pdf)' }[f]}
-          </button>
+          </Button>
         ))}
       </div>
-      <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)', marginTop: '8px' }}>
+      <p className="mt-2 text-sm text-muted-foreground">
         Attendee list with check-in times, source and status, plus walk-ins and {event.status === 'closed' ? 'no-shows' : 'guests not yet arrived'}.
       </p>
-      {error && <div className="alert-error" style={{ marginTop: '12px' }}>{error}</div>}
+      {error && <Alert variant="error" className="mt-3">{error}</Alert>}
     </div>
   )
 }

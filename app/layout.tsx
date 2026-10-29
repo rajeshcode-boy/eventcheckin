@@ -1,6 +1,12 @@
 import type { Metadata, Viewport } from 'next'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
+import { Geist } from "next/font/google";
+import { cn } from "@/lib/utils";
+import { Toaster } from '@/components/ui/sonner'
+import { ThemeProvider } from '@/components/theme-provider'
+
+const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 export const metadata: Metadata = {
   title: 'EventCheckin',
@@ -31,14 +37,17 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className={cn("font-sans", geist.variable)} suppressHydrationWarning>
       <head>
         {/* iOS sets navigator.standalone from this tag; Next only emits the non-prefixed one */}
         <meta name="apple-mobile-web-app-capable" content="yes" />
       </head>
       <body>
-        {children}
+        <ThemeProvider>
+          {children}
+        </ThemeProvider>
         <Analytics />
+        <Toaster />
       </body>
     </html>
   )

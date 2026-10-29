@@ -4,6 +4,9 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { Alert } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 
 function EyeIcon({ open }: { open: boolean }) {
   return (
@@ -56,35 +59,35 @@ export default function LoginPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 16px', backgroundColor: 'var(--color-neutral-light)' }}>
-      <div style={{ width: '100%', maxWidth: '400px' }}>
+    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-6">
+      <div className="w-full max-w-[400px]">
         {/* Brand: same mark as the app header */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', marginBottom: '28px', textAlign: 'center' }}>
-          <span aria-hidden="true" style={{ width: '44px', height: '44px', borderRadius: '12px', backgroundColor: 'var(--color-primary)', color: '#ffffff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: 700 }}>✓</span>
+        <div className="mb-7 flex flex-col items-center gap-3 text-center">
+          <span aria-hidden="true" className="inline-flex size-11 items-center justify-center rounded-xl bg-primary text-xl font-bold text-primary-foreground">✓</span>
           <div>
-            <h1 style={{ fontSize: '24px', fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.2 }}>Welcome back</h1>
-            <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px', marginTop: '6px' }}>Log in to manage your EventCheckin events.</p>
+            <h1 className="text-2xl leading-tight font-bold tracking-[-0.02em]">Welcome back</h1>
+            <p className="mt-1.5 text-sm text-muted-foreground">Log in to manage your EventCheckin events.</p>
           </div>
         </div>
 
-        <div className="card" style={{ padding: '24px' }}>
+        <div className="rounded-xl border border-border bg-card p-6">
           {signedOut && (
-            <div role="status" style={{ marginBottom: '20px', padding: '12px 14px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--color-primary-soft)', color: 'var(--color-primary)', fontSize: '14px', fontWeight: 500 }}>
+            <div role="status" className="mb-5 rounded-lg bg-accent px-3.5 py-3 text-sm font-medium text-primary">
               You&apos;ve signed out.
             </div>
           )}
 
-          <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <form onSubmit={handleLogin} className="flex flex-col gap-4">
             <div>
-              <label htmlFor="email" style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: 500 }}>
+              <label htmlFor="email" className="mb-1.5 block text-sm font-medium">
                 Email
               </label>
-              <input
+              <Input
                 id="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="input-field"
+                className="h-11 text-base"
                 placeholder="you@example.com"
                 autoComplete="email"
                 required
@@ -92,55 +95,45 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label htmlFor="password" style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: 500 }}>
+              <label htmlFor="password" className="mb-1.5 block text-sm font-medium">
                 Password
               </label>
-              <div style={{ position: 'relative' }}>
-                <input
+              <div className="relative">
+                <Input
                   id="password"
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="input-field"
+                  className="h-11 pr-11 text-base"
                   placeholder="Enter your password"
                   autoComplete="current-password"
                   required
-                  style={{ paddingRight: '44px' }}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((s) => !s)}
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                   aria-pressed={showPassword}
-                  style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', padding: '4px', color: 'var(--color-text-secondary)', backgroundColor: 'transparent', borderRadius: '6px', display: 'flex' }}
+                  className="absolute top-1/2 right-2.5 flex -translate-y-1/2 rounded-md bg-transparent p-1 text-muted-foreground"
                 >
                   <EyeIcon open={showPassword} />
                 </button>
               </div>
             </div>
 
-            {error && (
-              <div role="alert" className="alert-error" style={{ borderRadius: 'var(--radius-md)' }}>
-                {error}
-              </div>
-            )}
+            {error && <Alert variant="error">{error}</Alert>}
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn-primary"
-              style={{ width: '100%', marginTop: '4px' }}
-            >
+            <Button type="submit" size="lg" className="mt-1 h-11 w-full text-base" disabled={loading}>
               {loading ? 'Logging in...' : 'Log in'}
-            </button>
+            </Button>
           </form>
         </div>
 
-        <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-          <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)' }}>Don&apos;t have an account?</p>
-          <Link href="/signup" className="btn-secondary" style={{ width: '100%' }}>
+        <div className="mt-5 flex flex-col items-center gap-3">
+          <p className="text-sm text-muted-foreground">Don&apos;t have an account?</p>
+          <Button variant="outline" size="lg" className="h-11 w-full text-base" render={<Link href="/signup" />} nativeButton={false}>
             Create an account
-          </Link>
+          </Button>
         </div>
       </div>
     </div>

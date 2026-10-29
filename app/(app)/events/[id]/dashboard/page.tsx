@@ -2,10 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useConfirm } from '@/components/ConfirmDialog'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { formatTime } from '@/lib/time'
 import ExportButtons from './ExportButtons'
+import { Alert } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 
 interface EventInfo {
   id: string
@@ -33,6 +37,7 @@ interface Checkin {
 const FEED_SIZE = 20
 
 export default function DashboardPage() {
+  const { confirm, dialog } = useConfirm()
   const params = useParams()
   const eventUuid = params.id as string
   const [event, setEvent] = useState<EventInfo | null>(null)
@@ -113,10 +118,12 @@ export default function DashboardPage() {
   const setStatus = async (status: EventInfo['status']) => {
     if (!event) return
     if (status === 'closed') {
-      const ok = confirm(
-        `Close check-in for ${event.name}?\n\n${stats.notArrived} registered guest(s) who haven't arrived will be marked as no-shows. ` +
-          'No new check-ins or walk-ins will be accepted until you reopen.'
-      )
+      const ok = await confirm({
+        title: `Close check-in for ${event.name}?`,
+        description: `${stats.notArrived} registered guest(s) who haven't arrived will be marked as no-shows. No new check-ins or walk-ins will be accepted until you reopen.`,
+        confirmLabel: 'Close check-in',
+        destructive: true,
+      })
       if (!ok) return
     }
     setBusy(true)
@@ -136,11 +143,11 @@ export default function DashboardPage() {
 
   if (!event) {
     return error ? (
-      <div>
-        <p className="alert-error">{error}</p>
-        <Link href="/events" className="btn-primary" style={{ marginTop: '16px', display: 'inline-block' }}>
+      <div className="grid gap-4">
+        <Alert variant="error">{error}</Alert>
+        <Button className="w-fit" render={<Link href="/events" />} nativeButton={false}>
           Back to events
-        </Link>
+        </Button>
       </div>
     ) : (
       <p>Loading dashboard...</p>
@@ -150,93 +157,79 @@ export default function DashboardPage() {
   const closed = event.status === 'closed'
 
   return (
-    <div style={{ maxWidth: '1100px' }}>
-
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', flexWrap: 'wrap', gap: '16px', marginBottom: '24px' }}>
+    <>
+    {dialog}
+    <div className="max-w-[1100px]">
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '8px' }}>Live Dashboard</h1>
-          <p style={{ color: 'var(--color-text-secondary)', fontSize: '16px' }}>
-            {event.name} • <span style={{ fontFamily: 'monospace' }}>{event.event_id}</span>
+          <h1 className="mb-2 text-[28px] font-bold">Live Dashboard</h1>
+          <p className="text-base text-muted-foreground">
+            {event.name} • <span className="font-mono">{event.event_id}</span>
           </p>
-          <p style={{ fontSize: '14px', marginTop: '8px', color: 'var(--color-text-secondary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <p className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
             <span
               aria-hidden="true"
-              style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: live ? 'var(--color-live)' : 'var(--color-amber-warning)' }}
+              className={cn('size-2.5 rounded-full', live ? 'bg-(--color-live)' : 'bg-amber-500')}
             />
             {live ? 'Live updates on' : 'Live updates off — use Refresh'}
             {lastUpdated && ` • Updated ${formatTime(lastUpdated)}`}
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-          <button className="btn-secondary" onClick={loadData} disabled={busy}>
+        <div className="flex flex-wrap gap-3">
+          <Button variant="outline" onClick={loadData} disabled={busy}>
             Refresh
-          </button>
+          </Button>
           {closed ? (
-            <button className="btn-primary" onClick={() => setStatus('live')} disabled={busy}>
+            <Button onClick={() => setStatus('live')} disabled={busy}>
               Reopen check-in
-            </button>
+            </Button>
           ) : (
-            <button
-              className="btn-secondary"
-              onClick={() => setStatus('closed')}
-              disabled={busy}
-              style={{ color: 'var(--color-error-red)', borderColor: 'var(--color-error-red)' }}
-            >
+            <Button variant="outline" className="border-destructive text-destructive" onClick={() => setStatus('closed')} disabled={busy}>
               Close check-in
-            </button>
+            </Button>
           )}
         </div>
       </div>
 
-      {error && <div className="alert-error" style={{ marginBottom: '16px' }}>{error}</div>}
+      {error && <Alert variant="error" className="mb-4">{error}</Alert>}
 
-      <div className={closed ? 'alert-error' : 'alert-success'} style={{ marginBottom: '24px', fontSize: '14px' }}>
+      <Alert variant={closed ? 'error' : 'success'} className="mb-6">
         {closed
           ? 'Check-in is closed. Guests who had not arrived are counted as no-shows. Reopen to accept check-ins again.'
           : 'Check-in is open. New check-ins and walk-ins appear here as they happen.'}
-      </div>
+      </Alert>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '16px', marginBottom: '32px' }}>
+      <div className="mb-8 grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-4">
         <StatCard label="Total registered" value={stats.total} note={`${stats.preRegistered} pre-registered`} />
-        <StatCard label="Checked in" value={stats.arrived} note={`${stats.attendance}% of pre-registered`} color="var(--color-primary)" />
-        <StatCard label="Walk-ins" value={stats.walkins} color="var(--color-amber-warning)" />
+        <StatCard label="Checked in" value={stats.arrived} note={`${stats.attendance}% of pre-registered`} accent="border-t-primary" />
+        <StatCard label="Walk-ins" value={stats.walkins} accent="border-t-amber-500" />
         {closed ? (
-          <StatCard label="No-shows" value={stats.notArrived} color="var(--color-error-red)" />
+          <StatCard label="No-shows" value={stats.notArrived} accent="border-t-destructive" />
         ) : (
-          <StatCard label="Not yet arrived" value={stats.notArrived} color="var(--color-text-secondary)" />
+          <StatCard label="Not yet arrived" value={stats.notArrived} accent="border-t-muted-foreground" />
         )}
       </div>
 
       <ExportButtons event={event} />
 
-      <h2 style={{ fontSize: '20px', fontWeight: 600, marginBottom: '12px' }}>Latest check-ins</h2>
+      <h2 className="mb-3 text-xl font-semibold">Latest check-ins</h2>
       {feed.length === 0 ? (
-        <div style={{ padding: '32px', textAlign: 'center', border: '1px solid var(--color-border)', borderRadius: '6px', color: 'var(--color-text-secondary)' }}>
+        <div className="rounded-md border border-border p-8 text-center text-muted-foreground">
           No check-ins yet.
         </div>
       ) : (
-        <ul style={{ listStyle: 'none', border: '1px solid var(--color-border)', borderRadius: '6px' }}>
-          {feed.map((c, i) => (
-            <li
-              key={c.id}
-              style={{
-                display: 'flex',
-                gap: '16px',
-                alignItems: 'baseline',
-                padding: '12px 16px',
-                borderTop: i === 0 ? 'none' : '1px solid var(--color-border)',
-                flexWrap: 'wrap',
-              }}
-            >
-              <span style={{ fontSize: '14px', color: 'var(--color-text-secondary)', minWidth: '110px' }}>
+        <ul className="rounded-md border border-border">
+          {feed.map((c) => (
+            <li key={c.id} className="flex flex-wrap items-baseline gap-4 border-t border-border px-4 py-3 first:border-t-0">
+              <span className="min-w-[110px] text-sm text-muted-foreground">
                 {formatTime(c.checked_in_at)}
               </span>
-              <span style={{ fontWeight: 600 }}>{c.person?.full_name ?? 'Deleted attendee'}</span>
-              <span style={{ fontSize: '14px', color: 'var(--color-text-secondary)', flex: 1 }}>
+              <span className="font-semibold">{c.person?.full_name ?? 'Deleted attendee'}</span>
+              <span className="flex-1 text-sm text-muted-foreground">
                 {[c.person?.designation, c.person?.company].filter(Boolean).join(' • ')}
               </span>
               {c.method === 'walkin' && (
-                <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-amber-warning)', border: '1px solid var(--color-amber-warning)', borderRadius: '999px', padding: '2px 8px' }}>
+                <span className="rounded-full border border-amber-500 px-2 py-0.5 text-xs font-semibold text-amber-600">
                   Walk-in
                 </span>
               )}
@@ -245,15 +238,16 @@ export default function DashboardPage() {
         </ul>
       )}
     </div>
+    </>
   )
 }
 
-function StatCard({ label, value, note, color }: { label: string; value: number; note?: string; color?: string }) {
+function StatCard({ label, value, note, accent }: { label: string; value: number; note?: string; accent?: string }) {
   return (
-    <div style={{ padding: '16px', border: '1px solid var(--color-border)', borderRadius: '6px', borderTop: color ? `4px solid ${color}` : undefined }}>
-      <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)', marginBottom: '4px' }}>{label}</p>
-      <p style={{ fontSize: '28px', fontWeight: 'bold' }}>{value}</p>
-      {note && <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginTop: '4px' }}>{note}</p>}
+    <div className={cn('rounded-md border border-border p-4', accent && 'border-t-4', accent)}>
+      <p className="mb-1 text-sm text-muted-foreground">{label}</p>
+      <p className="text-[28px] font-bold">{value}</p>
+      {note && <p className="mt-1 text-xs text-muted-foreground">{note}</p>}
     </div>
   )
 }

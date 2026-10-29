@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useConfirm } from '@/components/ConfirmDialog'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -15,8 +16,15 @@ import {
 } from '@/lib/guests'
 import { countryName, detectCountry } from '@/lib/countries'
 import ImportPanel from './ImportPanel'
-import AttendeeForm from './AttendeeForm'
 import BulkEditPanel from './BulkEditPanel'
+import GuestDrawer from './GuestDrawer'
+import { useEventRole } from '@/components/EventRoleContext'
+import { canManageGuests } from '@/lib/permissions'
+import { Alert } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { NativeSelect } from '@/components/ui/native-select'
+import { cn } from '@/lib/utils'
 
 interface EventInfo {
   id: string
@@ -27,7 +35,8 @@ interface EventInfo {
 }
 
 type SortKey = 'created_desc' | 'created_asc' | 'name_asc' | 'name_desc'
-type Panel = '' | 'import' | 'add' | 'bulk-edit'
+type Panel = '' | 'import' | 'bulk-edit'
+type DrawerMode = 'view' | 'edit' | 'add'
 
 const EMPTY_FILTERS = { country: '', city: '', industry: '', status: '', confirmation: '', source: '' }
 const PAGE_SIZES = [25, 50, 100]
@@ -36,21 +45,28 @@ const ATTENDEE_COLUMNS =
   'id, registration_id, source, source_id, full_name, first_name, last_name, email, company_email, phone, designation, company, ' +
   'country, city, industry, registration_status, attendance_confirmation, created_at'
 
-const STATUS_COLORS: Record<string, string> = {
-  approved: 'var(--color-primary)',
-  registered: 'var(--color-primary)',
-  pending: 'var(--color-amber-warning)',
-  rejected: 'var(--color-error-red)',
-  cancelled: 'var(--color-error-red)',
-  confirmed: 'var(--color-primary)',
-  maybe: 'var(--color-amber-warning)',
-  not_confirmed: 'var(--color-text-secondary)',
+const TONE = {
+  good: 'border-primary text-primary',
+  warn: 'border-amber-500 text-amber-600',
+  bad: 'border-destructive text-destructive',
+  quiet: 'border-muted-foreground text-muted-foreground',
+}
+const STATUS_TONES: Record<string, string> = {
+  approved: TONE.good,
+  registered: TONE.good,
+  pending: TONE.warn,
+  rejected: TONE.bad,
+  cancelled: TONE.bad,
+  confirmed: TONE.good,
+  maybe: TONE.warn,
+  not_confirmed: TONE.quiet,
 }
 
 const formatDate = (iso?: string) =>
   iso ? new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : ''
 
 export default function GuestsPage() {
+  const { confirm, dialog } = useConfirm()
   const params = useParams()
   const eventUuid = params.id as string
   const [event, setEvent] = useState<EventInfo | null>(null)
@@ -67,7 +83,11 @@ export default function GuestsPage() {
   const [pageSize, setPageSize] = useState(25)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [panel, setPanel] = useState<Panel>('')
-  const [editing, setEditing] = useState<Guest | null>(null)
+  // The guest drawer: one guest to view or edit, or a blank form to add
+  const [openId, setOpenId] = useState<string | null>(null)
+  const [drawerMode, setDrawerMode] = useState<DrawerMode | null>(null)
+  const role = useEventRole()
+  const canEdit = canManageGuests(role)
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -174,20 +194,38 @@ export default function GuestsPage() {
     setSelected(next)
   }
 
+  const openGuest = (id: string, mode: DrawerMode = 'view') => {
+    setOpenId(id)
+    setDrawerMode(mode)
+  }
+  const openAdd = () => {
+    setOpenId(null)
+    setDrawerMode('add')
+  }
+  const closeDrawer = useCallback(() => {
+    setOpenId(null)
+    setDrawerMode(null)
+  }, [])
+
   const finish = (message: string) => {
     setPanel('')
-    setEditing(null)
     setNotice(message)
     setError('')
     loadData()
   }
 
-  const handleDelete = async () => {
-    const count = selected.size
-    if (!confirm(`Delete ${count} attendee(s)?\n\nTheir check-ins and badge print history are deleted too. This cannot be undone.`)) return
+  // From the drawer: a saved edit goes back to the details, a newly added guest closes it
+  const drawerChanged = (message?: string) => {
+    if (drawerMode === 'add') closeDrawer()
+    else setDrawerMode('view')
+    finish(message ?? '')
+  }
+
+  const deleteGuests = async (ids: string[]) => {
+    const count = ids.length
+    if (!(await confirm({ title: `Delete ${count} attendee(s)?`, description: 'Their check-ins and badge print history are deleted too. This cannot be undone.', confirmLabel: 'Delete', destructive: true }))) return
     setError('')
     setNotice('')
-    const ids = [...selected]
     const { data, error: deleteError } = await supabase.from('registrations').delete().in('id', ids).eq('event_id', eventUuid).select('id')
 
     if (deleteError) {
@@ -197,8 +235,10 @@ export default function GuestsPage() {
     } else {
       setNotice(`Deleted ${data.length} attendee(s).`)
     }
+    if (openId && ids.includes(openId)) closeDrawer()
     loadData()
   }
+  const handleDelete = () => deleteGuests([...selected])
 
   const handleExport = () => {
     // Selected attendees (even ones hidden by the current filters), otherwise everything shown
@@ -214,10 +254,8 @@ export default function GuestsPage() {
 
   const handleEditSelected = () => {
     if (selected.size === 1) {
-      setEditing(guests.find((g) => selected.has(g.id)) ?? null)
-      setPanel('')
+      openGuest([...selected][0]!, 'edit')
     } else {
-      setEditing(null)
       setPanel('bulk-edit')
     }
   }
@@ -226,76 +264,84 @@ export default function GuestsPage() {
 
   if (!event) {
     return (
-      <div>
-        <p className="alert-error">{error}</p>
-        <Link href="/events" className="btn-primary" style={{ marginTop: '16px', display: 'inline-block' }}>
-          Back to events
-        </Link>
+      <div className="grid gap-4">
+        <Alert variant="error">{error}</Alert>
+        <Button className="w-fit" render={<Link href="/events" />} nativeButton={false}>Back to events</Button>
       </div>
     )
   }
 
   const eventCountry = event.country ?? detectCountry(event.location).iso
+  const openGuestRow = guests.find((g) => g.id === openId) ?? null
+  const drawerOpen = drawerMode !== null && (drawerMode === 'add' || openGuestRow !== null)
+  // With the drawer docked beside the table, show only the columns that still fit
+  const compact = drawerOpen
+  const cell = 'whitespace-nowrap px-3 py-2.5 align-top'
 
   return (
-    <div style={{ maxWidth: '1400px' }}>
+    <>
+    {dialog}
+    <div className={cn('max-w-[1400px]', drawerOpen && 'grid items-start gap-5 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]')}>
+    <div className="min-w-0">
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', flexWrap: 'wrap', gap: '16px', marginBottom: '24px' }}>
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '8px' }}>Guests</h1>
-          <p style={{ color: 'var(--color-text-secondary)', fontSize: '15px' }}>
+          <h1 className="mb-2 text-[28px] font-bold">Guests</h1>
+          <p className="text-[15px] text-muted-foreground">
             {guests.length} guest{guests.length === 1 ? '' : 's'} for {event.name}
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-          <button className={panel === 'import' ? 'btn-secondary' : 'btn-primary'} onClick={() => setPanel(panel === 'import' ? '' : 'import')}>
-            {panel === 'import' ? 'Close import' : 'Import CSV/Excel'}
-          </button>
-          <button className="btn-secondary" onClick={() => { setEditing(null); setPanel(panel === 'add' ? '' : 'add') }}>
-            {panel === 'add' ? 'Close' : 'Add guest'}
-          </button>
+        <div className="flex flex-wrap gap-3">
+          {canEdit && <Button onClick={() => setPanel('import')}>Import CSV/Excel</Button>}
+          {canEdit && <Button variant="outline" onClick={openAdd}>Add guest</Button>}
         </div>
       </div>
 
-      {notice && <div className="alert-success" style={{ marginBottom: '16px' }}>{notice}</div>}
-      {error && <div className="alert-error" style={{ marginBottom: '16px' }}>{error}</div>}
+      {notice && <Alert variant="success" className="mb-4">{notice}</Alert>}
+      {error && <Alert variant="error" className="mb-4">{error}</Alert>}
 
-      {panel === 'import' && <ImportPanel eventUuid={event.id} existing={guests} onDone={finish} />}
-      {panel === 'add' && <AttendeeForm eventUuid={event.id} eventCountry={eventCountry} existing={guests} onDone={finish} onCancel={() => setPanel('')} />}
-      {panel === 'bulk-edit' && <BulkEditPanel ids={[...selected]} onDone={finish} onCancel={() => setPanel('')} />}
+      {panel === 'import' && (
+        <Modal onClose={() => setPanel('')} label="Import attendees">
+          <ImportPanel eventUuid={event.id} existing={guests} onDone={finish} />
+        </Modal>
+      )}
+      {panel === 'bulk-edit' && (
+        <Modal onClose={() => setPanel('')} label="Edit selected attendees">
+          <BulkEditPanel ids={[...selected]} onDone={finish} onCancel={() => setPanel('')} />
+        </Modal>
+      )}
 
       {/* Search, filters and sort */}
-      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '12px' }}>
-        <input
+      <div className="mb-3 flex flex-wrap gap-3">
+        <Input
           type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="input-field"
+          className="h-10 min-w-[280px] flex-1"
           placeholder="Search name, email, phone, company or reg ID"
           aria-label="Search attendees"
-          style={{ flex: '1 1 280px' }}
         />
-        <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)} className="input-field" style={{ flex: '0 0 210px' }} aria-label="Sort attendees">
+        <NativeSelect value={sort} onChange={(e) => setSort(e.target.value as SortKey)} className="h-10 flex-1 basis-[180px]" aria-label="Sort attendees">
           <option value="created_desc">Newest registrations first</option>
           <option value="created_asc">Oldest registrations first</option>
           <option value="name_asc">Name A–Z</option>
           <option value="name_desc">Name Z–A</option>
-        </select>
+        </NativeSelect>
       </div>
       {/* The two most-used filters stay visible; the rest sit behind "More filters" */}
       {(() => {
         const hiddenActive = [filters.country, filters.city, filters.industry, filters.source].filter(Boolean).length
         return (
           <>
-            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '12px', alignItems: 'center' }}>
+            <div className="mb-3 flex flex-wrap items-center gap-3">
               <FilterSelect label="Registration status" value={filters.status} onChange={(v) => setFilter('status', v)} options={REGISTRATION_STATUSES.map((s) => ({ value: s.value, label: s.label }))} />
               <FilterSelect label="Attendance" value={filters.confirmation} onChange={(v) => setFilter('confirmation', v)} options={ATTENDANCE_CONFIRMATIONS.map((s) => ({ value: s.value, label: s.label }))} />
-              <button type="button" className="btn-secondary" aria-expanded={moreFilters} onClick={() => setMoreFilters(!moreFilters)}>
+              <Button type="button" variant="outline" aria-expanded={moreFilters} onClick={() => setMoreFilters(!moreFilters)}>
                 {moreFilters ? 'Fewer filters' : `More filters${hiddenActive ? ` (${hiddenActive})` : ''}`}
-              </button>
+              </Button>
             </div>
             {moreFilters && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px', marginBottom: '16px' }}>
+              <div className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3">
                 <FilterSelect label="Country" value={filters.country} onChange={(v) => setFilter('country', v)} options={options.countries} />
                 <FilterSelect label="City" value={filters.city} onChange={(v) => setFilter('city', v)} options={options.cities.map((c) => ({ value: c, label: c }))} />
                 <FilterSelect label="Industry" value={filters.industry} onChange={(v) => setFilter('industry', v)} options={options.industries.map((i) => ({ value: i, label: i }))} />
@@ -307,111 +353,113 @@ export default function GuestsPage() {
       })()}
 
       {/* Selection actions */}
-      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '12px', minHeight: '44px' }}>
-        <span style={{ fontSize: '14px', color: 'var(--color-text-secondary)' }}>
+      <div className="mb-3 flex min-h-11 flex-wrap items-center gap-3">
+        <span className="text-sm text-muted-foreground">
           {selected.size > 0 ? `${selected.size} selected` : `Showing ${filtered.length} of ${guests.length}`}
         </span>
         {filtersActive && (
-          <button className="btn-secondary" onClick={clearFilters}>Clear filters</button>
+          <Button variant="outline" onClick={clearFilters}>Clear filters</Button>
         )}
         {selected.size > 0 ? (
           <>
-            <button className="btn-secondary" onClick={handleExport}>Export selected (CSV)</button>
-            <button className="btn-secondary" onClick={handleEditSelected}>{selected.size === 1 ? 'Edit' : `Edit ${selected.size}`}</button>
-            <button className="btn-secondary" onClick={handleDelete} style={{ color: 'var(--color-error-red)', borderColor: 'var(--color-error-red)' }}>
+            <Button variant="outline" onClick={handleExport}>Export selected (CSV)</Button>
+            <Button variant="outline" onClick={handleEditSelected}>{selected.size === 1 ? 'Edit' : `Edit ${selected.size}`}</Button>
+            <Button variant="outline" className="border-destructive text-destructive" onClick={handleDelete}>
               Delete {selected.size}
-            </button>
-            <button className="btn-secondary" onClick={() => setSelected(new Set())}>Clear selection</button>
+            </Button>
+            <Button variant="outline" onClick={() => setSelected(new Set())}>Clear selection</Button>
             {selected.size < filtered.length && (
-              <button className="btn-secondary" onClick={() => setSelected(new Set(filtered.map((g) => g.id)))}>
+              <Button variant="outline" onClick={() => setSelected(new Set(filtered.map((g) => g.id)))}>
                 Select all {filtered.length} shown
-              </button>
+              </Button>
             )}
           </>
         ) : (
-          <button className="btn-secondary" onClick={handleExport} disabled={filtered.length === 0}>Export shown (CSV)</button>
+          <Button variant="outline" onClick={handleExport} disabled={filtered.length === 0}>Export shown (CSV)</Button>
         )}
       </div>
 
-      {editing && (
-        <Modal onClose={() => setEditing(null)}>
-          <AttendeeForm
-            key={editing.id}
-            eventUuid={event.id}
-            eventCountry={eventCountry}
-            existing={guests}
-            attendee={editing}
-            onDone={finish}
-            onCancel={() => setEditing(null)}
-          />
-        </Modal>
-      )}
-
       {guests.length === 0 ? (
-        <div style={{ padding: '32px', textAlign: 'center', border: '1px solid var(--color-border)', borderRadius: '6px' }}>
-          <p style={{ color: 'var(--color-text-secondary)' }}>No attendees yet. Import a CSV or Excel file, or add attendees one by one.</p>
+        <div className="rounded-md border border-border p-8 text-center">
+          <p className="text-muted-foreground">No attendees yet. Import a CSV or Excel file, or add attendees one by one.</p>
         </div>
       ) : (
         <>
-          <div style={{ overflowX: 'auto', border: '1px solid var(--color-border)', borderRadius: '6px' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+          <div className="overflow-x-auto rounded-md border border-border">
+            <table className="w-full border-collapse text-sm">
               <thead>
-                <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--color-border)' }}>
-                  <th style={cellStyle}>
-                    <input type="checkbox" checked={pageAllSelected} onChange={togglePage} aria-label="Select all on this page" />
+                <tr className="border-b border-border text-left">
+                  <th className={cell}>
+                    <input type="checkbox" className="accent-primary" checked={pageAllSelected} onChange={togglePage} aria-label="Select all on this page" />
                   </th>
-                  <th style={cellStyle}>Attendee</th>
-                  <th style={cellStyle}>Email</th>
-                  <th style={cellStyle}>Phone</th>
-                  <th style={cellStyle}>Company</th>
-                  <th style={cellStyle}>Country</th>
-                  <th style={cellStyle}>City</th>
-                  <th style={cellStyle}>Industry</th>
-                  <th style={cellStyle}>Registration</th>
-                  <th style={cellStyle}>Attendance</th>
-                  <th style={cellStyle}>Registered</th>
-                  <th style={cellStyle}>Check-in</th>
-                  <th style={cellStyle}><span className="sr-only">Actions</span></th>
+                  <th className={cell}>Attendee</th>
+                  {!compact && <th className={cell}>Email</th>}
+                  {!compact && <th className={cell}>Phone</th>}
+                  {!compact && <th className={cell}>Company</th>}
+                  {!compact && <th className={cell}>Country</th>}
+                  {!compact && <th className={cell}>City</th>}
+                  {!compact && <th className={cell}>Industry</th>}
+                  <th className={cell}>Registration</th>
+                  {!compact && <th className={cell}>Attendance</th>}
+                  {!compact && <th className={cell}>Registered</th>}
+                  <th className={cell}>Check-in</th>
+                  {!compact && <th className={cell}><span className="sr-only">Actions</span></th>}
                 </tr>
               </thead>
               <tbody>
                 {pageRows.map((g) => (
-                  <tr key={g.id} style={{ borderBottom: '1px solid var(--color-border)', backgroundColor: selected.has(g.id) ? 'var(--color-neutral-light)' : undefined }}>
-                    <td style={cellStyle}>
-                      <input type="checkbox" checked={selected.has(g.id)} onChange={() => toggleOne(g.id)} aria-label={`Select ${g.full_name}`} />
+                  <tr
+                    key={g.id}
+                    onClick={() => openGuest(g.id)}
+                    className={cn('cursor-pointer border-b border-border', g.id === openId ? 'bg-accent' : selected.has(g.id) && 'bg-muted')}
+                  >
+                    <td className={cell} onClick={(e) => e.stopPropagation()}>
+                      <input type="checkbox" className="accent-primary" checked={selected.has(g.id)} onChange={() => toggleOne(g.id)} aria-label={`Select ${g.full_name}`} />
                     </td>
-                    <td style={cellStyle}>
-                      <div style={{ fontWeight: 600 }}>{g.full_name}</div>
-                      <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>
-                        <span style={{ fontFamily: 'monospace' }}>{g.registration_id}</span>
+                    <td className={cell}>
+                      <div className="font-semibold">{g.full_name}</div>
+                      <div className="text-xs text-muted-foreground">
+                        <span className="font-mono">{g.registration_id}</span>
                         {g.designation ? ` • ${g.designation}` : ''} • {g.source}
                       </div>
                     </td>
-                    <td style={cellStyle}>
-                      <div>{g.company_email || g.email}</div>
-                      {g.company_email && g.email && <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>{g.email}</div>}
-                    </td>
-                    <td style={cellStyle}>{g.phone}</td>
-                    <td style={cellStyle}>{g.company}</td>
-                    <td style={cellStyle}>{countryName(g.country)}</td>
-                    <td style={cellStyle}>{g.city}</td>
-                    <td style={cellStyle}>{g.industry}</td>
-                    <td style={cellStyle}><Pill value={g.registration_status} label={registrationStatusLabel(g.registration_status)} /></td>
-                    <td style={cellStyle}><Pill value={g.attendance_confirmation} label={attendanceConfirmationLabel(g.attendance_confirmation)} /></td>
-                    <td style={cellStyle}>{formatDate(g.created_at)}</td>
-                    <td style={{ ...cellStyle, color: checkedIn.has(g.id) ? 'var(--color-primary)' : 'var(--color-text-secondary)' }}>
+                    {!compact && (
+                      <>
+                        <td className={cell}>
+                          <div>{g.company_email || g.email}</div>
+                          {g.company_email && g.email && <div className="text-xs text-muted-foreground">{g.email}</div>}
+                        </td>
+                        <td className={cell}>{g.phone}</td>
+                        <td className={cell}>{g.company}</td>
+                        <td className={cell}>{countryName(g.country)}</td>
+                        <td className={cell}>{g.city}</td>
+                        <td className={cell}>{g.industry}</td>
+                      </>
+                    )}
+                    <td className={cell}><Pill value={g.registration_status} label={registrationStatusLabel(g.registration_status)} /></td>
+                    {!compact && (
+                      <>
+                        <td className={cell}><Pill value={g.attendance_confirmation} label={attendanceConfirmationLabel(g.attendance_confirmation)} /></td>
+                        <td className={cell}>{formatDate(g.created_at)}</td>
+                      </>
+                    )}
+                    <td className={cn(cell, checkedIn.has(g.id) ? 'text-primary' : 'text-muted-foreground')}>
                       {checkedIn.has(g.id) ? 'Checked in' : '—'}
                     </td>
-                    <td style={cellStyle}>
-                      <button className="btn-secondary" onClick={() => { setPanel(''); setEditing(g) }} style={{ minHeight: '32px', padding: '4px 12px' }}>
-                        Edit
-                      </button>
-                    </td>
+                    {!compact && (
+                      <td className={cell} onClick={(e) => e.stopPropagation()}>
+                        {canEdit && (
+                          <Button variant="outline" size="sm" onClick={() => openGuest(g.id, 'edit')}>
+                            Edit
+                          </Button>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))}
                 {pageRows.length === 0 && (
                   <tr>
-                    <td colSpan={13} style={{ ...cellStyle, textAlign: 'center', color: 'var(--color-text-secondary)' }}>
+                    <td colSpan={compact ? 4 : 13} className={cn(cell, 'text-center text-muted-foreground')}>
                       No attendees match your search or filters.
                     </td>
                   </tr>
@@ -421,46 +469,60 @@ export default function GuestsPage() {
           </div>
 
           {/* Pagination */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginTop: '12px' }}>
-            <label style={{ fontSize: '14px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+            <label className="flex items-center gap-2 text-sm">
               Rows per page
-              <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))} className="input-field" style={{ width: '90px' }}>
+              <NativeSelect value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))} className="h-10 w-[90px]">
                 {PAGE_SIZES.map((n) => <option key={n} value={n}>{n}</option>)}
-              </select>
+              </NativeSelect>
             </label>
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <button className="btn-secondary" onClick={() => setPage(currentPage - 1)} disabled={currentPage <= 1}>Previous</button>
-              <span style={{ fontSize: '14px' }}>Page {currentPage} of {pageCount}</span>
-              <button className="btn-secondary" onClick={() => setPage(currentPage + 1)} disabled={currentPage >= pageCount}>Next</button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={() => setPage(currentPage - 1)} disabled={currentPage <= 1}>Previous</Button>
+              <span className="text-sm">Page {currentPage} of {pageCount}</span>
+              <Button variant="outline" onClick={() => setPage(currentPage + 1)} disabled={currentPage >= pageCount}>Next</Button>
             </div>
           </div>
         </>
       )}
     </div>
+    {drawerOpen && (
+      <GuestDrawer
+        eventUuid={event.id}
+        eventCountry={eventCountry}
+        guests={guests}
+        guest={drawerMode === 'add' ? null : openGuestRow}
+        mode={drawerMode!}
+        checkedIn={!!openGuestRow && checkedIn.has(openGuestRow.id)}
+        onMode={(m) => setDrawerMode(m)}
+        onClose={closeDrawer}
+        onChanged={drawerChanged}
+        onDelete={(id) => deleteGuests([id])}
+      />
+    )}
+    </div>
+    </>
   )
 }
 
-const cellStyle: React.CSSProperties = { padding: '10px 12px', whiteSpace: 'nowrap', verticalAlign: 'top' }
-
 function FilterSelect({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: { value: string; label: string }[] }) {
   return (
-    <select value={value} onChange={(e) => onChange(e.target.value)} className="input-field" aria-label={`Filter by ${label.toLowerCase()}`}>
+    <NativeSelect value={value} onChange={(e) => onChange(e.target.value)} className="h-10 flex-1 basis-[160px]" aria-label={`Filter by ${label.toLowerCase()}`}>
       <option value="">{label}: all</option>
       {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-    </select>
+    </NativeSelect>
   )
 }
 
 function Pill({ value, label }: { value?: string; label: string }) {
-  const color = (value && STATUS_COLORS[value]) || 'var(--color-text-secondary)'
+  const tone = (value && STATUS_TONES[value]) || TONE.quiet
   return (
-    <span style={{ display: 'inline-block', fontSize: '12px', fontWeight: 600, color, border: `1px solid ${color}`, borderRadius: '999px', padding: '2px 8px' }}>
+    <span className={cn('inline-block rounded-full border px-2 py-0.5 text-xs font-semibold', tone)}>
       {label}
     </span>
   )
 }
 
-function Modal({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
+function Modal({ children, onClose, label }: { children: React.ReactNode; onClose: () => void; label: string }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     document.addEventListener('keydown', onKey)
@@ -471,10 +533,11 @@ function Modal({ children, onClose }: { children: React.ReactNode; onClose: () =
     <div
       role="dialog"
       aria-modal="true"
+      aria-label={label}
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
-      style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', padding: '32px 16px', overflowY: 'auto' }}
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 px-4 py-8"
     >
-      <div style={{ width: '100%', maxWidth: '900px', backgroundColor: 'var(--color-white)', borderRadius: '8px' }}>{children}</div>
+      <div className="w-full max-w-[900px] rounded-lg bg-background">{children}</div>
     </div>
   )
 }

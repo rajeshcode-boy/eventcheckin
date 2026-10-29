@@ -4,6 +4,9 @@ import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useParams } from 'next/navigation'
 import { formatTime } from '@/lib/time'
+import KioskPairing from '@/components/KioskPairing'
+import { useEventRole } from '@/components/EventRoleContext'
+import { canManageEvent } from '@/lib/permissions'
 
 interface RecentRow {
   id: string
@@ -38,6 +41,7 @@ function parseCode(input: string): { kind: 'token' | 'reg'; value: string } | nu
 export default function PickupPage() {
   const params = useParams()
   const eventUuid = params.id as string
+  const role = useEventRole()
   const [eventName, setEventName] = useState('')
   const [code, setCode] = useState('')
   const [found, setFound] = useState<Found | null | 'none'>(null)
@@ -67,6 +71,13 @@ export default function PickupPage() {
     supabase.auth.getUser().then(({ data }) => setStaffEmail(data.user?.email ?? ''))
     loadRecent()
     inputRef.current?.focus()
+
+    const channel = supabase
+      .channel(`pickup-${eventUuid}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'registrations', filter: `event_id=eq.${eventUuid}` }, loadRecent)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'registrations', filter: `event_id=eq.${eventUuid}` }, loadRecent)
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
   }, [eventUuid])
 
   const lookup = async (raw: string) => {
@@ -170,6 +181,12 @@ export default function PickupPage() {
 
       <h1 style={{ fontSize: '24px', fontWeight: 700, letterSpacing: '-0.01em', marginBottom: '4px' }}>Badge pickup</h1>
       <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px', marginBottom: '20px' }}>{eventName}</p>
+
+      {canManageEvent(role) && (
+        <div style={{ marginBottom: '20px' }}>
+          <KioskPairing eventUuid={eventUuid} />
+        </div>
+      )}
 
       <form
         onSubmit={(e) => { e.preventDefault(); lookup(code) }}

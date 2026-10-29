@@ -11,6 +11,52 @@ import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import EventDetailsStrip from '@/components/EventDetailsStrip'
+
+interface Stats {
+  registered: number
+}
+
+// Days from today to the event date (negative once it has passed)
+function daysUntil(isoDate: string): number {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const event = new Date(isoDate + 'T00:00:00')
+  return Math.round((event.getTime() - today.getTime()) / 86_400_000)
+}
+
+function dayLabel(isoDate: string): string {
+  const d = daysUntil(isoDate)
+  if (d > 1) return `in ${d} days`
+  if (d === 1) return 'tomorrow'
+  if (d === 0) return 'today'
+  return 'ended'
+}
+
+// Countdown in bold ("49 days to go"), then capacity and how many have registered so far
+function EventProgressRow({ event, stats }: { event: Event; stats: Stats | undefined }) {
+  const days = daysUntil(event.event_date)
+  const pct = stats && event.capacity > 0 ? Math.min(100, Math.round((stats.registered / event.capacity) * 100)) : 0
+  return (
+    <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+      <div style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>
+        {days > 1 ? (
+          <><strong style={{ fontSize: '18px', color: 'var(--color-text-primary)' }}>{days}</strong> days to go</>
+        ) : (
+          <strong style={{ fontSize: '15px', color: 'var(--color-text-primary)' }}>{dayLabel(event.event_date)}</strong>
+        )}
+      </div>
+      {stats && (
+        <div style={{ flex: '1 1 200px', maxWidth: '360px', fontSize: '13px', color: 'var(--color-text-secondary)' }}>
+          <span>Registered <strong style={{ color: 'var(--color-text-primary)' }}>{stats.registered}</strong> of {event.capacity} capacity</span>
+          <div role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} style={{ marginTop: '6px', height: '6px', borderRadius: '999px', backgroundColor: 'var(--color-neutral-light)', overflow: 'hidden' }}>
+            <div style={{ width: `${pct}%`, height: '100%', backgroundColor: 'var(--color-primary)' }} />
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 interface Event {
   id: string
@@ -18,6 +64,18 @@ interface Event {
   name: string
   location: string
   event_date: string
+  archived_at: string | null
+  registration_open: boolean
+  country: string | null
+  city: string | null
+  start_time: string | null
+  timezone: string | null
+  venue_type: 'in_person' | 'virtual' | 'tba' | null
+  venue_name: string | null
+  venue_address: string | null
+  venue_map_url: string | null
+  virtual_platform: string | null
+  virtual_link: string | null
   capacity: number
   status: string
   created_at: string
@@ -28,12 +86,14 @@ const STATUS_FILTERS = [
   { value: 'upcoming', label: 'Upcoming' },
   { value: 'live', label: 'Live' },
   { value: 'closed', label: 'Closed' },
+  { value: 'archived', label: 'Archived' },
 ]
 
 const PAGE_SIZE = 10
 
 export default function EventsPage() {
   const [events, setEvents] = useState<Event[]>([])
+  const [stats, setStats] = useState<Record<string, Stats>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [query, setQuery] = useState('')
@@ -73,6 +133,18 @@ export default function EventsPage() {
       }
 
       setEvents(data || [])
+
+      // Registrations so far per event, for the capacity line on each card
+      const ids = (data || []).map((e) => e.id)
+      if (ids.length > 0) {
+        const { data: regs } = await supabase.from('registrations').select('event_id, registration_status').in('event_id', ids)
+        const next: Record<string, Stats> = {}
+        for (const id of ids) next[id] = { registered: 0 }
+        for (const r of regs ?? []) {
+          if (!['cancelled', 'rejected'].includes(r.registration_status) && next[r.event_id]) next[r.event_id]!.registered += 1
+        }
+        setStats(next)
+      }
     } catch (err) {
       setError("Couldn't load your events. Refresh the page to try again.")
     } finally {
@@ -81,15 +153,23 @@ export default function EventsPage() {
   }
 
   const counts = useMemo(() => {
-    const result: Record<string, number> = { all: events.length }
-    for (const e of events) result[e.status] = (result[e.status] ?? 0) + 1
+    const result: Record<string, number> = { all: 0 }
+    for (const e of events) {
+      if (e.archived_at) {
+        result.archived = (result.archived ?? 0) + 1
+      } else {
+        result.all = (result.all ?? 0) + 1
+        result[e.status] = (result[e.status] ?? 0) + 1
+      }
+    }
     return result
   }, [events])
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     return events.filter((e) => {
-      if (statusFilter !== 'all' && e.status !== statusFilter) return false
+      if (statusFilter === 'archived' ? !e.archived_at : e.archived_at) return false
+      if (statusFilter !== 'all' && statusFilter !== 'archived' && e.status !== statusFilter) return false
       if (!q) return true
       return [e.name, e.location, e.event_id].some((v) => v?.toLowerCase().includes(q))
     })
@@ -108,6 +188,7 @@ export default function EventsPage() {
   }
 
   const visible = filtered.slice(0, shown)
+
 
   return (
     <div>
@@ -188,6 +269,7 @@ export default function EventsPage() {
               : `${filtered.length} of ${events.length} events`}
           </p>
 
+
           {filtered.length === 0 ? (
             <Card style={{ padding: '32px 24px', textAlign: 'center' }}>
               <p style={{ fontWeight: 600, marginBottom: '4px' }}>No events match</p>
@@ -199,7 +281,7 @@ export default function EventsPage() {
           ) : (
             <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {visible.map((event) => (
-                <EventRow key={event.id} event={event} onCopyId={copyId} />
+                <EventRow key={event.id} event={event} stats={stats[event.id]} onCopyId={copyId} />
               ))}
             </ul>
           )}
@@ -226,7 +308,7 @@ const STATUS_BADGE: Record<string, { className: string; label: string; dot?: boo
   closed: { className: 'bg-muted text-muted-foreground', label: 'Closed' },
 }
 
-function EventRow({ event, onCopyId }: { event: Event; onCopyId: (id: string) => void }) {
+function EventRow({ event, stats, onCopyId }: { event: Event; stats: Stats | undefined; onCopyId: (id: string) => void }) {
   const [copied, setCopied] = useState(false)
   const badge = STATUS_BADGE[event.status] ?? STATUS_BADGE.closed!
 
@@ -255,9 +337,8 @@ function EventRow({ event, onCopyId }: { event: Event; onCopyId: (id: string) =>
               {badge.label}
             </Badge>
           </div>
-          <p style={{ color: 'var(--color-text-secondary)', fontSize: '13px', marginTop: '2px', overflowWrap: 'anywhere' }}>
-            {event.location} · {new Date(event.event_date + 'T00:00:00').toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })}
-          </p>
+          <EventDetailsStrip event={event} compact />
+          <EventProgressRow event={event} stats={stats} />
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '6px' }}>
             <code style={{ backgroundColor: 'var(--color-neutral-light)', color: 'var(--color-text-primary)', padding: '2px 6px', borderRadius: '6px', fontFamily: 'ui-monospace, monospace', fontSize: '11px', overflowWrap: 'anywhere' }}>
               {event.event_id}

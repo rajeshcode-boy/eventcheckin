@@ -1,6 +1,6 @@
 # EventCheckin - Feature Specification
 
-Master spec from the original claude.ai planning chat. Steps 1-6 are built in order.
+Master spec from the original planning chat. Steps 1-6 are built in order.
 
 ## Overview
 

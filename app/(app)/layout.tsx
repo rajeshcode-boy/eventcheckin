@@ -13,6 +13,7 @@ import {
   NavigationMenuLink,
   NavigationMenuList,
 } from '@/components/ui/navigation-menu'
+import EventNotifications from '@/components/EventNotifications'
 
 const NAV = [
   { href: '/dashboard', label: 'Dashboard' },
@@ -120,6 +121,7 @@ export default function AppLayout({
           </NavigationMenu>
         </div>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <EventNotifications />
           <ThemeMenu />
           <ProfileMenu
             name={displayName}

@@ -87,6 +87,29 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 | `SUPABASE_SERVICE_ROLE_KEY` | Server-only key for admin operations (never expose to browser) |
 | `NEXT_PUBLIC_APP_URL` | Your app's public URL for redirects and QR codes |
 | `DATABASE_URL` | PostgreSQL connection string (for migrations, optional for this step) |
+| `NEXT_PUBLIC_POSTHOG_KEY` | Optional. PostHog project key (`phc_...`). Turns on PostHog and the cookie banner |
+| `NEXT_PUBLIC_POSTHOG_HOST` | Optional. `https://us.i.posthog.com` (default) or `https://eu.i.posthog.com` |
+| `NEXT_PUBLIC_GA_ID` | Optional. Google Analytics 4 Measurement ID (`G-...`) for the public website |
+
+In Vercel, add each variable for both **Production** and **Preview**, then redeploy without the build cache. `NEXT_PUBLIC_*` values are built into the site, so a change only takes effect after a new build.
+
+---
+
+## Analytics and error tracking
+
+Nothing is tracked until a visitor clicks **Accept** in the cookie banner. "Cookie settings" in the website footer lets them change their mind.
+
+| Tool | Where it runs | What it's for |
+|------|---------------|---------------|
+| PostHog | Public website and signed-in app | Page views, clicks, funnels, session replays (all text and typing hidden), error tracking |
+| Google Analytics 4 | Public website only: home, sign up, log in, privacy, terms | Where visitors come from |
+| Vercel Web Analytics | Every page, no cookies | Simple visit counts |
+
+Guest pages (check-in, registration, pass, badge, kiosk) are never tracked by PostHog or Google Analytics. Organisers are identified in PostHog by account ID only, never by name or email.
+
+- **PostHog dashboard:** "EventCheckin growth" (visitors per day, website pages, home → sign-up → app funnel, most-used app pages, rage clicks). Errors are under **Error tracking**.
+- **Google Analytics:** check **Reports → Realtime**. Google's "Test your website" tool reports the tag as missing because it never clicks Accept; that's expected. Keep "Page changes based on browser history events" turned off under Admin → Data streams → Enhanced measurement.
+- **To test:** open the site in a private window with no ad blocker, click Accept, and browse a few pages.
 
 ---
 

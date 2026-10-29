@@ -11,6 +11,48 @@ export function isTrackedPath(pathname: string): boolean {
   return !UNTRACKED_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + '/'))
 }
 
+// Google Analytics only ever sees the public website, never the signed-in app
+const GA_PATHS = ['/', '/signup', '/login', '/privacy', '/terms']
+
+export function isGaPath(pathname: string): boolean {
+  return GA_PATHS.includes(pathname)
+}
+
+type GtagWindow = Window & { dataLayer?: unknown[]; gtag?: (...args: unknown[]) => void } & Record<string, unknown>
+
+// Loads gtag.js once. send_page_view is off so page views are sent by hand, only on GA_PATHS.
+export function loadGoogleAnalytics(id: string) {
+  const w = window as unknown as GtagWindow
+  if (w.gtag) return
+  w.dataLayer = w.dataLayer || []
+  w.gtag = function gtag() {
+    // gtag.js reads the arguments object itself, not an array
+    // eslint-disable-next-line prefer-rest-params
+    w.dataLayer!.push(arguments)
+  }
+  w.gtag('js', new Date())
+  w.gtag('config', id, { send_page_view: false })
+  const script = document.createElement('script')
+  script.async = true
+  script.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(id)}`
+  document.head.appendChild(script)
+}
+
+// Google's own switch: while true, gtag.js sends nothing, including its automatic history page views
+export function setGoogleAnalyticsEnabled(id: string, enabled: boolean) {
+  ;(window as unknown as GtagWindow)[`ga-disable-${id}`] = !enabled
+}
+
+export function sendGooglePageView(id: string) {
+  const w = window as unknown as GtagWindow
+  w.gtag?.('event', 'page_view', {
+    send_to: id,
+    page_path: window.location.pathname,
+    page_location: window.location.origin + window.location.pathname,
+    page_title: document.title,
+  })
+}
+
 export function readConsent(): Consent | null {
   try {
     const value = localStorage.getItem(CONSENT_KEY)

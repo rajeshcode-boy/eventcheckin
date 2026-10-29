@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useParams } from 'next/navigation'
 import { formatTime } from '@/lib/time'
 import { Alert } from '@/components/ui/alert'
+import { cameraAvailable, startScanner } from '@/lib/kiosk/scanner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
@@ -50,7 +51,9 @@ export default function PickupTab() {
   const [scanning, setScanning] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
-  const canScan = typeof window !== 'undefined' && 'BarcodeDetector' in window
+  const [canScan, setCanScan] = useState(false)
+  const stopRef = useRef<(() => void) | null>(null)
+  useEffect(() => setCanScan(cameraAvailable()), [])
 
   // Latest badges handed over, newest first, so staff can see what has already gone out
   const loadRecent = async () => {
@@ -136,32 +139,26 @@ export default function PickupTab() {
     if (data) setFound(data as unknown as Found)
   }
 
-  // Camera scan, where the browser supports BarcodeDetector (Chrome and Edge on Android and desktop)
+  // Camera scan: reads one QR code, then looks that guest up
   const startScan = async () => {
-    if (!canScan) return
     setScanning(true)
-    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }).catch(() => null)
-    if (!stream || !videoRef.current) {
-      setScanning(false)
-      setMessage("Couldn't open the camera. Type the code instead.")
-      return
-    }
-    videoRef.current.srcObject = stream
-    await videoRef.current.play()
-    // BarcodeDetector is not in the standard TypeScript DOM typings yet
-    const Detector = (window as unknown as { BarcodeDetector: new (o: { formats: string[] }) => { detect: (v: HTMLVideoElement) => Promise<{ rawValue: string }[]> } }).BarcodeDetector
-    const detector = new Detector({ formats: ['qr_code'] })
-    const timer = setInterval(async () => {
-      if (!videoRef.current) return
-      const hits = await detector.detect(videoRef.current).catch(() => [])
-      if (hits.length > 0) {
-        clearInterval(timer)
-        stream.getTracks().forEach((t) => t.stop())
+    await new Promise((r) => requestAnimationFrame(r))
+    if (!videoRef.current) return setScanning(false)
+    try {
+      stopRef.current = await startScanner(videoRef.current, (value) => {
+        stopRef.current?.()
+        stopRef.current = null
         setScanning(false)
-        lookup(hits[0]!.rawValue)
-      }
-    }, 400)
+        lookup(value)
+      })
+    } catch {
+      setScanning(false)
+      setMessage("Couldn't open the camera. Allow camera access, or type the code instead.")
+    }
   }
+
+  // Release the camera if the tab is left while scanning
+  useEffect(() => () => stopRef.current?.(), [])
 
   const status = (() => {
     if (found === null) return null

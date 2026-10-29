@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
+import { cameraAvailable, startScanner } from '@/lib/kiosk/scanner'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { clearAll, dequeue, enqueue, getGuests, getQueue, putGuest, replaceGuests } from '@/lib/kiosk/db'
@@ -127,7 +128,10 @@ function Desk({ session, onUnpair }: { session: KioskSession; onUnpair: () => vo
   const guestsRef = useRef<KioskGuest[]>([])
   guestsRef.current = guests
   const flushing = useRef(false)
-  const canScan = typeof window !== 'undefined' && 'BarcodeDetector' in window
+  const [canScan, setCanScan] = useState(false)
+  const stopRef = useRef<(() => void) | null>(null)
+  // Decided after load so server and browser render the same first pass
+  useEffect(() => setCanScan(cameraAvailable()), [])
 
   const results = useMemo(() => searchGuests(guests, query), [guests, query])
   const recent = useMemo(
@@ -262,34 +266,20 @@ function Desk({ session, onUnpair }: { session: KioskSession; onUnpair: () => vo
   }
 
   const startScan = async () => {
-    if (!canScan) return
-    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }).catch(() => null)
-    if (!stream || !videoRef.current) return setToast({ kind: 'err', text: "Couldn't open the camera. Use search instead." })
+    // Show the video first: iOS will not start playback on a hidden element
     setScanning(true)
-    const video = videoRef.current
-    video.srcObject = stream
-    await video.play()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const detector = new (window as any).BarcodeDetector({ formats: ['qr_code'] })
-    let last = ''
-    let lastAt = 0
-    const loop = async () => {
-      if (!video.srcObject) return
-      const codes = await detector.detect(video).catch(() => [])
-      const value: string | undefined = codes[0]?.rawValue
-      if (value && (value !== last || Date.now() - lastAt > 4000)) {
-        last = value
-        lastAt = Date.now()
-        await submit(value)
-      }
-      setTimeout(loop, 400)
+    await new Promise((r) => requestAnimationFrame(r))
+    if (!videoRef.current) return setScanning(false)
+    try {
+      stopRef.current = await startScanner(videoRef.current, (value) => { submit(value) })
+    } catch {
+      setScanning(false)
+      setToast({ kind: 'err', text: "Couldn't open the camera. Allow camera access, or use search instead." })
     }
-    loop()
   }
   const stopScan = () => {
-    const v = videoRef.current
-    ;(v?.srcObject as MediaStream | null)?.getTracks().forEach((t) => t.stop())
-    if (v) v.srcObject = null
+    stopRef.current?.()
+    stopRef.current = null
     setScanning(false)
   }
   useEffect(() => stopScan, [])

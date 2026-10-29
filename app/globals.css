@@ -199,3 +199,15 @@ body {
     @apply font-sans;
   }
 }
+/* Full-page "Checked in" flash on the kiosk (components/kiosk/ScanFlash.tsx) */
+@keyframes kiosk-flash-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes kiosk-flash-pop { 0% { transform: scale(0.4); opacity: 0; } 60% { transform: scale(1.08); opacity: 1; } 100% { transform: scale(1); } }
+@keyframes kiosk-flash-draw { from { stroke-dasharray: 120; stroke-dashoffset: 120; } to { stroke-dasharray: 120; stroke-dashoffset: 0; } }
+@keyframes kiosk-flash-rise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+.kiosk-flash { animation: kiosk-flash-in 0.15s ease-out both; }
+.kiosk-flash-badge { animation: kiosk-flash-pop 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
+.kiosk-flash-check { animation: kiosk-flash-draw 0.4s 0.2s ease-out both; }
+.kiosk-flash-text { animation: kiosk-flash-rise 0.35s 0.15s ease-out both; }
+@media (prefers-reduced-motion: reduce) {
+  .kiosk-flash, .kiosk-flash-badge, .kiosk-flash-check, .kiosk-flash-text { animation: none; }
+}

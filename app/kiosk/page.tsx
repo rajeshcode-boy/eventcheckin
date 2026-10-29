@@ -4,12 +4,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
-import { cameraAvailable, startScanner } from '@/lib/kiosk/scanner'
+import { cameraAvailable, startScanner, type Facing } from '@/lib/kiosk/scanner'
+import { keepScreenAwake } from '@/lib/kiosk/wakelock'
+import ScanFlash, { type Flash } from '@/components/kiosk/ScanFlash'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { clearAll, dequeue, enqueue, getGuests, getQueue, putGuest, replaceGuests } from '@/lib/kiosk/db'
 import { matchScan, searchGuests } from '@/lib/kiosk/search'
-import { clearSession, loadSession, saveSession } from '@/lib/kiosk/session'
+import { clearSession, loadFacing, loadSession, saveFacing, saveSession } from '@/lib/kiosk/session'
 import { describeConflict, flushQueue, isOwnRecentCheckin } from '@/lib/kiosk/sync'
 import type { KioskGuest, KioskSession, QueuedScan, SyncResult } from '@/lib/kiosk/types'
 import { useConfirm } from '@/components/ConfirmDialog'
@@ -130,8 +132,22 @@ function Desk({ session, onUnpair }: { session: KioskSession; onUnpair: () => vo
   const flushing = useRef(false)
   const [canScan, setCanScan] = useState(false)
   const stopRef = useRef<(() => void) | null>(null)
+  const wakeRef = useRef<(() => void) | null>(null)
+  const [facing, setFacing] = useState<Facing>('environment')
+  const [flash, setFlash] = useState<Flash | null>(null)
+  const flashId = useRef(0)
   // Decided after load so server and browser render the same first pass
-  useEffect(() => setCanScan(cameraAvailable()), [])
+  useEffect(() => {
+    setCanScan(cameraAvailable())
+    setFacing(loadFacing())
+  }, [])
+
+  // Full-page result after a camera scan, with a short buzz where the device supports it
+  const showFlash = (kind: Flash['kind'], name: string, detail?: string) => {
+    flashId.current += 1
+    setFlash({ id: flashId.current, kind, name, detail })
+    navigator.vibrate?.(kind === 'ok' ? 80 : [60, 40, 60])
+  }
 
   const results = useMemo(() => searchGuests(guests, query), [guests, query])
   const recent = useMemo(
@@ -223,7 +239,9 @@ function Desk({ session, onUnpair }: { session: KioskSession; onUnpair: () => vo
     setQuery('')
     inputRef.current?.focus()
     if (g.checked_in_at) {
-      setToast({ kind: 'warn', text: `${g.full_name}: ${describeConflict({ checked_in_at: g.checked_in_at, by_kiosk: g.checked_in_by ?? undefined })}` })
+      const detail = describeConflict({ checked_in_at: g.checked_in_at, by_kiosk: g.checked_in_by ?? undefined })
+      setToast({ kind: 'warn', text: `${g.full_name}: ${detail}` })
+      if (method === 'qr') showFlash('dup', g.full_name, detail)
       return
     }
     const scan: QueuedScan = { scan_id: crypto.randomUUID(), registration_uuid: g.id, scanned_at: new Date().toISOString(), method, full_name: g.full_name }
@@ -233,6 +251,7 @@ function Desk({ session, onUnpair }: { session: KioskSession; onUnpair: () => vo
     await putGuest(updated)
     setGuests((prev) => prev.map((x) => (x.id === g.id ? updated : x)))
     setToast({ kind: 'ok', text: `${g.full_name} checked in`, scanId: scan.scan_id, guestId: g.id })
+    if (method === 'qr') showFlash('ok', g.full_name)
     await refreshPending()
     flush()
   }
@@ -267,22 +286,36 @@ function Desk({ session, onUnpair }: { session: KioskSession; onUnpair: () => vo
     setToast({ kind: 'err', text: found.length ? 'Several guests match. Tap one below.' : `No guest found for "${raw.trim()}"` })
   }
 
-  const startScan = async () => {
+  const startScan = async (which: Facing = facing) => {
     // Show the video first: iOS will not start playback on a hidden element
     setScanning(true)
     await new Promise((r) => requestAnimationFrame(r))
     if (!videoRef.current) return setScanning(false)
     try {
-      stopRef.current = await startScanner(videoRef.current, (value) => { submit(value) })
+      stopRef.current = await startScanner(videoRef.current, (value) => { submit(value) }, which)
     } catch {
       setScanning(false)
       setToast({ kind: 'err', text: "Couldn't open the camera. Allow camera access, or use search instead." })
+      return
     }
+    // Keep the screen on while scanning. A refusal is not fatal: scanning still works.
+    wakeRef.current = await keepScreenAwake().catch(() => null)
   }
   const stopScan = () => {
     stopRef.current?.()
     stopRef.current = null
+    wakeRef.current?.()
+    wakeRef.current = null
     setScanning(false)
+  }
+  const chooseCamera = async (next: Facing) => {
+    if (next === facing) return
+    setFacing(next)
+    saveFacing(next)
+    if (scanning) {
+      stopScan()
+      await startScan(next)
+    }
   }
   useEffect(() => stopScan, [])
 
@@ -349,11 +382,23 @@ function Desk({ session, onUnpair }: { session: KioskSession; onUnpair: () => vo
               className="h-16 flex-1 rounded-xl border-2 px-5 text-[22px] md:text-[22px]"
             />
             {canScan && (
-              <Button variant="outline" className={bigButton} onClick={scanning ? stopScan : startScan}>{scanning ? 'Stop camera' : 'Scan QR'}</Button>
+              <Button variant="outline" className={bigButton} onClick={() => (scanning ? stopScan() : startScan())}>{scanning ? 'Stop camera' : 'Scan QR'}</Button>
             )}
           </div>
 
-          <video ref={videoRef} muted playsInline className={cn('max-h-80 w-full rounded-xl bg-black object-cover', scanning ? 'block' : 'hidden')} />
+          {canScan && (
+            <div role="group" aria-label="Camera" className="flex items-center gap-2 text-base text-muted-foreground">
+              <span>Camera</span>
+              {(['user', 'environment'] as const).map((f) => (
+                <Button key={f} type="button" size="sm" variant={facing === f ? 'default' : 'outline'} aria-pressed={facing === f} className="h-10 px-4 text-base" onClick={() => chooseCamera(f)}>
+                  {f === 'user' ? 'Front' : 'Back'}
+                </Button>
+              ))}
+              {scanning && <span className="text-sm">Screen stays on while scanning</span>}
+            </div>
+          )}
+
+          <video ref={videoRef} muted playsInline className={cn('max-h-80 w-full rounded-xl bg-black object-cover', facing === 'user' && '-scale-x-100', scanning ? 'block' : 'hidden')} />
 
           <div className="grid gap-2.5">
             {results.map((g) => (
@@ -396,6 +441,7 @@ function Desk({ session, onUnpair }: { session: KioskSession; onUnpair: () => vo
         </aside>
       </div>
     </main>
+    {flash && <ScanFlash flash={flash} onDone={() => setFlash(null)} />}
     </>
   )
 }

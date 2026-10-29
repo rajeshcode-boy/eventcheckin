@@ -14,13 +14,15 @@ const REPEAT_AFTER_MS = 4000
 const MAX_DECODE_WIDTH = 640
 
 /**
- * Opens the rear camera on `video` and calls `onCode` for each QR code read. The same code is not
+ * Opens the rear (`environment`) or front (`user`) camera on `video` and calls `onCode` for each QR code read. The same code is not
  * repeated within a few seconds. Returns a function that stops the camera. Rejects if the camera
  * cannot be opened (no permission, no camera, or an insecure page).
  */
-export async function startScanner(video: HTMLVideoElement, onCode: (value: string) => void): Promise<() => void> {
+export type Facing = 'environment' | 'user'
+
+export async function startScanner(video: HTMLVideoElement, onCode: (value: string) => void, facing: Facing = 'environment'): Promise<() => void> {
   if (!cameraAvailable()) throw new Error('camera-unavailable')
-  const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false })
+  const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: facing } }, audio: false })
   video.srcObject = stream
   video.muted = true
   video.setAttribute('playsinline', 'true') // iOS plays inline only with this attribute

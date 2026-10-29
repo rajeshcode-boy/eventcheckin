@@ -31,6 +31,8 @@ export interface Guest extends GuestInput {
   full_name: string
   source: 'import' | 'manual' | 'walkin'
   created_at?: string
+  /** The guest's digital pass key. Only loaded for the organiser's guest list, never exported. */
+  badge_token?: string
 }
 
 export const INDUSTRIES = [

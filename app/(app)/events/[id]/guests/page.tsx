@@ -43,7 +43,7 @@ const PAGE_SIZES = [25, 50, 100]
 
 const ATTENDEE_COLUMNS =
   'id, registration_id, source, source_id, full_name, first_name, last_name, email, company_email, phone, designation, company, ' +
-  'country, city, industry, registration_status, attendance_confirmation, created_at'
+  'country, city, industry, registration_status, attendance_confirmation, created_at, badge_token'
 
 const TONE = {
   good: 'border-primary text-primary',
@@ -76,6 +76,7 @@ export default function GuestsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
+  const [copiedPass, setCopiedPass] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [filters, setFilters] = useState(EMPTY_FILTERS)
   const [sort, setSort] = useState<SortKey>('created_desc')
@@ -239,6 +240,20 @@ export default function GuestsPage() {
     loadData()
   }
   const handleDelete = () => deleteGuests([...selected])
+
+  // Copy a guest's digital pass link so it can be pasted into WhatsApp, SMS or email
+  const copyPass = async (g: Guest) => {
+    if (!g.badge_token) return
+    const url = `${window.location.origin}/pass/${g.badge_token}`
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopiedPass(g.id)
+      setTimeout(() => setCopiedPass((id) => (id === g.id ? null : id)), 1800)
+    } catch {
+      // Clipboard blocked: show the link so it can still be copied by hand
+      setNotice(`Pass link for ${g.full_name}: ${url}`)
+    }
+  }
 
   const handleExport = () => {
     // Selected attendees (even ones hidden by the current filters), otherwise everything shown
@@ -448,11 +463,18 @@ export default function GuestsPage() {
                     </td>
                     {!compact && (
                       <td className={cell} onClick={(e) => e.stopPropagation()}>
-                        {canEdit && (
-                          <Button variant="outline" size="sm" onClick={() => openGuest(g.id, 'edit')}>
-                            Edit
-                          </Button>
-                        )}
+                        <div className="flex gap-1.5">
+                          {g.badge_token && (
+                            <Button variant="outline" size="sm" title="Copy this guest's digital pass link" onClick={() => copyPass(g)}>
+                              {copiedPass === g.id ? 'Copied' : 'Pass link'}
+                            </Button>
+                          )}
+                          {canEdit && (
+                            <Button variant="outline" size="sm" onClick={() => openGuest(g.id, 'edit')}>
+                              Edit
+                            </Button>
+                          )}
+                        </div>
                       </td>
                     )}
                   </tr>

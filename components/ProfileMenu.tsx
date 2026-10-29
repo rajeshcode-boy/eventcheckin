@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -35,10 +36,12 @@ export default function ProfileMenu({ name, email, avatarUrl, onLogout }: Props)
         }
       />
       <DropdownMenuContent align="end" className="w-60">
-        <DropdownMenuLabel>
-          <p className="truncate text-sm font-semibold">{name || 'Signed in'}</p>
-          <p className="truncate text-[13px] font-normal text-muted-foreground">{email}</p>
-        </DropdownMenuLabel>
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>
+            <p className="truncate text-sm font-semibold">{name || 'Signed in'}</p>
+            <p className="truncate text-[13px] font-normal text-muted-foreground">{email}</p>
+          </DropdownMenuLabel>
+        </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem render={<Link href="/profile">My profile</Link>} />
         <DropdownMenuItem render={<Link href="/organization">Organization settings</Link>} />

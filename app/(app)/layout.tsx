@@ -15,6 +15,7 @@ import {
   NavigationMenuList,
 } from '@/components/ui/navigation-menu'
 import EventNotifications from '@/components/EventNotifications'
+import { identifyOrganiser, resetAnalytics } from '@/lib/analytics'
 
 const NAV: { href: string; label: string; adminOnly?: boolean }[] = [
   { href: '/dashboard', label: 'Dashboard' },
@@ -39,6 +40,7 @@ export default function AppLayout({
   // Name and photo for the header; refreshed when the profile page saves a photo
   useEffect(() => {
     if (!user) return
+    identifyOrganiser(user.id)
     const loadProfile = () =>
       supabase.from('profiles').select('full_name, profile_photo_url, role').eq('id', user.id).single().then(({ data }) => {
         setDisplayName(data?.full_name ?? '')
@@ -78,6 +80,7 @@ export default function AppLayout({
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
+    resetAnalytics()
     router.push('/login?signedout=1')
   }
 

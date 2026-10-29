@@ -41,6 +41,14 @@ export default function PrivacyPage() {
           <strong>Usage data.</strong> We use Vercel Web Analytics to count page visits. It does not use cookies and does not
           identify individual visitors.
         </p>
+        <p>
+          <strong>Product analytics, only if you accept.</strong> If you accept cookies in the banner, we use PostHog to see which
+          pages and buttons are used and to replay how a page was used, so we can improve EventCheckin. Text on the page and
+          anything you type are hidden before anything is sent, so names, emails and guest details are never recorded. Signed-in
+          organisers are linked to an internal account ID only, never a name or email. Guest pages (registration, check-in,
+          passes, badges and kiosks) are never tracked. You can change your choice at any time with Cookie settings at the
+          bottom of the home page.
+        </p>
       </LegalSection>
 
       <LegalSection title="How we use information">
@@ -58,6 +66,7 @@ export default function PrivacyPage() {
         <ul>
           <li><strong>Supabase</strong> hosts our database, sign-in and file storage.</li>
           <li><strong>Vercel</strong> hosts the website and provides privacy-friendly visit counts.</li>
+          <li><strong>PostHog</strong> provides product analytics, only for visitors who accept cookies.</li>
           <li><strong>Browser push services</strong> from Apple, Google and Mozilla deliver notifications you have turned on.</li>
         </ul>
         <p>
@@ -69,7 +78,8 @@ export default function PrivacyPage() {
 
       <LegalSection title="Information stored on your device">
         <p>
-          EventCheckin keeps your sign-in session and your light or dark theme choice in your browser&apos;s storage. A paired
+          EventCheckin keeps your sign-in session, your light or dark theme choice and your cookie choice in your
+          browser&apos;s storage. If you accept cookies, PostHog also stores a cookie with a random visitor ID. A paired
           check-in kiosk keeps that event&apos;s guest list and any check-ins it has not uploaded yet on the tablet, so it can work
           offline. Unpairing the kiosk clears this.
         </p>

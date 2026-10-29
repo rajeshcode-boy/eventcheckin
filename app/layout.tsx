@@ -5,6 +5,7 @@ import { Geist } from "next/font/google";
 import { cn } from "@/lib/utils";
 import { Toaster } from '@/components/ui/sonner'
 import { ThemeProvider } from '@/components/theme-provider'
+import ProductAnalytics from '@/components/Analytics'
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
@@ -47,6 +48,7 @@ export default function RootLayout({
           {children}
         </ThemeProvider>
         <Analytics />
+        <ProductAnalytics />
         <Toaster />
       </body>
     </html>

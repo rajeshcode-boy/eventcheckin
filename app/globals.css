@@ -104,40 +104,6 @@ body {
   }
 }
 
-/* Utility classes */
-/* Only the landing page still uses this: app/page.tsx applies it next to home.css's own .btn-primary.
-   The app itself uses the shadcn Button. */
-.btn-primary {
-  background-color: var(--color-primary);
-  color: #ffffff;
-  padding: 10px 20px;
-  border-radius: var(--app-radius-md);
-  font-weight: 600;
-  font-size: 15px;
-  min-height: 44px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  box-shadow: var(--shadow-card);
-  transition: background-color 0.15s ease, transform 0.1s ease;
-}
-
-.btn-primary:hover {
-  background-color: var(--color-primary-hover);
-}
-
-.btn-primary:active {
-  transform: translateY(1px);
-}
-
-.btn-primary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* Event page: management sidebar on the left, overview on the right */
-
 /* Visible to screen readers only */
 .sr-only {
   position: absolute;
@@ -167,6 +133,8 @@ body {
   --color-popover-foreground: var(--color-text-primary);
   --color-primary: var(--color-primary);
   --color-primary-foreground: #ffffff;
+  /* Brighter green for accent text; readable on the dark theme where --color-primary is too dim */
+  --color-brand: var(--color-live);
   --color-secondary: var(--color-surface-muted);
   --color-secondary-foreground: var(--color-text-primary);
   --color-muted: var(--color-neutral-light);
@@ -210,4 +178,11 @@ body {
 .kiosk-flash-text { animation: kiosk-flash-rise 0.35s 0.15s ease-out both; }
 @media (prefers-reduced-motion: reduce) {
   .kiosk-flash, .kiosk-flash-badge, .kiosk-flash-check, .kiosk-flash-text { animation: none; }
+}
+
+/* Scanner line on the home page kiosk illustration (components/home/HeroVisual.tsx) */
+@keyframes hp-scan { 0%, 100% { top: 10%; } 50% { top: 88%; } }
+.hp-scan-line { animation: hp-scan 2.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .hp-scan-line { animation: none; top: 50%; }
 }

@@ -9,11 +9,11 @@ import { cn } from '@/lib/utils'
 type Guest = { id: number; name: string; role: string; company: string; type: 'VIP' | 'Speaker' | 'Delegate'; checkedIn: boolean }
 
 const SAMPLE: Guest[] = [
-  { id: 1, name: 'Aisha Rahman', role: 'Head of Security', company: 'Northwind Bank', type: 'VIP', checkedIn: true },
+  { id: 1, name: 'Venu Gopal', role: 'Head of Security', company: 'Northwind Bank', type: 'VIP', checkedIn: true },
   { id: 2, name: 'Daniel Okafor', role: 'CTO', company: 'Brightline Labs', type: 'Speaker', checkedIn: false },
-  { id: 3, name: 'Meera Iyer', role: 'Events Manager', company: 'Coastal Group', type: 'Delegate', checkedIn: true },
-  { id: 4, name: 'Lucas Moreau', role: 'Product Lead', company: 'Atlas Retail', type: 'Delegate', checkedIn: false },
-  { id: 5, name: 'Sara Haddad', role: 'Founder', company: 'Oasis Ventures', type: 'VIP', checkedIn: false },
+  { id: 3, name: 'Haritha R', role: 'Events Manager', company: 'Coastal Group', type: 'Delegate', checkedIn: true },
+  { id: 4, name: 'Chen Wei', role: 'Product Lead', company: 'Atlas Retail', type: 'Delegate', checkedIn: false },
+  { id: 5, name: 'Elif Kaya', role: 'Founder', company: 'Oasis Ventures', type: 'VIP', checkedIn: false },
 ]
 
 // One class per possible count, since SAMPLE always has five guests

@@ -10,7 +10,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 
-export const BOOKING_URL = 'https://calendar.app.google/3hM36DLLUM6zmZdH7'
+export const BOOKING_URL = 'https://calendly.com/rajesh-emea/30min'
 export const CONTACT_EMAIL = 'rajesh.emea@gmail.com'
 
 export const NAV_LINKS = [

@@ -32,7 +32,7 @@ export default function HeroVisual() {
             </span>
             <div className="min-w-0">
               <p className="text-[11px] font-semibold uppercase tracking-wider opacity-80">Checked in</p>
-              <p className="truncate text-sm font-bold">Welcome, Priya Sharma</p>
+              <p className="truncate text-sm font-bold">Welcome, Emily Carter</p>
             </div>
             <BadgeCheck className="ml-auto size-5 shrink-0 opacity-80" />
           </div>

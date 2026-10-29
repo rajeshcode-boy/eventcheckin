@@ -3,6 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { cn } from '@/lib/utils'
 import { clearAll, dequeue, enqueue, getGuests, getQueue, putGuest, replaceGuests } from '@/lib/kiosk/db'
 import { matchScan, searchGuests } from '@/lib/kiosk/search'
 import { clearSession, loadSession, saveSession } from '@/lib/kiosk/session'
@@ -34,7 +37,8 @@ async function api<T>(session: KioskSession, path: string, body?: unknown): Prom
   return res.json() as Promise<T>
 }
 
-const big = { minHeight: 64, fontSize: 20, borderRadius: 'var(--radius-md)', border: '2px solid var(--color-primary)', cursor: 'pointer', padding: '0 24px' } as const
+// Large touch targets: tablets are used standing up, often with one hand
+const bigButton = 'h-16 rounded-xl px-6 text-xl'
 
 export default function KioskPage() {
   const [session, setSession] = useState<KioskSession | null>(null)
@@ -76,13 +80,13 @@ function Pairing({ onPaired }: { onPaired: (s: KioskSession) => void }) {
   }
 
   return (
-    <main style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 24, background: 'var(--color-neutral-light)' }}>
-      <div style={{ width: '100%', maxWidth: 480, background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-lg)', padding: 32, display: 'grid', gap: 16 }}>
-        <h1 style={{ margin: 0, fontSize: 28, color: 'var(--color-text-primary)' }}>Pair this tablet</h1>
-        <p style={{ margin: 0, color: 'var(--color-text-secondary)', fontSize: 18 }}>
-          On the organiser&apos;s screen, open Pickup, choose Pair a kiosk, and type the 6-digit code here.
+    <main className="grid min-h-screen place-items-center bg-background p-6">
+      <div className="grid w-full max-w-[480px] gap-4 rounded-2xl border border-border bg-card p-8">
+        <h1 className="text-[28px] font-bold text-foreground">Pair this tablet</h1>
+        <p className="text-lg text-muted-foreground">
+          On the organiser&apos;s screen, open Desk, choose the Devices tab, and type the 6-digit code here.
         </p>
-        <input
+        <Input
           id="pairCode"
           inputMode="numeric"
           autoComplete="one-time-code"
@@ -96,12 +100,12 @@ function Pairing({ onPaired }: { onPaired: (s: KioskSession) => void }) {
             if (v.length === 6) submit(v)
           }}
           placeholder="000000"
-          style={{ fontSize: 44, letterSpacing: '0.4em', textAlign: 'center', height: 84, border: '2px solid var(--color-border)', borderRadius: 'var(--radius-md)', background: 'var(--color-surface)', color: 'var(--color-text-primary)' }}
+          className="h-[84px] border-2 text-center text-[44px] tracking-[0.4em] md:text-[44px]"
         />
-        {error && <div role="alert" style={{ color: 'var(--color-error-red)', fontSize: 18 }}>{error}</div>}
-        <button disabled={code.length !== 6 || busy} onClick={() => submit(code)} style={{ ...big, background: 'var(--color-primary)', color: '#fff', opacity: code.length === 6 && !busy ? 1 : 0.5 }}>
+        {error && <div role="alert" className="text-lg text-destructive">{error}</div>}
+        <Button className={bigButton} disabled={code.length !== 6 || busy} onClick={() => submit(code)}>
           {busy ? 'Pairing…' : 'Pair'}
-        </button>
+        </Button>
       </div>
     </main>
   )
@@ -292,48 +296,57 @@ function Desk({ session, onUnpair }: { session: KioskSession; onUnpair: () => vo
 
   if (revoked) {
     return (
-      <main style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 24 }}>
-        <div style={{ maxWidth: 480, display: 'grid', gap: 16, textAlign: 'center' }}>
-          <h1 style={{ margin: 0, color: 'var(--color-text-primary)' }}>This kiosk was removed</h1>
-          <p style={{ color: 'var(--color-text-secondary)', fontSize: 18 }}>An organiser revoked it. Scans not yet uploaded stay on this tablet until it is paired again.</p>
-          <button onClick={onUnpair} style={{ ...big, background: 'var(--color-primary)', color: '#fff' }}>Pair again</button>
+      <main className="grid min-h-screen place-items-center p-6">
+        <div className="grid max-w-[480px] gap-4 text-center">
+          <h1 className="text-2xl font-bold text-foreground">This kiosk was removed</h1>
+          <p className="text-lg text-muted-foreground">An organiser revoked it. Scans not yet uploaded stay on this tablet until it is paired again.</p>
+          <Button className={bigButton} onClick={onUnpair}>Pair again</Button>
         </div>
       </main>
     )
   }
 
-  const tone = { ok: 'var(--color-live)', warn: 'var(--color-amber-warning)', err: 'var(--color-error-red)' }
+  const tone = { ok: 'bg-(--color-live) text-white', warn: 'bg-amber-500 text-black', err: 'bg-destructive text-white' }
 
   return (
     <>
     {dialog}
-    <main style={{ minHeight: '100vh', display: 'grid', gridTemplateRows: 'auto 1fr', background: 'var(--color-neutral-light)', color: 'var(--color-text-primary)' }}>
-      <header style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '12px 24px', background: 'var(--color-surface)', borderBottom: '1px solid var(--color-border)', flexWrap: 'wrap' }}>
-        <div style={{ flex: 1, minWidth: 200 }}>
-          <div style={{ fontWeight: 700, fontSize: 22 }}>{session.eventName}</div>
-          <div style={{ color: 'var(--color-text-secondary)' }}>{session.label} · {session.kioskCode}</div>
+    <main className="grid min-h-screen grid-rows-[auto_1fr] bg-background text-foreground">
+      <header className="flex flex-wrap items-center gap-4 border-b border-border bg-card px-6 py-3">
+        <div className="min-w-[200px] flex-1">
+          <div className="text-[22px] font-bold">{session.eventName}</div>
+          <div className="text-muted-foreground">{session.label} · {session.kioskCode}</div>
         </div>
-        <span role="status" style={{ padding: '8px 14px', borderRadius: 999, fontWeight: 600, background: online ? 'var(--color-live-soft)' : 'var(--color-amber-warning)', color: online ? 'var(--color-live)' : '#000' }}>
+        <span
+          role="status"
+          className={cn('rounded-full px-3.5 py-2 font-semibold', online ? 'bg-(--color-live-soft) text-(--color-live)' : 'bg-amber-500 text-black')}
+        >
           {online ? (syncing ? 'Syncing…' : 'Online') : 'Offline · scans are saved'}
         </span>
-        {pending > 0 && <span style={{ fontWeight: 600 }}>{pending} waiting to upload</span>}
-        <button onClick={async () => { if (await confirm({ title: 'Unpair this tablet?', description: 'Scans not yet uploaded will be lost.', confirmLabel: 'Unpair', destructive: true })) onUnpair() }} style={{ background: 'none', border: 'none', color: 'var(--color-text-secondary)', textDecoration: 'underline', cursor: 'pointer', fontSize: 16, minHeight: 44 }}>Unpair</button>
+        {pending > 0 && <span className="font-semibold">{pending} waiting to upload</span>}
+        <button
+          type="button"
+          className="min-h-11 cursor-pointer text-base text-muted-foreground underline"
+          onClick={async () => { if (await confirm({ title: 'Unpair this tablet?', description: 'Scans not yet uploaded will be lost.', confirmLabel: 'Unpair', destructive: true })) onUnpair() }}
+        >
+          Unpair
+        </button>
       </header>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(280px, 1fr)', gap: 24, padding: 24, alignItems: 'start' }}>
-        <section style={{ display: 'grid', gap: 16 }}>
+      <div className="grid grid-cols-[minmax(0,2fr)_minmax(280px,1fr)] items-start gap-6 p-6 max-md:grid-cols-1">
+        <section className="grid gap-4">
           {toast && (
-            <div role="alert" style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '16px 20px', borderRadius: 'var(--radius-md)', background: tone[toast.kind], color: toast.kind === 'warn' ? '#000' : '#fff', fontSize: 22, fontWeight: 600 }}>
-              <span style={{ flex: 1 }}>{toast.text}</span>
+            <div role="alert" className={cn('flex items-center gap-4 rounded-xl px-5 py-4 text-[22px] font-semibold', tone[toast.kind])}>
+              <span className="flex-1">{toast.text}</span>
               {toast.scanId && toast.kind === 'ok' && (
-                <button onClick={() => undo(toast)} style={{ ...big, minHeight: 52, fontSize: 18, background: '#fff', color: '#000', border: 'none' }}>Undo</button>
+                <Button className="h-[52px] rounded-xl bg-white px-6 text-lg text-black hover:bg-white/90" onClick={() => undo(toast)}>Undo</Button>
               )}
-              <button aria-label="Dismiss" onClick={() => setToast(null)} style={{ background: 'none', border: 'none', color: 'inherit', fontSize: 28, cursor: 'pointer', minWidth: 44, minHeight: 44 }}>×</button>
+              <button type="button" aria-label="Dismiss" className="min-h-11 min-w-11 cursor-pointer text-[28px]" onClick={() => setToast(null)}>×</button>
             </div>
           )}
 
-          <div style={{ display: 'flex', gap: 12 }}>
-            <input
+          <div className="flex gap-3">
+            <Input
               id="kioskSearch"
               ref={inputRef}
               value={query}
@@ -341,45 +354,50 @@ function Desk({ session, onUnpair }: { session: KioskSession; onUnpair: () => vo
               onKeyDown={(e) => { if (e.key === 'Enter' && query.trim()) submit(query) }}
               placeholder="Name, email or confirmation code"
               autoComplete="off"
-              style={{ flex: 1, minHeight: 64, fontSize: 22, padding: '0 20px', border: '2px solid var(--color-border)', borderRadius: 'var(--radius-md)', background: 'var(--color-surface)', color: 'var(--color-text-primary)' }}
+              className="h-16 flex-1 rounded-xl border-2 px-5 text-[22px] md:text-[22px]"
             />
             {canScan && (
-              <button onClick={scanning ? stopScan : startScan} style={{ ...big, background: 'var(--color-surface)', color: 'var(--color-primary)' }}>{scanning ? 'Stop camera' : 'Scan QR'}</button>
+              <Button variant="outline" className={bigButton} onClick={scanning ? stopScan : startScan}>{scanning ? 'Stop camera' : 'Scan QR'}</Button>
             )}
           </div>
 
-          <video ref={videoRef} muted playsInline style={{ display: scanning ? 'block' : 'none', width: '100%', maxHeight: 320, objectFit: 'cover', borderRadius: 'var(--radius-md)', background: '#000' }} />
+          <video ref={videoRef} muted playsInline className={cn('max-h-80 w-full rounded-xl bg-black object-cover', scanning ? 'block' : 'hidden')} />
 
-          <div style={{ display: 'grid', gap: 10 }}>
+          <div className="grid gap-2.5">
             {results.map((g) => (
-              <button key={g.id} onClick={() => checkIn(g, 'manual')} style={{ display: 'flex', alignItems: 'center', gap: 16, textAlign: 'left', minHeight: 76, padding: '12px 20px', background: 'var(--color-surface)', color: 'var(--color-text-primary)', border: '2px solid var(--color-border)', borderRadius: 'var(--radius-md)', cursor: 'pointer' }}>
-                <span style={{ flex: 1, minWidth: 0 }}>
-                  <span style={{ display: 'block', fontSize: 22, fontWeight: 700 }}>{g.full_name}</span>
-                  <span style={{ display: 'block', fontSize: 16, color: 'var(--color-text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <button
+                key={g.id}
+                type="button"
+                onClick={() => checkIn(g, 'manual')}
+                className="flex min-h-[76px] cursor-pointer items-center gap-4 rounded-xl border-2 border-border bg-card px-5 py-3 text-left text-foreground"
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[22px] font-bold">{g.full_name}</span>
+                  <span className="block truncate text-base text-muted-foreground">
                     {[g.company, g.email, g.registration_id].filter(Boolean).join(' · ')}
                   </span>
                 </span>
-                <span style={{ fontWeight: 700, fontSize: 18, color: g.checked_in_at ? 'var(--color-amber-warning)' : 'var(--color-live)' }}>
+                <span className={cn('text-lg font-bold', g.checked_in_at ? 'text-amber-600' : 'text-(--color-live)')}>
                   {g.checked_in_at ? `In ${time(g.checked_in_at)}` : 'Check in'}
                 </span>
               </button>
             ))}
-            {query.trim() && results.length === 0 && <div style={{ fontSize: 20, color: 'var(--color-text-secondary)' }}>No guest matches. Check the spelling or try the email.</div>}
-            {!query.trim() && guests.length === 0 && <div style={{ fontSize: 20, color: 'var(--color-text-secondary)' }}>{online ? 'Loading the guest list…' : 'No guest list on this tablet yet. Connect to Wi-Fi once to download it.'}</div>}
+            {query.trim() && results.length === 0 && <div className="text-xl text-muted-foreground">No guest matches. Check the spelling or try the email.</div>}
+            {!query.trim() && guests.length === 0 && <div className="text-xl text-muted-foreground">{online ? 'Loading the guest list…' : 'No guest list on this tablet yet. Connect to Wi-Fi once to download it.'}</div>}
           </div>
         </section>
 
-        <aside style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-lg)', padding: 16, display: 'grid', gap: 8, maxHeight: 'calc(100vh - 140px)', gridTemplateRows: 'auto 1fr' }}>
-          <h2 style={{ margin: 0, fontSize: 20 }}>Recent pickups <span style={{ color: 'var(--color-text-secondary)', fontWeight: 400 }}>({guests.filter((g) => g.checked_in_at).length}/{guests.length})</span></h2>
-          <ul style={{ listStyle: 'none', margin: 0, padding: 0, overflowY: 'auto', display: 'grid', gap: 6, alignContent: 'start' }}>
-            {recent.length === 0 && <li style={{ color: 'var(--color-text-secondary)' }}>No one has checked in yet.</li>}
+        <aside className="grid max-h-[calc(100vh-140px)] grid-rows-[auto_1fr] gap-2 rounded-2xl border border-border bg-card p-4">
+          <h2 className="text-xl font-semibold">Recent pickups <span className="font-normal text-muted-foreground">({guests.filter((g) => g.checked_in_at).length}/{guests.length})</span></h2>
+          <ul className="grid content-start gap-1.5 overflow-y-auto">
+            {recent.length === 0 && <li className="text-muted-foreground">No one has checked in yet.</li>}
             {recent.map((g) => (
-              <li key={g.id} style={{ padding: '10px 12px', background: 'var(--color-surface-muted)', borderRadius: 'var(--radius-md)', display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                <span style={{ minWidth: 0 }}>
-                  <b style={{ display: 'block' }}>{g.full_name}</b>
-                  <small style={{ color: 'var(--color-text-secondary)' }}>{g.checked_in_by ?? 'desk'}</small>
+              <li key={g.id} className="flex justify-between gap-2 rounded-lg bg-secondary px-3 py-2.5">
+                <span className="min-w-0">
+                  <b className="block">{g.full_name}</b>
+                  <small className="text-muted-foreground">{g.checked_in_by ?? 'desk'}</small>
                 </span>
-                <span style={{ fontVariantNumeric: 'tabular-nums' }}>{time(g.checked_in_at)}</span>
+                <span className="tabular-nums">{time(g.checked_in_at)}</span>
               </li>
             ))}
           </ul>

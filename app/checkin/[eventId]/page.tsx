@@ -7,6 +7,9 @@ import { formatTime } from '@/lib/time'
 import { publicImageUrl } from '@/lib/images'
 import { countryName } from '@/lib/countries'
 import DigitalBadge from '@/components/DigitalBadge'
+import { Alert } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 
 interface EventInfo {
   name: string
@@ -141,9 +144,9 @@ export default function PublicCheckinPage() {
   if (eventError) {
     return (
       <Shell>
-        <div className="alert-error" style={{ fontSize: '18px' }}>
+        <Alert variant="error" className="text-lg">
           {eventError === 'Event not found' ? 'This check-in link is not valid. Ask the event staff for help.' : eventError}
-        </div>
+        </Alert>
       </Shell>
     )
   }
@@ -151,7 +154,7 @@ export default function PublicCheckinPage() {
   if (!event) {
     return (
       <Shell>
-        <p style={{ fontSize: '18px', textAlign: 'center' }}>Loading...</p>
+        <p className="text-center text-lg">Loading...</p>
       </Shell>
     )
   }
@@ -164,32 +167,32 @@ export default function PublicCheckinPage() {
     <Shell>
       {bannerUrl && (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={bannerUrl} alt="" style={{ width: '100%', aspectRatio: '4 / 1', objectFit: 'cover', borderRadius: '8px', marginBottom: '16px' }} />
+        <img src={bannerUrl} alt="" className="mb-4 aspect-[4/1] w-full rounded-lg object-cover" />
       )}
-      <header style={{ textAlign: 'center', marginBottom: '32px' }}>
+      <header className="mb-8 text-center">
         {logoUrl && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={logoUrl} alt="" style={{ height: '64px', maxWidth: '200px', objectFit: 'contain', margin: '0 auto 12px', display: 'block' }} />
+          <img src={logoUrl} alt="" className="mx-auto mb-3 block h-16 max-w-[200px] object-contain" />
         )}
-        <h1 style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '8px' }}>{event.name}</h1>
-        <p style={{ fontSize: '16px', color: 'var(--color-text-secondary)' }}>
+        <h1 className="mb-2 text-[28px] font-bold">{event.name}</h1>
+        <p className="text-base text-muted-foreground">
           {event.city && event.country ? `${event.city}, ${countryName(event.country)}` : event.location} • {new Date(event.event_date + 'T00:00:00').toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })}
         </p>
       </header>
 
       {event.status === 'closed' && (
-        <div className="alert-warning" role="status" style={{ padding: '24px' }}>
-          <p style={{ fontSize: '20px', fontWeight: 600, marginBottom: '8px' }}>Check-in is closed</p>
-          <p style={{ fontSize: '16px' }}>Please see the event staff for help.</p>
-        </div>
+        <Alert variant="warning" className="p-6">
+          <p className="mb-2 text-xl font-semibold">Check-in is closed</p>
+          <p className="text-base">Please see the event staff for help.</p>
+        </Alert>
       )}
 
       {event.status !== 'closed' && view === 'form' && (
-        <form onSubmit={handleCheckin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <label htmlFor="checkin-query" style={{ fontSize: '18px', fontWeight: 600 }}>
+        <form onSubmit={handleCheckin} className="flex flex-col gap-4">
+          <label htmlFor="checkin-query" className="text-lg font-semibold">
             Check in
           </label>
-          <input
+          <Input
             id="checkin-query"
             ref={inputRef}
             type="text"
@@ -200,21 +203,20 @@ export default function PublicCheckinPage() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Enter email or phone"
-            className="input-field"
-            style={{ fontSize: '18px', minHeight: '52px' }}
+            className={`${field} md:text-lg`}
           />
-          <button type="submit" className="btn-primary" disabled={busy || !query.trim()} style={{ fontSize: '18px', minHeight: '52px', width: '100%' }}>
+          <Button type="submit" className={bigButton} disabled={busy || !query.trim()}>
             {busy ? 'Checking...' : 'Check In'}
-          </button>
-          {error && <div className="alert-error" style={{ fontSize: '16px' }}>{error}</div>}
+          </Button>
+          {error && <Alert variant="error" className="text-base">{error}</Alert>}
         </form>
       )}
 
       {view === 'result' && result && <ResultCard result={result} onWalkin={() => { setView('walkin'); setError('') }} onDone={reset} />}
 
       {view === 'walkin' && (
-        <form onSubmit={handleWalkin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <h2 style={{ fontSize: '20px', fontWeight: 600 }}>Register as walk-in</h2>
+        <form onSubmit={handleWalkin} className="flex flex-col gap-4">
+          <h2 className="text-xl font-semibold">Register as walk-in</h2>
           {([
             ['firstName', 'First name', true, 'given-name'],
             ['lastName', 'Last name', false, 'family-name'],
@@ -223,29 +225,28 @@ export default function PublicCheckinPage() {
             ['email', 'Company email', false, 'email'],
           ] as const).map(([key, label, required, autoComplete]) => (
             <div key={key}>
-              <label htmlFor={`walkin-${key}`} style={{ display: 'block', marginBottom: '8px', fontSize: '18px', fontWeight: 500 }}>
+              <label htmlFor={`walkin-${key}`} className="mb-2 block text-lg font-medium">
                 {label}{required ? ' *' : ''}
               </label>
-              <input
+              <Input
                 id={`walkin-${key}`}
                 type={key === 'email' ? 'email' : 'text'}
                 value={walkin[key]}
                 onChange={(e) => setWalkin({ ...walkin, [key]: e.target.value })}
-                className="input-field"
-                style={{ fontSize: '18px' }}
+                className={`${field} md:text-lg`}
                 required={required}
                 autoComplete={autoComplete}
                 maxLength={120}
               />
             </div>
           ))}
-          {error && <div className="alert-error" style={{ fontSize: '16px' }}>{error}</div>}
-          <button type="submit" className="btn-primary" disabled={busy} style={{ fontSize: '18px', minHeight: '52px', width: '100%' }}>
+          {error && <Alert variant="error" className="text-base">{error}</Alert>}
+          <Button type="submit" className={bigButton} disabled={busy}>
             {busy ? 'Registering...' : 'Register & Check In'}
-          </button>
-          <button type="button" className="btn-secondary" onClick={reset} disabled={busy} style={{ fontSize: '18px', width: '100%' }}>
+          </Button>
+          <Button type="button" variant="outline" className={bigButton} onClick={reset} disabled={busy}>
             Back
-          </button>
+          </Button>
         </form>
       )}
     </Shell>
@@ -256,47 +257,51 @@ function ResultCard({ result, onWalkin, onDone }: { result: CheckinResult; onWal
   if (result.status === 'checked_in' || result.status === 'already_checked_in') {
     const checkedIn = result.status === 'checked_in'
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-        <div role="status" style={{ textAlign: 'center' }}>
-          <p style={{ fontSize: '20px', fontWeight: 600 }}>{checkedIn ? 'Welcome' : 'Already checked in'}</p>
-          <p style={{ fontSize: '16px', color: 'var(--color-text-secondary)', marginTop: '4px' }}>
+      <div className="flex flex-col gap-4">
+        <div role="status" className="text-center">
+          <p className="text-xl font-semibold">{checkedIn ? 'Welcome' : 'Already checked in'}</p>
+          <p className="mt-1 text-base text-muted-foreground">
             {checkedIn ? 'Checked in' : 'First check-in'} at {formatTime(result.checked_in_at)}
           </p>
         </div>
         {result.badge_token ? (
           <DigitalBadge token={result.badge_token} />
         ) : (
-          <div className="alert-warning" role="status" style={{ padding: '24px' }}>
-            <p style={{ fontSize: '18px', fontWeight: 'bold' }}>{result.full_name}</p>
-          </div>
+          <Alert variant="warning" className="p-6">
+            <p className="text-lg font-bold">{result.full_name}</p>
+          </Alert>
         )}
-        <button className="btn-primary" onClick={onDone} style={{ fontSize: '18px', minHeight: '52px', width: '100%' }}>
+        <Button className={bigButton} onClick={onDone}>
           Done
-        </button>
+        </Button>
       </div>
     )
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      <div className="alert-error" role="alert" style={{ padding: '24px' }}>
-        <p style={{ fontSize: '20px', fontWeight: 600, marginBottom: '8px' }}>❌ Registration details not found</p>
-        <p style={{ fontSize: '16px' }}>Check the spelling, try your other email or phone, or register as a walk-in.</p>
-      </div>
-      <button className="btn-primary" onClick={onWalkin} style={{ fontSize: '18px', minHeight: '52px', width: '100%' }}>
+    <div className="flex flex-col gap-4">
+      <Alert variant="error" className="p-6">
+        <p className="mb-2 text-xl font-semibold">❌ Registration details not found</p>
+        <p className="text-base">Check the spelling, try your other email or phone, or register as a walk-in.</p>
+      </Alert>
+      <Button className={bigButton} onClick={onWalkin}>
         Register as walk-in
-      </button>
-      <button className="btn-secondary" onClick={onDone} style={{ fontSize: '18px', width: '100%' }}>
+      </Button>
+      <Button variant="outline" className={bigButton} onClick={onDone}>
         Try again
-      </button>
+      </Button>
     </div>
   )
 }
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <main style={{ minHeight: '100vh', display: 'flex', justifyContent: 'center', padding: '32px 16px' }}>
-      <div style={{ width: '100%', maxWidth: '440px' }}>{children}</div>
+    <main className="flex min-h-screen justify-center px-4 py-8">
+      <div className="w-full max-w-[440px]">{children}</div>
     </main>
   )
 }
+
+// Guests use their own phones, so inputs and buttons are large
+const field = 'h-[52px] text-lg'
+const bigButton = 'h-[52px] w-full text-lg'

@@ -5,6 +5,9 @@ import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { publicImageUrl } from '@/lib/images'
 import { countryName } from '@/lib/countries'
+import { Alert } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 
 interface Info {
   name: string
@@ -93,18 +96,20 @@ export default function RegisterPage() {
   const bannerUrl = info ? publicImageUrl('branding', info.banner_path) : null
   const logoUrl = info ? publicImageUrl('branding', info.logo_path ?? info.org_logo_path) : null
 
+  const panel = 'rounded-xl border border-border bg-card p-6'
+
   const shell = (children: React.ReactNode) => (
-    <div style={{ minHeight: '100vh', backgroundColor: 'var(--color-neutral-light)', padding: '32px 16px 48px' }}>
-      <div style={{ maxWidth: '520px', margin: '0 auto' }}>
+    <div className="min-h-screen bg-background px-4 pt-8 pb-12">
+      <div className="mx-auto max-w-[520px]">
         {bannerUrl && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={bannerUrl} alt="" style={{ width: '100%', aspectRatio: '4 / 1', objectFit: 'cover', borderRadius: '12px', marginBottom: '16px', border: '1px solid var(--color-border)' }} />
+          <img src={bannerUrl} alt="" className="mb-4 aspect-[4/1] w-full rounded-xl border border-border object-cover" />
         )}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', gap: '12px' }}>
-          <p style={{ fontWeight: 700, fontSize: '15px', color: 'var(--color-text-secondary)' }}>EventCheckin</p>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <p className="text-[15px] font-bold text-muted-foreground">EventCheckin</p>
           {logoUrl && (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={logoUrl} alt="" style={{ height: '40px', maxWidth: '140px', objectFit: 'contain' }} />
+            <img src={logoUrl} alt="" className="h-10 max-w-[140px] object-contain" />
           )}
         </div>
         {children}
@@ -112,9 +117,9 @@ export default function RegisterPage() {
     </div>
   )
 
-  if (loading) return shell(<p style={{ color: 'var(--color-text-secondary)' }}>Loading...</p>)
+  if (loading) return shell(<p className="text-muted-foreground">Loading...</p>)
 
-  if (error || !info) return shell(<div className="card" style={{ padding: '24px' }}><p>{error || 'This registration link is not valid.'}</p></div>)
+  if (error || !info) return shell(<div className={panel}><p>{error || 'This registration link is not valid.'}</p></div>)
 
   const date = new Date(info.event_date + 'T00:00:00').toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })
 
@@ -130,12 +135,12 @@ export default function RegisterPage() {
     }
     const m = messages[result.status] ?? messages.invalid!
     return shell(
-      <div className="card" style={{ padding: '24px' }} role="status">
-        <p style={{ fontSize: '18px', fontWeight: 600, marginBottom: '8px' }}>{m.title}</p>
-        <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px' }}>{m.body}</p>
+      <div className={panel} role="status">
+        <p className="mb-2 text-lg font-semibold">{m.title}</p>
+        <p className="text-sm text-muted-foreground">{m.body}</p>
         {result.registration_id && !pending && (
-          <p style={{ marginTop: '16px', fontSize: '14px' }}>
-            Your registration ID: <code style={{ fontFamily: 'ui-monospace, monospace', fontWeight: 600 }}>{result.registration_id}</code>
+          <p className="mt-4 text-sm">
+            Your registration ID: <code className="font-mono font-semibold">{result.registration_id}</code>
           </p>
         )}
       </div>
@@ -144,9 +149,9 @@ export default function RegisterPage() {
 
   if (!info.registration_open || info.is_full) {
     return shell(
-      <div className="card" style={{ padding: '24px' }}>
-        <p style={{ fontSize: '18px', fontWeight: 600, marginBottom: '8px' }}>{info.name}</p>
-        <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px' }}>
+      <div className={panel}>
+        <p className="mb-2 text-lg font-semibold">{info.name}</p>
+        <p className="text-sm text-muted-foreground">
           {info.is_full
             ? 'All places for this event are taken. Contact the organiser to join the waiting list.'
             : 'Registration is not open yet. Check back later or contact the organiser.'}
@@ -157,29 +162,29 @@ export default function RegisterPage() {
 
   const field = (label: string, key: keyof typeof form, opts: { type?: string; required?: boolean; help?: string } = {}) => (
     <div>
-      <label htmlFor={key} style={{ display: 'block', marginBottom: '6px', fontWeight: 500, fontSize: '14px' }}>
+      <label htmlFor={key} className="mb-1.5 block text-sm font-medium">
         {label}{opts.required ? ' *' : ''}
       </label>
-      <input
+      <Input
         id={key}
         type={opts.type ?? 'text'}
         value={String(form[key])}
         onChange={(e) => set(key, e.target.value)}
-        className="input-field"
+        className="h-11 text-base"
       />
-      {opts.help && <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginTop: '4px' }}>{opts.help}</p>}
+      {opts.help && <p className="mt-1 text-[13px] text-muted-foreground">{opts.help}</p>}
     </div>
   )
 
   return shell(
-    <div className="card" style={{ padding: '24px' }}>
-      <h1 style={{ fontSize: '22px', fontWeight: 700, letterSpacing: '-0.01em', marginBottom: '6px' }}>{info.name}</h1>
-      <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px', marginBottom: '20px' }}>
+    <div className={panel}>
+      <h1 className="mb-1.5 text-[22px] font-bold tracking-tight">{info.name}</h1>
+      <p className="mb-5 text-sm text-muted-foreground">
         {info.city && info.country ? `${info.city}, ${countryName(info.country)}` : info.location} · {date}
       </p>
 
-      <form onSubmit={submit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px' }}>
+      <form onSubmit={submit} noValidate className="flex flex-col gap-3.5">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-3.5">
           {field('First name', 'first_name', { required: true })}
           {field('Last name', 'last_name')}
         </div>
@@ -188,16 +193,16 @@ export default function RegisterPage() {
         {field('Email', 'email', { type: 'email', required: true })}
         {field('Phone', 'phone', { type: 'tel', help: 'Optional. Include the country code, for example +91 98765 43210.' })}
 
-        <label style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', fontSize: '14px' }}>
-          <input type="checkbox" checked={form.consent} onChange={(e) => set('consent', e.target.checked)} style={{ marginTop: '3px' }} />
+        <label className="flex items-start gap-2.5 text-sm">
+          <input type="checkbox" className="mt-[3px] accent-primary" checked={form.consent} onChange={(e) => set('consent', e.target.checked)} />
           <span>I agree that my details are used to manage this event and for check-in and badge printing.</span>
         </label>
 
-        {fieldError && <div className="alert-error" role="alert">{fieldError}</div>}
+        {fieldError && <Alert variant="error">{fieldError}</Alert>}
 
-        <button type="submit" disabled={submitting} className="btn-primary">
+        <Button type="submit" size="lg" className="h-11 text-base" disabled={submitting}>
           {submitting ? 'Registering...' : 'Register'}
-        </button>
+        </Button>
       </form>
     </div>
   )

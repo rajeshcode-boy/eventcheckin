@@ -86,18 +86,22 @@ body {
   overflow-x: hidden;
 }
 
-button {
-  font-family: inherit;
-  cursor: pointer;
-  border: none;
-  padding: 0;
-}
+/* Base layer too: an unlayered button/input rule would beat the padding, border and font-size
+   utilities on every shadcn Button and Input. */
+@layer base {
+  button {
+    font-family: inherit;
+    cursor: pointer;
+    border: none;
+    padding: 0;
+  }
 
-input,
-textarea,
-select {
-  font-family: inherit;
-  font-size: inherit;
+  input,
+  textarea,
+  select {
+    font-family: inherit;
+    font-size: inherit;
+  }
 }
 
 /* Utility classes */

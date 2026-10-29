@@ -1,4 +1,16 @@
-import { isTrackedPath } from '@/lib/analytics'
+import { isGaPath, isTrackedPath } from '@/lib/analytics'
+
+describe('isGaPath', () => {
+  it('allows only the public website pages', () => {
+    for (const path of ['/', '/signup', '/login', '/privacy', '/terms']) expect(isGaPath(path)).toBe(true)
+  })
+
+  it('never includes the signed-in app or guest pages', () => {
+    for (const path of ['/events', '/events/abc/guests', '/dashboard', '/profile', '/checkin/EVT1', '/pass/tok', '/kiosk', '/signup/extra']) {
+      expect(isGaPath(path)).toBe(false)
+    }
+  })
+})
 
 describe('isTrackedPath', () => {
   it('tracks the public website and organiser pages', () => {

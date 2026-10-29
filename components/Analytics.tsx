@@ -7,17 +7,23 @@ import type { PostHog } from 'posthog-js'
 import { Button } from '@/components/ui/button'
 import {
   CONSENT_EVENT,
+  isGaPath,
   isTrackedPath,
+  loadGoogleAnalytics,
   loadPostHog,
   loadedPostHog,
   pendingOrganiserId,
   readConsent,
+  sendGooglePageView,
+  setGoogleAnalyticsEnabled,
   writeConsent,
   type Consent,
 } from '@/lib/analytics'
 
 const KEY = process.env.NEXT_PUBLIC_POSTHOG_KEY
 const HOST = process.env.NEXT_PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com'
+const GA_ID = process.env.NEXT_PUBLIC_GA_ID
+const ANY_ANALYTICS = !!(KEY || GA_ID)
 
 function startPostHog(posthog: PostHog, key: string) {
   posthog.init(key, {
@@ -31,14 +37,16 @@ function startPostHog(posthog: PostHog, key: string) {
     mask_all_text: true,
     mask_all_element_attributes: true,
     session_recording: { maskAllInputs: true, maskTextSelector: '*' },
+    // Uncaught errors appear under Error tracking in PostHog
+    capture_exceptions: true,
     before_send: (event) => (event && isTrackedPath(window.location.pathname) ? event : null),
   })
   const id = pendingOrganiserId()
   if (id) posthog.identify(id)
 }
 
-// Loads PostHog only after the visitor accepts, and only on tracked pages.
-// Does nothing at all until NEXT_PUBLIC_POSTHOG_KEY is set.
+// Loads PostHog (tracked pages) and Google Analytics (public website only) after the visitor accepts.
+// Each does nothing until its key is set; with neither key there is no banner.
 export default function Analytics() {
   const pathname = usePathname()
   const [consent, setConsent] = useState<Consent | null | undefined>(undefined)
@@ -81,7 +89,18 @@ export default function Analytics() {
     }
   }, [consent, pathname, tracked])
 
-  if (!KEY || consent !== null || !tracked) return null
+  const gaPage = isGaPath(pathname)
+
+  useEffect(() => {
+    if (!GA_ID) return
+    const allowed = consent === 'granted' && gaPage
+    setGoogleAnalyticsEnabled(GA_ID, allowed)
+    if (!allowed) return
+    loadGoogleAnalytics(GA_ID)
+    sendGooglePageView(GA_ID)
+  }, [consent, pathname, gaPage])
+
+  if (!ANY_ANALYTICS || consent !== null || !tracked) return null
 
   return (
     <div
@@ -91,8 +110,8 @@ export default function Analytics() {
     >
       <p className="font-semibold">Help us improve EventCheckin</p>
       <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-        With your permission we use cookies to see which pages and buttons people use. Text on the page, anything you type and
-        guest details are never recorded.{' '}
+        With your permission we use cookies from PostHog and Google Analytics to see which pages and buttons people use, and
+        to catch errors. Text on the page, anything you type and guest details are never recorded.{' '}
         <Link href="/privacy" className="font-semibold text-primary underline-offset-4 hover:underline dark:text-brand">
           Privacy Policy
         </Link>
@@ -109,7 +128,7 @@ export default function Analytics() {
 
 // Lets a visitor reopen the consent choice, e.g. from the footer
 export function CookieSettingsButton({ className }: { className?: string }) {
-  if (!KEY) return null
+  if (!ANY_ANALYTICS) return null
   return (
     <button type="button" className={className} onClick={() => writeConsent(null)}>
       Cookie settings

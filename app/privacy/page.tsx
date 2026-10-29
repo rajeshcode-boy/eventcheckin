@@ -46,8 +46,13 @@ export default function PrivacyPage() {
           pages and buttons are used and to replay how a page was used, so we can improve EventCheckin. Text on the page and
           anything you type are hidden before anything is sent, so names, emails and guest details are never recorded. Signed-in
           organisers are linked to an internal account ID only, never a name or email. Guest pages (registration, check-in,
-          passes, badges and kiosks) are never tracked. You can change your choice at any time with Cookie settings at the
-          bottom of the home page.
+          passes, badges and kiosks) are never tracked. PostHog also records errors that happen on those tracked pages, so we
+          can fix them. You can change your choice at any time with Cookie settings at the bottom of the home page.
+        </p>
+        <p>
+          <strong>Website statistics, only if you accept.</strong> On the public website (home, sign-up, log-in, privacy and
+          terms pages) we also use Google Analytics to see how visitors find EventCheckin, for example from a search engine.
+          Google Analytics never runs inside the signed-in app or on guest pages.
         </p>
       </LegalSection>
 
@@ -66,7 +71,8 @@ export default function PrivacyPage() {
         <ul>
           <li><strong>Supabase</strong> hosts our database, sign-in and file storage.</li>
           <li><strong>Vercel</strong> hosts the website and provides privacy-friendly visit counts.</li>
-          <li><strong>PostHog</strong> provides product analytics, only for visitors who accept cookies.</li>
+          <li><strong>PostHog</strong> provides product analytics and error tracking, only for visitors who accept cookies.</li>
+          <li><strong>Google</strong> provides Google Analytics on the public website, only for visitors who accept cookies.</li>
           <li><strong>Browser push services</strong> from Apple, Google and Mozilla deliver notifications you have turned on.</li>
         </ul>
         <p>
@@ -79,7 +85,7 @@ export default function PrivacyPage() {
       <LegalSection title="Information stored on your device">
         <p>
           EventCheckin keeps your sign-in session, your light or dark theme choice and your cookie choice in your
-          browser&apos;s storage. If you accept cookies, PostHog also stores a cookie with a random visitor ID. A paired
+          browser&apos;s storage. If you accept cookies, PostHog and Google Analytics each store a cookie with a random visitor ID. A paired
           check-in kiosk keeps that event&apos;s guest list and any check-ins it has not uploaded yet on the tablet, so it can work
           offline. Unpairing the kiosk clears this.
         </p>

@@ -1,12 +1,11 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { isValidEmail } from '@/lib/guests'
 import { formatTime } from '@/lib/time'
 import { publicImageUrl } from '@/lib/images'
 import { countryName } from '@/lib/countries'
-import DigitalBadge from '@/components/DigitalBadge'
 import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -254,7 +253,16 @@ export default function PublicCheckinPage() {
 }
 
 function ResultCard({ result, onWalkin, onDone }: { result: CheckinResult; onWalkin: () => void; onDone: () => void }) {
-  if (result.status === 'checked_in' || result.status === 'already_checked_in') {
+  const router = useRouter()
+  const found = result.status === 'checked_in' || result.status === 'already_checked_in'
+  const token = found ? result.badge_token : null
+
+  // One guest view: after check-in the guest lands on their pass, which shows "Checked In at ..."
+  useEffect(() => {
+    if (token) router.push(`/pass/${token}`)
+  }, [token, router])
+
+  if (found) {
     const checkedIn = result.status === 'checked_in'
     return (
       <div className="flex flex-col gap-4">
@@ -264,16 +272,20 @@ function ResultCard({ result, onWalkin, onDone }: { result: CheckinResult; onWal
             {checkedIn ? 'Checked in' : 'First check-in'} at {formatTime(result.checked_in_at)}
           </p>
         </div>
-        {result.badge_token ? (
-          <DigitalBadge token={result.badge_token} />
+        {token ? (
+          <Button className={bigButton} render={<a href={`/pass/${token}`} />} nativeButton={false}>
+            Opening your pass...
+          </Button>
         ) : (
           <Alert variant="warning" className="p-6">
             <p className="text-lg font-bold">{result.full_name}</p>
           </Alert>
         )}
-        <Button className={bigButton} onClick={onDone}>
-          Done
-        </Button>
+        {!token && (
+          <Button className={bigButton} onClick={onDone}>
+            Done
+          </Button>
+        )}
       </div>
     )
   }

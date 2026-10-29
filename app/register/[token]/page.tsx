@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { publicImageUrl } from '@/lib/images'
 import { countryName } from '@/lib/countries'
 import { Alert } from '@/components/ui/alert'
+import PassLink from '@/components/PassLink'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
@@ -23,7 +24,8 @@ interface Info {
   org_logo_path: string | null
 }
 
-type Result = { status: string; registration_id: string | null } | null
+// badge_token only exists once SQL/022 is applied, and only for a new, approved registration
+type Result = { status: string; registration_id: string | null; badge_token?: string | null } | null
 
 // Public self-registration page. Shared links can carry ?ref=CODE (team member) and ?src=channel.
 export default function RegisterPage() {
@@ -143,6 +145,7 @@ export default function RegisterPage() {
             Your registration ID: <code className="font-mono font-semibold">{result.registration_id}</code>
           </p>
         )}
+        {result.badge_token && !pending && <PassLink token={result.badge_token} />}
       </div>
     )
   }

@@ -20,3 +20,20 @@ export function clearSession() {
     localStorage.removeItem(KEY)
   } catch {}
 }
+
+const FACING_KEY = 'eventcheckin.kiosk.facing'
+
+// Which camera this tablet scans with. A tablet on a stand uses the front camera, a phone the back.
+export function loadFacing(): 'environment' | 'user' {
+  try {
+    return localStorage.getItem(FACING_KEY) === 'user' ? 'user' : 'environment'
+  } catch {
+    return 'environment'
+  }
+}
+
+export function saveFacing(f: 'environment' | 'user') {
+  try {
+    localStorage.setItem(FACING_KEY, f)
+  } catch {}
+}

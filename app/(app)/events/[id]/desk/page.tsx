@@ -52,7 +52,7 @@ function DeskHub() {
       </header>
 
       <Tabs value={active} onValueChange={(v) => select(String(v))}>
-        <TabsList variant="line" aria-label="Desk tools" className="w-full justify-start overflow-x-auto">
+        <TabsList variant="line" aria-label="Desk tools" className="h-auto w-full flex-wrap justify-start">
           {tabs.map((t) => (
             <TabsTrigger key={t.key} value={t.key} className="flex-none px-3">{t.label}</TabsTrigger>
           ))}

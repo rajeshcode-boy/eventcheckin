@@ -20,9 +20,12 @@ badges, desk badge pickup, dashboards, and web push notifications
 - **Vercel**: auto-deploys `main` to production. Preview deployments build
   from every branch/PR and need their own copy of the env vars (see below).
 - **Vitest** for unit tests (`npm test`). `npx tsc --noEmit` for type checking.
-- Styling is CSS variables in `app/globals.css` (light/dark via
-  `prefers-color-scheme` + `data-theme`) plus inline styles — not Tailwind
-  classes, even though `tailwindcss` is a dependency.
+- Styling is Tailwind utility classes plus the shadcn components in
+  `components/ui` (Tailwind 4, Base UI). Colours come from the CSS variables in
+  `app/globals.css` (light/dark via `prefers-color-scheme` + `data-theme`),
+  exposed to Tailwind as theme tokens. Older pages still use inline styles and
+  the legacy `.btn-*` / `.card` / `.input-field` / `.alert-*` classes while they
+  are migrated.
 
 ## Layout
 
@@ -83,11 +86,14 @@ badges, desk badge pickup, dashboards, and web push notifications
    builds. If a PR's Vercel check fails with `missing_config` or
    "`<X> is required`", check whether the var is set for **Preview**, not
    just Production.
-9. **Styling**: use the CSS variables already defined in `app/globals.css`
-   (`--color-primary`, `--color-live`, `--color-text-secondary`, etc.), not
-   new hardcoded colors, so light/dark theming stays consistent. New pages
-   follow the existing inline-style + CSS-class convention rather than
-   introducing Tailwind utility classes.
+9. **Styling**: write Tailwind utility classes and use the shadcn components
+   in `components/ui`. Take colours from theme tokens (`bg-card`,
+   `text-muted-foreground`, `border-border`, `text-primary`, ...) that map to
+   the CSS variables in `app/globals.css`, never hardcoded colours, so
+   light/dark theming stays consistent. Don't add new inline `style={{}}`
+   blocks or new legacy `.btn-*` / `.card` / `.input-field` / `.alert-*` usage;
+   convert a page when you touch it. Global element resets belong in
+   `@layer base`, because unlayered CSS overrides every Tailwind utility.
 10. **Before merging a PR or pushing to `main`, run `npx tsc --noEmit`,
     `npm test`, and `npm run build` locally** (or confirm CI/Vercel ran them)
     — don't rely on the PR's Vercel check alone, since it only proves the

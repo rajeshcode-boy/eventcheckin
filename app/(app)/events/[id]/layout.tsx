@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { EventRoleProvider } from '@/components/EventRoleContext'
+import { RoleBadge } from '@/components/RoleBadge'
 import { fetchEventRole } from '@/lib/eventRole'
 import { canOpenPath, ROLE_LABELS, sectionsForRole, type EventRole } from '@/lib/permissions'
 
@@ -65,7 +66,11 @@ export default function EventLayout({ children }: { children: React.ReactNode })
       <div className="event-layout">
         <nav aria-label="Event sections" className="event-sidebar">
           <p className="event-sidebar-heading">Manage</p>
-          {role && <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', padding: '0 12px 8px' }}>{ROLE_LABELS[role]}</p>}
+          {role && (
+            <div className="px-3 pb-2">
+              <RoleBadge role={role} />
+            </div>
+          )}
           {sections.map((s) => {
             const active = isActive(s)
             return (
@@ -80,9 +85,6 @@ export default function EventLayout({ children }: { children: React.ReactNode })
               </Link>
             )
           })}
-          <Link href={base} className="event-sidebar-link event-sidebar-back">
-            <span>← This event</span>
-          </Link>
           <Link href="/events" className="event-sidebar-link event-sidebar-back">
             <span>← All events</span>
           </Link>

@@ -193,7 +193,7 @@ export default function OrgDashboardPage() {
           <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column' }}>
             {recentEvents.map((e, i) => (
               <li key={e.id} style={{ borderTop: i === 0 ? 'none' : '1px solid var(--color-border)', padding: '10px 0' }}>
-                <Link href={`/events/${e.id}`} style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                <Link href={`/events/${e.id}/enter`} style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
                   <span style={{ fontWeight: 500 }}>{e.name}</span>
                   <span style={{ color: 'var(--color-text-secondary)', fontSize: '13px' }}>
                     {e.location} · {new Date(e.event_date + 'T00:00:00').toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })}

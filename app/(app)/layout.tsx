@@ -15,10 +15,10 @@ import {
 } from '@/components/ui/navigation-menu'
 import EventNotifications from '@/components/EventNotifications'
 
-const NAV = [
+const NAV: { href: string; label: string; adminOnly?: boolean }[] = [
   { href: '/dashboard', label: 'Dashboard' },
   { href: '/events', label: 'Events' },
-  { href: '/organization', label: 'Organization' },
+  { href: '/organization', label: 'Organization', adminOnly: true },
   { href: '/profile', label: 'My Profile' },
 ]
 
@@ -31,6 +31,7 @@ export default function AppLayout({
   const [loading, setLoading] = useState(true)
   const [displayName, setDisplayName] = useState('')
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const [isOrgAdmin, setIsOrgAdmin] = useState(false)
   const router = useRouter()
   const pathname = usePathname()
 
@@ -38,8 +39,9 @@ export default function AppLayout({
   useEffect(() => {
     if (!user) return
     const loadProfile = () =>
-      supabase.from('profiles').select('full_name, profile_photo_url').eq('id', user.id).single().then(({ data }) => {
+      supabase.from('profiles').select('full_name, profile_photo_url, role').eq('id', user.id).single().then(({ data }) => {
         setDisplayName(data?.full_name ?? '')
+        setIsOrgAdmin(data?.role === 'admin')
         setAvatarUrl(publicImageUrl('avatars', data?.profile_photo_url))
       })
     loadProfile()
@@ -86,6 +88,9 @@ export default function AppLayout({
     )
   }
 
+  // Organisation settings are for admins; event roles never grant them
+  const nav = NAV.filter((item) => !item.adminOnly || isOrgAdmin)
+
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/')
 
   return (
@@ -110,7 +115,7 @@ export default function AppLayout({
           </Link>
           <NavigationMenu className="app-nav-desktop" style={{ justifyContent: 'flex-start' }}>
             <NavigationMenuList>
-              {NAV.map((item) => (
+              {nav.map((item) => (
                 <NavigationMenuItem key={item.href}>
                   <NavigationMenuLink active={isActive(item.href)} render={<Link href={item.href} />}>
                     {item.label}
@@ -139,7 +144,7 @@ export default function AppLayout({
 
       {/* Bottom tabs on phones */}
       <nav aria-label="Main" className="app-tabbar">
-        {NAV.map((item) => {
+        {nav.map((item) => {
           const active = isActive(item.href)
           return (
             <Link

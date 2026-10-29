@@ -325,7 +325,7 @@ function EventRow({ event, stats, onCopyId }: { event: Event; stats: Stats | und
       {/* Card isn't polymorphic, so the clickable "whole row" is a styled Link
           using the app's existing .card class rather than wrapping <Card>. */}
       <Link
-        href={`/events/${event.id}`}
+        href={`/events/${event.id}/enter`}
         className="card"
         style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '12px 16px', color: 'inherit' }}
       >

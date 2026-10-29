@@ -1,5 +1,5 @@
 import {
-  canAssignOwner, canCheckIn, canDeleteEvent, canDeleteGuests, canManageEvent, canManageGuests, canManageTeam,
+  canAssignOwner, canCheckIn, landingPathFor, canDeleteEvent, canDeleteGuests, canManageEvent, canManageGuests, canManageTeam,
   canOpenPath, canViewGuests, canViewReports, EVENT_ROLES, isEventRole, sectionForPath, sectionsForRole,
   type EventRole,
 } from '../lib/permissions'
@@ -68,5 +68,18 @@ describe('isEventRole', () => {
     expect(isEventRole('admin')).toBe(false)
     expect(isEventRole('check_in')).toBe(false)
     expect(isEventRole(null)).toBe(false)
+  })
+})
+
+describe('landingPathFor', () => {
+  it('sends each role to its home section', () => {
+    expect(landingPathFor('owner')).toBe('/dashboard')
+    expect(landingPathFor('manager')).toBe('/dashboard')
+    expect(landingPathFor('acquisition')).toBe('/guests')
+    expect(landingPathFor('staff')).toBe('/pickup')
+    expect(landingPathFor(null)).toBe('')
+  })
+  it('always lands somewhere the role is allowed to open', () => {
+    for (const role of EVENT_ROLES) expect(canOpenPath(role, '/events/abc' + landingPathFor(role), '/events/abc')).toBe(true)
   })
 })

@@ -64,6 +64,24 @@ export const EVENT_SECTIONS: EventSection[] = [
 
 export const sectionsForRole = (role: MaybeRole) => EVENT_SECTIONS.filter((s) => s.allowed(role))
 
+/**
+ * Where a person lands when they open an event: the part of it their role is for.
+ * Returns a path after /events/[id]. Staff go to Pickup for now (becomes Desk with the onsite hub).
+ */
+export function landingPathFor(role: MaybeRole): string {
+  switch (role) {
+    case 'owner':
+    case 'manager':
+      return '/dashboard'
+    case 'acquisition':
+      return '/guests'
+    case 'staff':
+      return '/pickup'
+    default:
+      return ''
+  }
+}
+
 /** The section a path belongs to, e.g. "/events/abc/guests/import" -> guests. */
 export function sectionForPath(pathname: string, base: string): EventSection | undefined {
   const rest = pathname.startsWith(base) ? pathname.slice(base.length) : ''

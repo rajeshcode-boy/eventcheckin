@@ -15,6 +15,7 @@ import {
   NavigationMenuList,
 } from '@/components/ui/navigation-menu'
 import EventNotifications from '@/components/EventNotifications'
+import ImpersonationBanner from '@/components/ImpersonationBanner'
 import { identifyOrganiser, resetAnalytics } from '@/lib/analytics'
 
 const NAV: { href: string; label: string; adminOnly?: boolean }[] = [
@@ -34,6 +35,7 @@ export default function AppLayout({
   const [displayName, setDisplayName] = useState('')
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [isOrgAdmin, setIsOrgAdmin] = useState(false)
+  const [isMasterAdmin, setIsMasterAdmin] = useState(false)
   const router = useRouter()
   const pathname = usePathname()
 
@@ -46,6 +48,11 @@ export default function AppLayout({
         setDisplayName(data?.full_name ?? '')
         setIsOrgAdmin(data?.role === 'admin')
         setAvatarUrl(publicImageUrl('avatars', data?.profile_photo_url))
+      })
+      // Separate select: is_master_admin only exists once SQL/024 is applied, and must never
+      // break the name/photo load above in the meantime.
+      supabase.from('profiles').select('is_master_admin').eq('id', user.id).single().then(({ data, error }) => {
+        setIsMasterAdmin(!error && data?.is_master_admin === true)
       })
     loadProfile()
     window.addEventListener('profile-updated', loadProfile)
@@ -99,6 +106,7 @@ export default function AppLayout({
 
   return (
     <div className="min-h-screen bg-background">
+      <ImpersonationBanner />
       {/* Header */}
       <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-border bg-card px-6 py-2.5">
         <div className="flex min-w-0 items-center gap-6">
@@ -125,6 +133,7 @@ export default function AppLayout({
             name={displayName}
             email={user?.email ?? ''}
             avatarUrl={avatarUrl}
+            isMasterAdmin={isMasterAdmin}
             onLogout={handleLogout}
           />
         </div>

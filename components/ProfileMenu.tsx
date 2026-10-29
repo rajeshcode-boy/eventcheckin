@@ -16,11 +16,12 @@ interface Props {
   name: string
   email: string
   avatarUrl: string | null
+  isMasterAdmin?: boolean
   onLogout: () => void
 }
 
 // Avatar button that opens a menu with the account and the log out action
-export default function ProfileMenu({ name, email, avatarUrl, onLogout }: Props) {
+export default function ProfileMenu({ name, email, avatarUrl, isMasterAdmin, onLogout }: Props) {
   const initial = (name || email || '?').charAt(0).toUpperCase()
 
   return (
@@ -45,6 +46,9 @@ export default function ProfileMenu({ name, email, avatarUrl, onLogout }: Props)
         <DropdownMenuSeparator />
         <DropdownMenuItem render={<Link href="/profile">My profile</Link>} />
         <DropdownMenuItem render={<Link href="/organization">Organization settings</Link>} />
+        {isMasterAdmin && (
+          <DropdownMenuItem render={<Link href="/admin">Master admin</Link>} />
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuItem variant="destructive" onClick={onLogout}>
           Log out

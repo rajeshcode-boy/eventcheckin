@@ -40,8 +40,8 @@ describe('event sections by role', () => {
   it('acquisition sees guests but not team or settings', () => {
     expect(keys('acquisition')).toEqual(['overview', 'guests'])
   })
-  it('staff sees pickup and live reports but not guests or settings', () => {
-    expect(keys('staff')).toEqual(['overview', 'dashboard', 'pickup', 'report'])
+  it('staff sees the desk and live reports but not guests or settings', () => {
+    expect(keys('staff')).toEqual(['overview', 'dashboard', 'desk', 'report'])
   })
   it('no role sees nothing', () => expect(keys(null)).toEqual([]))
 })
@@ -57,7 +57,7 @@ describe('route guard', () => {
     expect(canOpenPath('staff', '/events/abc/guests', base)).toBe(false)
     expect(canOpenPath('staff', '/events/abc/edit', base)).toBe(false)
     expect(canOpenPath('acquisition', '/events/abc/team', base)).toBe(false)
-    expect(canOpenPath('staff', '/events/abc/pickup', base)).toBe(true)
+    expect(canOpenPath('staff', '/events/abc/desk', base)).toBe(true)
     expect(canOpenPath('manager', '/events/abc/team', base)).toBe(true)
   })
 })
@@ -76,7 +76,7 @@ describe('landingPathFor', () => {
     expect(landingPathFor('owner')).toBe('/dashboard')
     expect(landingPathFor('manager')).toBe('/dashboard')
     expect(landingPathFor('acquisition')).toBe('/guests')
-    expect(landingPathFor('staff')).toBe('/pickup')
+    expect(landingPathFor('staff')).toBe('/desk')
     expect(landingPathFor(null)).toBe('')
   })
   it('always lands somewhere the role is allowed to open', () => {

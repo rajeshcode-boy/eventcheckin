@@ -56,7 +56,7 @@ export const EVENT_SECTIONS: EventSection[] = [
   { key: 'dashboard', href: '/dashboard', label: 'Dashboard', allowed: canViewReports },
   { key: 'badge-design', href: '/badge-design', label: 'Badge design', allowed: canManageEvent },
   { key: 'badges', href: '/badges', label: 'Badges', allowed: canManageEvent },
-  { key: 'pickup', href: '/pickup', label: 'Pickup', allowed: canCheckIn },
+  { key: 'desk', href: '/desk', label: 'Desk', allowed: canCheckIn },
   { key: 'team', href: '/team', label: 'Team', allowed: canManageTeam },
   { key: 'report', href: '/report', label: 'Report', allowed: canViewReports },
   { key: 'edit', href: '/edit', label: 'Settings', allowed: canManageEvent },
@@ -66,7 +66,7 @@ export const sectionsForRole = (role: MaybeRole) => EVENT_SECTIONS.filter((s) =>
 
 /**
  * Where a person lands when they open an event: the part of it their role is for.
- * Returns a path after /events/[id]. Staff go to Pickup for now (becomes Desk with the onsite hub).
+ * Returns a path after /events/[id]. Staff go to the onsite Desk.
  */
 export function landingPathFor(role: MaybeRole): string {
   switch (role) {
@@ -76,7 +76,7 @@ export function landingPathFor(role: MaybeRole): string {
     case 'acquisition':
       return '/guests'
     case 'staff':
-      return '/pickup'
+      return '/desk'
     default:
       return ''
   }

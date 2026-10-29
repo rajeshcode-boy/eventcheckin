@@ -27,6 +27,7 @@
     "nosleep.js": "^0.12.0",
     "papaparse": "^5.4.1",
     "pdf-lib": "^1.17.1",
+    "posthog-js": "^1.442.1",
     "qrcode": "^1.5.4",
     "qrcode.react": "^4.1.0",
     "react": "^19.0.0",

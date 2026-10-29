@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { CookieSettingsButton } from '@/components/Analytics'
 import { BrandMark } from './SiteHeader'
 import { BOOKING_URL, CONTACT_EMAIL } from './content'
 
@@ -44,6 +45,7 @@ export default function SiteFooter() {
             <li><a href={`mailto:${CONTACT_EMAIL}`} className={linkClass}>Contact us</a></li>
             <li><Link href="/privacy" className={linkClass}>Privacy Policy</Link></li>
             <li><Link href="/terms" className={linkClass}>Terms of Service</Link></li>
+            <li><CookieSettingsButton className={linkClass} /></li>
           </ul>
         </div>
       </div>

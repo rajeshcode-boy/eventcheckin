@@ -296,7 +296,7 @@ export default function GuestsPage() {
   return (
     <>
     {dialog}
-    <div className={cn('max-w-[1400px]', drawerOpen && 'grid items-start gap-5 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]')}>
+    <div className={cn(drawerOpen && 'grid items-start gap-5 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]')}>
     <div className="min-w-0">
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">

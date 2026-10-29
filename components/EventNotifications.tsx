@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { cn } from '@/lib/utils'
 
 interface NotifItem {
   id: string
@@ -152,89 +153,43 @@ export default function EventNotifications() {
   }
 
   return (
-    <div ref={panelRef} style={{ position: 'relative' }}>
+    <div ref={panelRef} className="relative">
       <button
         type="button"
         aria-label={`Notifications${unread ? `, ${unread} new` : ''}`}
         onClick={toggle}
-        style={{
-          position: 'relative',
-          width: '36px',
-          height: '36px',
-          borderRadius: '8px',
-          border: '1px solid var(--color-border)',
-          backgroundColor: open ? 'var(--color-primary-soft)' : 'var(--color-surface)',
-          color: 'var(--color-text-secondary)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          cursor: 'pointer',
-          flexShrink: 0,
-        }}
+        className={cn(
+          'relative flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-border text-muted-foreground',
+          open ? 'bg-accent' : 'bg-card'
+        )}
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
           <path d="M13.73 21a2 2 0 0 1-3.46 0" />
         </svg>
         {unread > 0 && (
-          <span style={{
-            position: 'absolute',
-            top: '-4px',
-            right: '-4px',
-            minWidth: '16px',
-            height: '16px',
-            borderRadius: '999px',
-            backgroundColor: 'var(--color-error-red)',
-            color: '#fff',
-            fontSize: '10px',
-            fontWeight: 700,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '0 3px',
-            lineHeight: 1,
-          }}>
+          <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-[3px] text-[10px] leading-none font-bold text-white">
             {unread > 99 ? '99+' : unread}
           </span>
         )}
         {connected && (
-          <span aria-hidden="true" style={{
-            position: 'absolute',
-            bottom: '-3px',
-            right: '-3px',
-            width: '7px',
-            height: '7px',
-            borderRadius: '50%',
-            backgroundColor: 'var(--color-live)',
-            border: '1px solid var(--color-surface)',
-          }} />
+          <span aria-hidden="true" className="absolute -right-[3px] -bottom-[3px] size-[7px] rounded-full border border-card bg-(--color-live)" />
         )}
       </button>
 
       {open && (
-        <div style={{
-          position: 'absolute',
-          top: 'calc(100% + 8px)',
-          right: 0,
-          width: '280px',
-          backgroundColor: 'var(--color-surface)',
-          border: '1px solid var(--color-border)',
-          borderRadius: 'var(--radius-lg)',
-          boxShadow: 'var(--shadow-pop)',
-          zIndex: 50,
-          overflow: 'hidden',
-        }}>
-          <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '13px', fontWeight: 600 }}>Live activity</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '11px', color: connected ? 'var(--color-live)' : 'var(--color-text-secondary)' }}>
+        <div className="absolute top-[calc(100%+8px)] right-0 z-50 w-[280px] overflow-hidden rounded-[14px] border border-border bg-card shadow-lg">
+          <div className="flex items-center justify-between border-b border-border px-3.5 py-3">
+            <span className="text-[13px] font-semibold">Live activity</span>
+            <div className="flex items-center gap-2">
+              <span className={cn('text-[11px]', connected ? 'text-(--color-live)' : 'text-muted-foreground')}>
                 {connected ? '● live' : '○ connecting…'}
               </span>
               {items.length > 0 && (
                 <button
                   type="button"
                   onClick={() => setItems([])}
-                  style={{ fontSize: '11px', color: 'var(--color-text-secondary)', background: 'none', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--color-border)', cursor: 'pointer' }}
+                  className="cursor-pointer rounded border border-border bg-transparent px-1.5 py-0.5 text-[11px] text-muted-foreground"
                 >
                   Clear
                 </button>
@@ -242,16 +197,16 @@ export default function EventNotifications() {
             </div>
           </div>
 
-          <div style={{ maxHeight: '320px', overflowY: 'auto' }}>
+          <div className="max-h-80 overflow-y-auto">
             {digest.length > 0 && (
-              <div style={{ borderBottom: '1px solid var(--color-border)' }}>
-                <p style={{ padding: '10px 14px 4px', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--color-text-secondary)' }}>
+              <div className="border-b border-border">
+                <p className="px-3.5 pt-2.5 pb-1 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
                   Today: {digest.length} upcoming {digest.length === 1 ? 'event needs' : 'events need'} attention
                 </p>
-                <ul style={{ listStyle: 'none', margin: 0, padding: '0 0 6px' }}>
+                <ul className="pb-1.5">
                   {digest.map((d) => (
                     <li key={d.id}>
-                      <Link href={d.href} onClick={() => setOpen(false)} style={{ display: 'block', padding: '8px 14px', fontSize: '13px', lineHeight: 1.4, color: 'var(--color-text-primary)' }}>
+                      <Link href={d.href} onClick={() => setOpen(false)} className="block px-3.5 py-2 text-[13px] leading-snug text-foreground">
                         {d.text}
                       </Link>
                     </li>
@@ -260,15 +215,15 @@ export default function EventNotifications() {
               </div>
             )}
             {items.length === 0 && digest.length > 0 ? null : items.length === 0 ? (
-              <p style={{ padding: '20px 14px', fontSize: '13px', color: 'var(--color-text-secondary)', textAlign: 'center' }}>
+              <p className="px-3.5 py-5 text-center text-[13px] text-muted-foreground">
                 {eventUuid ? 'No activity yet — updates appear here in real time.' : 'Open an event to see live activity.'}
               </p>
             ) : (
-              <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+              <ul>
                 {items.map((item) => (
-                  <li key={item.id} style={{ padding: '10px 14px', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
-                    <span style={{ fontSize: '13px', color: 'var(--color-text-primary)', lineHeight: 1.4 }}>{item.text}</span>
-                    <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)', flexShrink: 0, marginTop: '2px' }}>{item.at}</span>
+                  <li key={item.id} className="flex justify-between gap-2 border-b border-border px-3.5 py-2.5">
+                    <span className="text-[13px] leading-snug text-foreground">{item.text}</span>
+                    <span className="mt-0.5 shrink-0 text-[11px] text-muted-foreground">{item.at}</span>
                   </li>
                 ))}
               </ul>

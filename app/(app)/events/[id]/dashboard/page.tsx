@@ -143,11 +143,11 @@ export default function DashboardPage() {
 
   if (!event) {
     return error ? (
-      <div>
-        <p className="alert-error">{error}</p>
-        <Link href="/events" className="btn-primary" style={{ marginTop: '16px', display: 'inline-block' }}>
+      <div className="grid gap-4">
+        <Alert variant="error">{error}</Alert>
+        <Button className="w-fit" render={<Link href="/events" />} nativeButton={false}>
           Back to events
-        </Link>
+        </Button>
       </div>
     ) : (
       <p>Loading dashboard...</p>

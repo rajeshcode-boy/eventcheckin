@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { formatTime } from '@/lib/time'
 import { BadgeImages, badgeDataFor, defaultDesign, parseDesign } from '@/lib/badgeDesign'
 import BadgePreview from '@/components/BadgePreview'
+import { Alert } from '@/components/ui/alert'
 
 interface BadgeRow {
   status: string
@@ -45,9 +46,9 @@ export default function DigitalBadge({ token }: { token: string }) {
     })
   }, [token])
 
-  if (error) return <div className="alert-error" role="alert">{error}</div>
-  if (row === null) return <p style={{ textAlign: 'center', color: 'var(--color-text-secondary)' }}>Loading your badge...</p>
-  if (row === 'missing') return <div className="alert-error" role="alert">This badge link is not valid.</div>
+  if (error) return <Alert variant="error">{error}</Alert>
+  if (row === null) return <p className="text-center text-muted-foreground">Loading your badge...</p>
+  if (row === 'missing') return <Alert variant="error">This badge link is not valid.</Alert>
 
   const design = row.design ? parseDesign(row.design) : defaultDesign()
   const images: BadgeImages = { eventLogoPath: row.event_logo_path, orgLogoPath: row.org_logo_path }
@@ -74,17 +75,14 @@ export default function DigitalBadge({ token }: { token: string }) {
       : { tone: 'warning', text: 'Not checked in yet. Check in at the entrance first.' }
 
   return (
-    <section aria-label="Your badge" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
-      <div style={{ width: `${BADGE_WIDTH_PX}px`, maxWidth: '100%', overflow: 'hidden', borderRadius: '12px', boxShadow: 'var(--shadow-card)' }}>
+    <section aria-label="Your badge" className="flex flex-col items-center gap-4">
+      {/* the width is a design constant in pixels, so it stays inline */}
+      <div className="max-w-full overflow-hidden rounded-xl shadow-md" style={{ width: `${BADGE_WIDTH_PX}px` }}>
         <BadgePreview design={design} data={data} images={images} scale={BADGE_WIDTH_PX / design.widthMm} />
       </div>
-      <div
-        className={status.tone === 'success' ? 'alert-success' : 'alert-warning'}
-        role="status"
-        style={{ width: '100%', textAlign: 'center', fontSize: '16px' }}
-      >
+      <Alert variant={status.tone === 'success' ? 'success' : 'warning'} className="w-full text-center text-base">
         {status.text}
-      </div>
+      </Alert>
     </section>
   )
 }

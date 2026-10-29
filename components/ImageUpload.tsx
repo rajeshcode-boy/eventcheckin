@@ -4,6 +4,9 @@ import { useEffect, useRef, useState } from 'react'
 import { ImageMime, ImageRules, validateImageFile } from '@/lib/images'
 import { Bucket, publicImageUrl, removeImage, uploadImage } from '@/lib/storage'
 import { useConfirm } from '@/components/ConfirmDialog'
+import { Alert } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 
 export interface PendingImage {
   file: File
@@ -41,10 +44,10 @@ interface PendingProps extends CommonProps {
 
 type Props = SavedProps | PendingProps
 
-const PREVIEW_STYLES: Record<CommonProps['shape'], React.CSSProperties> = {
-  banner: { width: '100%', aspectRatio: '4 / 1', objectFit: 'cover', borderRadius: '6px' },
-  logo: { width: '120px', height: '120px', objectFit: 'contain', borderRadius: '6px', backgroundColor: '#ffffff', padding: '8px' },
-  avatar: { width: '96px', height: '96px', objectFit: 'cover', borderRadius: '50%' },
+const PREVIEW_CLASSES: Record<CommonProps['shape'], string> = {
+  banner: 'aspect-[4/1] w-full rounded-md object-cover',
+  logo: 'size-[120px] rounded-md bg-white object-contain p-2',
+  avatar: 'size-24 rounded-full object-cover',
 }
 
 export default function ImageUpload(props: Props) {
@@ -121,29 +124,24 @@ export default function ImageUpload(props: Props) {
     <>
     {dialog}
     <div>
-      <p style={{ marginBottom: '8px', fontWeight: 500 }}>{props.label}</p>
-      <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
+      <p className="mb-2 font-medium">{props.label}</p>
+      <div className="flex flex-wrap items-center gap-4">
         {currentUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={currentUrl} alt={`${props.label} preview`} style={{ ...PREVIEW_STYLES[props.shape], border: '1px solid var(--color-border)', maxWidth: '100%' }} />
+          <img src={currentUrl} alt={`${props.label} preview`} className={cn(PREVIEW_CLASSES[props.shape], 'max-w-full border border-border')} />
         ) : (
-          <div
-            style={{
-              ...PREVIEW_STYLES[props.shape], border: '1px dashed var(--color-border)', display: 'flex', alignItems: 'center',
-              justifyContent: 'center', color: 'var(--color-text-secondary)', fontSize: '13px', backgroundColor: 'transparent', padding: 0,
-            }}
-          >
+          <div className={cn(PREVIEW_CLASSES[props.shape], 'flex items-center justify-center border border-dashed border-border bg-transparent p-0 text-[13px] text-muted-foreground')}>
             No image
           </div>
         )}
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          <button type="button" className="btn-secondary" onClick={() => inputRef.current?.click()} disabled={busy || props.disabled}>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="outline" onClick={() => inputRef.current?.click()} disabled={busy || props.disabled}>
             {busy ? 'Uploading...' : currentUrl ? 'Replace' : 'Upload'}
-          </button>
+          </Button>
           {currentUrl && (
-            <button type="button" className="btn-secondary" onClick={remove} disabled={busy || props.disabled} style={{ color: 'var(--color-error-red)' }}>
+            <Button type="button" variant="outline" className="text-destructive" onClick={remove} disabled={busy || props.disabled}>
               Remove
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -152,15 +150,15 @@ export default function ImageUpload(props: Props) {
         type="file"
         accept="image/png,image/jpeg,image/webp"
         onChange={(e) => choose(e.target.files?.[0])}
-        style={{ display: 'none' }}
+        className="hidden"
         aria-label={`${props.label} file`}
       />
-      <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginTop: '6px' }}>
+      <p className="mt-1.5 text-xs text-muted-foreground">
         {props.hint ?? 'PNG, JPG or WebP.'} Max {Math.round(props.rules.maxBytes / 1048576)} MB
         {props.rules.minWidth ? `, at least ${props.rules.minWidth}×${props.rules.minHeight}px` : ''}.
       </p>
-      {error && <div className="alert-error" style={{ marginTop: '8px', fontSize: '14px' }}>{error}</div>}
-      {message && <div className="alert-success" style={{ marginTop: '8px', fontSize: '14px' }}>{message}</div>}
+      {error && <Alert variant="error" className="mt-2">{error}</Alert>}
+      {message && <Alert variant="success" className="mt-2">{message}</Alert>}
     </div>
     </>
   )

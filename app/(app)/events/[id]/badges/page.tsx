@@ -188,7 +188,7 @@ export default function BadgesPage() {
     loadData()
   }
 
-  if (!event) return error ? <p className="alert-error">{error}</p> : <p>Loading badges...</p>
+  if (!event) return error ? <Alert variant="error">{error}</Alert> : <p>Loading badges...</p>
 
   const grid = sheetGrid(layout.paper, design.widthMm, design.heightMm)
   const cardScale = CARD_WIDTH_PX / design.widthMm

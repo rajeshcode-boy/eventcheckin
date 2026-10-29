@@ -3,6 +3,9 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useConfirm } from '@/components/ConfirmDialog'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { NativeSelect } from '@/components/ui/native-select'
 
 interface EventSettings {
   registration_token: string
@@ -131,85 +134,85 @@ export default function RegistrationSettings({ eventUuid, organizationId, regist
     })
   }
 
-  const label = { display: 'block', fontSize: '14px', fontWeight: 500, marginBottom: '6px' } as const
+  const label = 'mb-1.5 block text-sm font-medium'
 
   return (
     <>
     {dialog}
-    <section className="card" style={{ padding: '20px' }} aria-labelledby="registration-heading">
-      <h2 id="registration-heading" style={{ fontSize: '18px', fontWeight: 600, marginBottom: '4px' }}>Public registration</h2>
-      <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)', marginBottom: '16px' }}>
+    <section className="rounded-xl border border-border bg-card p-5" aria-labelledby="registration-heading">
+      <h2 id="registration-heading" className="mb-1 text-lg font-semibold">Public registration</h2>
+      <p className="mb-4 text-sm text-muted-foreground">
         Share this link so guests can register themselves. Registrations from team links are credited to that person.
       </p>
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginBottom: '16px' }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px', fontWeight: 500 }}>
-          <input type="checkbox" checked={settings.registration_open} onChange={(e) => save({ registration_open: e.target.checked }, e.target.checked ? 'Registration is open.' : 'Registration is closed.')} />
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <label className="flex items-center gap-2.5 text-sm font-medium">
+          <input type="checkbox" className="accent-primary" checked={settings.registration_open} onChange={(e) => save({ registration_open: e.target.checked }, e.target.checked ? 'Registration is open.' : 'Registration is closed.')} />
           Registration open
         </label>
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <label htmlFor="approval" style={{ fontSize: '14px' }}>Approval</label>
-          <select id="approval" className="input-field" style={{ width: 'auto' }} value={settings.approval_mode} onChange={(e) => save({ approval_mode: e.target.value as 'auto' | 'manual' }, 'Approval setting saved.')}>
+        <div className="flex items-center gap-2">
+          <label htmlFor="approval" className="text-sm">Approval</label>
+          <NativeSelect id="approval" className="h-10 w-auto" value={settings.approval_mode} onChange={(e) => save({ approval_mode: e.target.value as 'auto' | 'manual' }, 'Approval setting saved.')}>
             <option value="auto">Auto-approve</option>
             <option value="manual">Subject to approval</option>
-          </select>
+          </NativeSelect>
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: '16px' }}>
+      <div className="mb-4 flex flex-wrap items-end gap-2">
         <div>
-          <label htmlFor="capacity" style={label}>Capacity</label>
-          <input id="capacity" type="number" min={1} className="input-field" style={{ width: '140px' }} placeholder="No limit" value={capacityInput} onChange={(e) => setCapacityInput(e.target.value)} />
+          <label htmlFor="capacity" className={label}>Capacity</label>
+          <Input id="capacity" type="number" min={1} className="h-10 w-[140px]" placeholder="No limit" value={capacityInput} onChange={(e) => setCapacityInput(e.target.value)} />
         </div>
-        <button type="button" className="btn-secondary" onClick={saveCapacity}>Save capacity</button>
+        <Button type="button" variant="outline" className="h-10" onClick={saveCapacity}>Save capacity</Button>
       </div>
 
-      <div style={{ marginBottom: '16px' }}>
-        <label htmlFor="general-link" style={label}>General event link</label>
-        <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginBottom: '8px' }}>
+      <div className="mb-4">
+        <label htmlFor="general-link" className={label}>General event link</label>
+        <p className="mb-2 text-[13px] text-muted-foreground">
           Use this for social media, email and other channels where no team member is named.
         </p>
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-          <code id="general-link" style={{ flex: '1 1 260px', padding: '10px 12px', borderRadius: '8px', backgroundColor: 'var(--color-neutral-light)', border: '1px solid var(--color-border)', fontSize: '13px', wordBreak: 'break-all' }}>{linkFor()}</code>
-          <button type="button" className="btn-secondary" onClick={() => copy(linkFor(), 'general')}>{copied === 'general' ? 'Copied' : 'Copy link'}</button>
-          <button type="button" className="btn-secondary" onClick={newLink}>New link</button>
+        <div className="flex flex-wrap items-center gap-2">
+          <code id="general-link" className="flex-1 basis-[260px] rounded-lg border border-border bg-muted px-3 py-2.5 text-[13px] break-all">{linkFor()}</code>
+          <Button type="button" variant="outline" onClick={() => copy(linkFor(), 'general')}>{copied === 'general' ? 'Copied' : 'Copy link'}</Button>
+          <Button type="button" variant="outline" onClick={newLink}>New link</Button>
         </div>
       </div>
 
       <div>
-        <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '4px' }}>Team links</h3>
-        <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginBottom: '8px' }}>
+        <h3 className="mb-1 text-[15px] font-semibold">Team links</h3>
+        <p className="mb-2 text-[13px] text-muted-foreground">
           Each person's link credits their registrations to them.
         </p>
         {members.length === 0 ? (
-          <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)', marginBottom: '12px' }}>
+          <p className="mb-3 text-sm text-muted-foreground">
             Add the people who will share this event. Each gets a link that credits their registrations.
           </p>
         ) : (
-          <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
+          <ul className="mb-3 flex flex-col gap-2">
             {members.map((m) => (
-              <li key={m.id} style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', padding: '10px 12px', border: '1px solid var(--color-border)', borderRadius: '10px' }}>
-                <span style={{ fontWeight: 500, minWidth: '120px' }}>{m.name}</span>
-                <code style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>{m.referral_code}</code>
-                <span style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>
+              <li key={m.id} className="flex flex-wrap items-center gap-2 rounded-[10px] border border-border px-3 py-2.5">
+                <span className="min-w-[120px] font-medium">{m.name}</span>
+                <code className="text-xs text-muted-foreground">{m.referral_code}</code>
+                <span className="text-[13px] text-muted-foreground">
                   {registrations.filter((r) => r.referral_member_id === m.id && !['cancelled', 'rejected'].includes(r.registration_status)).length} registered
                 </span>
-                <span style={{ flex: 1 }} />
-                <button type="button" className="btn-secondary" style={{ minHeight: '36px', padding: '6px 12px' }} onClick={() => copy(linkFor(m.referral_code), m.id)}>
+                <span className="flex-1" />
+                <Button type="button" variant="outline" size="sm" onClick={() => copy(linkFor(m.referral_code), m.id)}>
                   {copied === m.id ? 'Copied' : 'Copy link'}
-                </button>
-                <button type="button" className="btn-secondary" style={{ minHeight: '36px', padding: '6px 12px', color: 'var(--color-error-red)' }} onClick={() => removeMember(m)}>Remove</button>
+                </Button>
+                <Button type="button" variant="outline" size="sm" className="text-destructive" onClick={() => removeMember(m)}>Remove</Button>
               </li>
             ))}
           </ul>
         )}
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          <input className="input-field" style={{ flex: '1 1 200px', width: 'auto' }} placeholder="Team member name" aria-label="Team member name" value={newName} onChange={(e) => setNewName(e.target.value)} />
-          <button type="button" className="btn-primary" style={{ width: 'auto' }} onClick={addMember}>Add team member</button>
+        <div className="flex flex-wrap gap-2">
+          <Input className="h-10 min-w-[200px] flex-1" placeholder="Team member name" aria-label="Team member name" value={newName} onChange={(e) => setNewName(e.target.value)} />
+          <Button type="button" onClick={addMember}>Add team member</Button>
         </div>
       </div>
 
-      {message && <p role="status" style={{ marginTop: '12px', fontSize: '14px', color: 'var(--color-text-secondary)' }}>{message}</p>}
+      {message && <p role="status" className="mt-3 text-sm text-muted-foreground">{message}</p>}
     </section>
     </>
   )

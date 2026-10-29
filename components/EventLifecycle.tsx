@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useEventRole } from '@/components/EventRoleContext'
 import { canDeleteEvent } from '@/lib/permissions'
+import { Alert } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
 
 interface Props {
   eventUuid: string
@@ -69,51 +71,51 @@ export default function EventLifecycle({ eventUuid, name, archivedAt, bannerPath
   const section = { marginTop: '32px', padding: '18px', borderRadius: '10px', border: '1px solid var(--color-border)' } as const
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      <section className="card" style={{ padding: '18px' }}>
-        <h2 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '6px' }}>{archived ? 'Archived' : 'Archive event'}</h2>
-        <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)', marginBottom: '12px' }}>
+    <div className="flex flex-col gap-4">
+      <section className="rounded-xl border border-border bg-card p-[18px]">
+        <h2 className="mb-1.5 text-base font-semibold">{archived ? 'Archived' : 'Archive event'}</h2>
+        <p className="mb-3 text-sm text-muted-foreground">
           {archived
             ? 'This event is hidden from the event lists. Its data is kept and you can restore it at any time.'
             : 'Hide this event from the event lists. Its data is kept and you can restore it at any time.'}
         </p>
-        <button type="button" className="btn-secondary" style={{ width: 'auto' }} onClick={toggleArchive} disabled={busy}>
+        <Button type="button" variant="outline" onClick={toggleArchive} disabled={busy}>
           {archived ? 'Restore event' : 'Archive event'}
-        </button>
+        </Button>
       </section>
 
-      <section style={{ ...section, borderColor: 'var(--color-error-red)', backgroundColor: '#fff5f5' }} aria-label="Danger zone">
-        <h2 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--color-error-red)', marginBottom: '6px' }}>Delete event</h2>
-        <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)', marginBottom: '12px' }}>
+      <section className="rounded-xl border border-destructive bg-red-50 p-[18px] dark:bg-red-950/30" aria-label="Danger zone">
+        <h2 className="mb-1.5 text-base font-semibold text-destructive">Delete event</h2>
+        <p className="mb-3 text-sm text-muted-foreground">
           Permanently removes this event and all of its information from the database: guests, registrations, check-ins, badges, team assignments and reports. This cannot be undone.
         </p>
         <button
           type="button"
           onClick={askToDelete}
           disabled={busy}
-          style={{ width: 'auto', minHeight: '44px', padding: '10px 20px', borderRadius: '10px', fontWeight: 600, fontSize: '15px', color: '#fff', backgroundColor: 'var(--color-error-red)', border: 'none', cursor: 'pointer' }}
+          className="min-h-11 cursor-pointer rounded-[10px] bg-destructive px-5 py-2.5 text-[15px] font-semibold text-white disabled:opacity-50"
         >
           Delete event
         </button>
       </section>
 
-      {error && <p className="alert-error">{error}</p>}
+      {error && <Alert variant="error">{error}</Alert>}
 
       {dialog && (
-        <div role="dialog" aria-modal="true" aria-labelledby="lifecycle-dialog-title" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(15, 23, 42, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', zIndex: 100 }}>
-          <div style={{ width: '100%', maxWidth: '440px', backgroundColor: 'var(--color-surface)', borderRadius: '14px', boxShadow: 'var(--shadow-pop)', padding: '24px' }}>
+        <div role="dialog" aria-modal="true" aria-labelledby="lifecycle-dialog-title" className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 p-4">
+          <div className="w-full max-w-[440px] rounded-[14px] bg-card p-6 shadow-xl">
             {dialog === 'confirm-delete' && (
               <>
-                <h2 id="lifecycle-dialog-title" style={{ fontSize: '20px', fontWeight: 700, marginBottom: '10px' }}>Delete this event?</h2>
-                <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)', lineHeight: 1.6, marginBottom: '20px' }}>
+                <h2 id="lifecycle-dialog-title" className="mb-2.5 text-xl font-bold">Delete this event?</h2>
+                <p className="mb-5 text-sm leading-relaxed text-muted-foreground">
                   Everything in this event will be lost for good: guests, registrations, check-ins, badges, team assignments and reports. Download your data first if you might need it later.
                 </p>
-                <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-                  <button type="button" className="btn-secondary" style={{ width: 'auto' }} onClick={() => setDialog(null)}>Cancel</button>
+                <div className="flex flex-wrap justify-end gap-2.5">
+                  <Button type="button" variant="outline" onClick={() => setDialog(null)}>Cancel</Button>
                   <button
                     type="button"
                     onClick={deleteEvent}
-                    style={{ width: 'auto', minHeight: '44px', padding: '10px 18px', borderRadius: '10px', fontWeight: 600, fontSize: '15px', color: '#fff', backgroundColor: 'var(--color-error-red)', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+                    className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-[10px] bg-destructive px-[18px] py-2.5 text-[15px] font-semibold text-white"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
                       <path d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5M11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H1.5a.5.5 0 0 0 0 1h.538l.853 10.66A2 2 0 0 0 4.885 16h6.23a2 2 0 0 0 1.994-1.84l.853-10.66h.538a.5.5 0 0 0 0-1zm1.958 1-.846 10.58a1 1 0 0 1-.997.92h-6.23a1 1 0 0 1-.997-.92L3.042 3.5zm-7.487 1a.5.5 0 0 1 .528.47l.5 8.5a.5.5 0 0 1-.998.06L5 5.03a.5.5 0 0 1 .47-.53Zm5.058 0a.5.5 0 0 1 .47.53l-.5 8.5a.5.5 0 1 1-.998-.06l.5-8.5a.5.5 0 0 1 .528-.47M8 4.5a.5.5 0 0 1 .5.5v8.5a.5.5 0 0 1-1 0V5a.5.5 0 0 1 .5-.5" />
@@ -126,24 +128,24 @@ export default function EventLifecycle({ eventUuid, name, archivedAt, bannerPath
 
             {dialog === 'not-admin' && (
               <>
-                <h2 id="lifecycle-dialog-title" style={{ fontSize: '20px', fontWeight: 700, marginBottom: '10px' }}>Only owners can delete</h2>
-                <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)', lineHeight: 1.6, marginBottom: '20px' }}>
+                <h2 id="lifecycle-dialog-title" className="mb-2.5 text-xl font-bold">Only owners can delete</h2>
+                <p className="mb-5 text-sm leading-relaxed text-muted-foreground">
                   Only an event owner can delete events. Ask an owner to delete this event.
                 </p>
-                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                  <button type="button" className="btn-primary" style={{ width: 'auto' }} onClick={() => setDialog(null)}>OK</button>
+                <div className="flex justify-end">
+                  <Button type="button" onClick={() => setDialog(null)}>OK</Button>
                 </div>
               </>
             )}
 
             {dialog === 'deleted' && (
               <>
-                <h2 id="lifecycle-dialog-title" style={{ fontSize: '20px', fontWeight: 700, marginBottom: '10px' }}>Event deleted</h2>
-                <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)', lineHeight: 1.6, marginBottom: '20px' }}>
+                <h2 id="lifecycle-dialog-title" className="mb-2.5 text-xl font-bold">Event deleted</h2>
+                <p className="mb-5 text-sm leading-relaxed text-muted-foreground">
                   {name} and all of its information has been removed.
                 </p>
-                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                  <button type="button" className="btn-primary" style={{ width: 'auto' }} onClick={() => router.push('/events')}>OK</button>
+                <div className="flex justify-end">
+                  <Button type="button" onClick={() => router.push('/events')}>OK</Button>
                 </div>
               </>
             )}

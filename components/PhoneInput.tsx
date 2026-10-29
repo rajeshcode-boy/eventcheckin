@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { COUNTRIES, Country, countryByIso, countryFromTypedNumber, flagEmoji, formatPhone } from '@/lib/countries'
+import { Input } from '@/components/ui/input'
+import { NativeSelect } from '@/components/ui/native-select'
 
 interface Props {
   id: string
@@ -47,41 +49,41 @@ export default function PhoneInput({ id, value, onChange, defaultCountryIso, hin
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: '8px' }}>
-        <select
+      <div className="flex gap-2">
+        <NativeSelect
           value={country.iso}
           onChange={(e) => update(countryByIso(e.target.value) ?? country, national)}
-          className="input-field"
+          className="h-10 w-28 flex-none p-2"
           aria-label="Country code"
           title={country.name}
-          style={{ flex: '0 0 112px', width: '112px', padding: '8px' }}
         >
           {sortedCountries.map((c) => (
             <option key={c.iso} value={c.iso}>
               {c.name} (+{c.dial})
             </option>
           ))}
-        </select>
-        <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
+        </NativeSelect>
+        <div className="relative min-w-0 flex-1">
           <span
             aria-hidden="true"
-            style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '16px', color: 'var(--color-text-secondary)', pointerEvents: 'none' }}
+            className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-base text-muted-foreground"
           >
             {flagEmoji(country.iso)} +{country.dial}
           </span>
-          <input
+          <Input
             id={id}
             type="tel"
             inputMode="tel"
             value={national}
             onChange={(e) => onType(e.target.value)}
-            className="input-field"
+            className="h-10"
+            // the left padding makes room for the flag and dial code, whose width depends on the number
             style={{ paddingLeft: `${40 + country.dial.length * 10}px` }}
             placeholder="Mobile number"
           />
         </div>
       </div>
-      {hint && <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginTop: '4px' }}>{hint}</p>}
+      {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
     </div>
   )
 }

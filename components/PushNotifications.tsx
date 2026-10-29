@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { isIOSDevice, pushState, urlBase64ToUint8Array, type PushState } from '@/lib/push/capability'
+import { Alert } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
 
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? ''
 
@@ -144,41 +146,40 @@ export default function PushNotifications({ mode, badgeToken }: Props) {
     }
   }
 
-  const cardStyle = { padding: '16px', border: '1px solid var(--color-border)', borderRadius: '6px', display: 'flex', flexDirection: 'column' as const, gap: '12px' }
 
   return (
-    <section aria-labelledby="push-heading" style={cardStyle}>
-      <h2 id="push-heading" style={{ fontSize: '18px', fontWeight: 600 }}>Notifications</h2>
-      <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px' }}>
+    <section aria-labelledby="push-heading" className="flex flex-col gap-3 rounded-md border border-border p-4">
+      <h2 id="push-heading" className="text-lg font-semibold">Notifications</h2>
+      <p className="text-sm text-muted-foreground">
         {state === 'checking' ? 'Checking this device...' : STATUS_TEXT[state]}
       </p>
 
       {state === 'ios-install' && (
-        <ol style={{ fontSize: '14px', paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+        <ol className="flex list-decimal flex-col gap-1 pl-5 text-sm">
           <li>Tap the Share button in Safari (the square with an arrow).</li>
           <li>Choose <strong>Add to Home Screen</strong>, then tap Add.</li>
           <li>Open EventCheckin from your Home Screen and come back to this page.</li>
         </ol>
       )}
 
-      {error && <div className="alert-error" role="alert">{error}</div>}
-      {notice && <div className="alert-success" role="status">{notice}</div>}
+      {error && <Alert variant="error">{error}</Alert>}
+      {notice && <Alert variant="success">{notice}</Alert>}
 
-      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+      <div className="flex flex-wrap gap-2">
         {state === 'off' && (
-          <button type="button" className="btn-primary" onClick={turnOn} disabled={busy}>
+          <Button type="button" onClick={turnOn} disabled={busy}>
             {busy ? 'Turning on...' : 'Turn on notifications'}
-          </button>
+          </Button>
         )}
         {state === 'on' && (
           <>
-            <button type="button" className="btn-secondary" onClick={turnOff} disabled={busy}>
+            <Button type="button" variant="outline" onClick={turnOff} disabled={busy}>
               Turn off on this device
-            </button>
+            </Button>
             {mode === 'organizer' && (
-              <button type="button" className="btn-secondary" onClick={sendTest} disabled={busy}>
+              <Button type="button" variant="outline" onClick={sendTest} disabled={busy}>
                 Send a test notification
-              </button>
+              </Button>
             )}
           </>
         )}

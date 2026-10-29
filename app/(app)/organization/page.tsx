@@ -4,6 +4,10 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { LOGO_RULES } from '@/lib/images'
 import ImageUpload from '@/components/ImageUpload'
+import { Alert } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { cn } from '@/lib/utils'
 
 interface Organization {
   id: string
@@ -80,17 +84,17 @@ export default function OrganizationPage() {
     return true
   }
 
-  if (!org) return error ? <p className="alert-error">{error}</p> : <p>Loading organization...</p>
+  if (!org) return error ? <Alert variant="error">{error}</Alert> : <p>Loading organization...</p>
 
   return (
-    <div style={{ maxWidth: '640px' }}>
-      <h1 style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '8px' }}>Settings</h1>
-      <p style={{ color: 'var(--color-text-secondary)', marginBottom: '20px' }}>
+    <div className="max-w-[640px]">
+      <h1 className="mb-2 text-[28px] font-bold">Settings</h1>
+      <p className="mb-5 text-muted-foreground">
         {org.name} • {eventCount} event{eventCount === 1 ? '' : 's'} • since{' '}
         {new Date(org.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
       </p>
 
-      <div role="tablist" aria-label="Settings" style={{ display: 'flex', gap: '4px', borderBottom: '1px solid var(--color-border)', marginBottom: '24px' }}>
+      <div role="tablist" aria-label="Settings" className="mb-6 flex gap-1 border-b border-border">
         {TABS.map((t) => (
           <button
             key={t}
@@ -98,15 +102,10 @@ export default function OrganizationPage() {
             role="tab"
             aria-selected={tab === t}
             onClick={() => setTab(t)}
-            style={{
-              padding: '10px 4px',
-              marginRight: '20px',
-              fontSize: '14px',
-              fontWeight: tab === t ? 600 : 500,
-              color: tab === t ? 'var(--color-primary)' : 'var(--color-text-secondary)',
-              borderBottom: tab === t ? '2px solid var(--color-primary)' : '2px solid transparent',
-              backgroundColor: 'transparent',
-            }}
+            className={cn(
+              'mr-5 border-b-2 bg-transparent px-1 py-2.5 text-sm',
+              tab === t ? 'border-primary font-semibold text-primary' : 'border-transparent font-medium text-muted-foreground'
+            )}
           >
             {t}
           </button>
@@ -116,20 +115,20 @@ export default function OrganizationPage() {
       {tab === 'General' && (
         <div role="tabpanel">
           {!isAdmin && (
-            <div className="alert-warning" style={{ marginBottom: '16px' }}>Only admins can change the organization profile.</div>
+            <Alert variant="warning" className="mb-4">Only admins can change the organization profile.</Alert>
           )}
 
-          <form onSubmit={saveName} style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '32px' }}>
-            <label htmlFor="org-name" style={{ fontWeight: 500 }}>Organization name</label>
-            <input id="org-name" value={name} onChange={(e) => setName(e.target.value)} className="input-field" required maxLength={120} disabled={!isAdmin} />
-            {error && <div className="alert-error">{error}</div>}
-            {notice && <div className="alert-success">{notice}</div>}
-            <button type="submit" className="btn-primary" disabled={!isAdmin || saving || name.trim() === org.name} style={{ alignSelf: 'flex-start' }}>
+          <form onSubmit={saveName} className="mb-8 flex flex-col gap-3">
+            <label htmlFor="org-name" className="font-medium">Organization name</label>
+            <Input id="org-name" className="h-10" value={name} onChange={(e) => setName(e.target.value)} required maxLength={120} disabled={!isAdmin} />
+            {error && <Alert variant="error">{error}</Alert>}
+            {notice && <Alert variant="success">{notice}</Alert>}
+            <Button type="submit" className="self-start" disabled={!isAdmin || saving || name.trim() === org.name}>
               {saving ? 'Saving...' : 'Save name'}
-            </button>
+            </Button>
           </form>
 
-          <div style={{ padding: '16px', border: '1px solid var(--color-border)', borderRadius: '6px' }}>
+          <div className="rounded-md border border-border p-4">
             <ImageUpload
               mode="saved"
               label="Company logo"
@@ -149,23 +148,23 @@ export default function OrganizationPage() {
 
       {tab === 'Advanced' && (
         <div role="tabpanel">
-          <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px', marginBottom: '16px' }}>
+          <p className="mb-4 text-sm text-muted-foreground">
             These settings affect your entire organization. Please proceed with caution.
           </p>
-          <div style={{ border: '1px solid var(--color-error-red)', borderRadius: 'var(--app-radius-md)', overflow: 'hidden' }}>
-            <div style={{ backgroundColor: 'var(--color-surface-muted)', padding: '10px 16px', borderBottom: '1px solid var(--color-error-red)' }}>
-              <p style={{ fontWeight: 700, color: 'var(--color-error-red)', fontSize: '14px' }}>Danger Zone</p>
+          <div className="overflow-hidden rounded-[10px] border border-destructive">
+            <div className="border-b border-destructive bg-secondary px-4 py-2.5">
+              <p className="text-sm font-bold text-destructive">Danger Zone</p>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', padding: '16px', flexWrap: 'wrap' }}>
+            <div className="flex flex-wrap items-center justify-between gap-4 p-4">
               <div>
-                <p style={{ fontWeight: 600, fontSize: '14px' }}>Delete Organization</p>
-                <p style={{ color: 'var(--color-text-secondary)', fontSize: '13px', marginTop: '2px' }}>
+                <p className="text-sm font-semibold">Delete Organization</p>
+                <p className="mt-0.5 text-[13px] text-muted-foreground">
                   Permanently delete this organization and all its data. Not available yet — contact support if you need this.
                 </p>
               </div>
-              <button type="button" className="btn-secondary" disabled style={{ borderColor: 'var(--color-error-red)', color: 'var(--color-error-red)' }}>
+              <Button type="button" variant="outline" className="border-destructive text-destructive" disabled>
                 Delete
-              </button>
+              </Button>
             </div>
           </div>
         </div>

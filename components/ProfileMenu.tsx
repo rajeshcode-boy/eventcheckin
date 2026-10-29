@@ -26,7 +26,7 @@ export default function ProfileMenu({ name, email, avatarUrl, onLogout }: Props)
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          <button type="button" aria-label={`Account menu for ${name || email}`} style={{ borderRadius: '999px' }}>
+          <button type="button" aria-label={`Account menu for ${name || email}`} className="rounded-full">
             <Avatar>
               {avatarUrl && <AvatarImage src={avatarUrl} alt="" />}
               <AvatarFallback>{initial}</AvatarFallback>
@@ -34,10 +34,10 @@ export default function ProfileMenu({ name, email, avatarUrl, onLogout }: Props)
           </button>
         }
       />
-      <DropdownMenuContent align="end" style={{ width: '240px' }}>
+      <DropdownMenuContent align="end" className="w-60">
         <DropdownMenuLabel>
-          <p style={{ fontSize: '14px', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name || 'Signed in'}</p>
-          <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', fontWeight: 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{email}</p>
+          <p className="truncate text-sm font-semibold">{name || 'Signed in'}</p>
+          <p className="truncate text-[13px] font-normal text-muted-foreground">{email}</p>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem render={<Link href="/profile">My profile</Link>} />

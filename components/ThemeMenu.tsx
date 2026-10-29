@@ -41,7 +41,7 @@ export default function ThemeMenu() {
           <DropdownMenuItem key={opt.value} onClick={() => setTheme(opt.value)}>
             <opt.icon />
             {opt.label}
-            {mounted && theme === opt.value && <span style={{ marginLeft: 'auto' }}>✓</span>}
+            {mounted && theme === opt.value && <span className="ml-auto">✓</span>}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

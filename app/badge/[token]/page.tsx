@@ -11,9 +11,9 @@ export default function PublicBadgePage() {
   const token = params.token as string
 
   return (
-    <main style={{ minHeight: '100vh', backgroundColor: 'var(--color-neutral-light)', padding: '32px 16px' }}>
-      <div style={{ maxWidth: '440px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        <p style={{ fontWeight: 700, fontSize: '17px', textAlign: 'center' }}>EventCheckin</p>
+    <main className="min-h-screen bg-background px-4 py-8">
+      <div className="mx-auto flex max-w-[440px] flex-col gap-5">
+        <p className="text-center text-[17px] font-bold">EventCheckin</p>
         <DigitalBadge token={token} />
         <PushNotifications mode="guest" badgeToken={token} />
       </div>

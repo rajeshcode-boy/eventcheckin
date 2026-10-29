@@ -6,6 +6,9 @@ import { AVATAR_RULES } from '@/lib/images'
 import ImageUpload from '@/components/ImageUpload'
 import PhoneInput from '@/components/PhoneInput'
 import PushNotifications from '@/components/PushNotifications'
+import { Alert } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 
 interface Profile {
   id: string
@@ -19,7 +22,7 @@ interface Profile {
   created_at: string
 }
 
-const labelStyle: React.CSSProperties = { display: 'block', marginBottom: '8px', fontWeight: 500 }
+const labelClass = 'mb-2 block font-medium'
 const formatDate = (iso?: string | null) =>
   iso ? new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
 
@@ -92,16 +95,16 @@ export default function ProfilePage() {
     return true
   }
 
-  if (!profile) return error ? <p className="alert-error">{error}</p> : <p>Loading profile...</p>
+  if (!profile) return error ? <Alert variant="error">{error}</Alert> : <p>Loading profile...</p>
 
   return (
-    <div style={{ maxWidth: '640px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div className="flex max-w-[640px] flex-col gap-6">
       <div>
-        <h1 style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '8px' }}>My Profile</h1>
-        <p style={{ color: 'var(--color-text-secondary)' }}>Your personal account. Company details are under Organization.</p>
+        <h1 className="mb-2 text-[28px] font-bold">My Profile</h1>
+        <p className="text-muted-foreground">Your personal account. Company details are under Organization.</p>
       </div>
 
-      <div style={{ padding: '16px', border: '1px solid var(--color-border)', borderRadius: '6px' }}>
+      <div className="rounded-md border border-border p-4">
         <ImageUpload
           mode="saved"
           label="Profile photo"
@@ -118,34 +121,34 @@ export default function ProfilePage() {
 
       <PushNotifications mode="organizer" />
 
-      <form onSubmit={save} style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '16px', border: '1px solid var(--color-border)', borderRadius: '6px' }}>
-        <h2 style={{ fontSize: '18px', fontWeight: 600 }}>Details</h2>
+      <form onSubmit={save} className="flex flex-col gap-4 rounded-md border border-border p-4">
+        <h2 className="text-lg font-semibold">Details</h2>
         <div>
-          <label htmlFor="p-name" style={labelStyle}>Full name *</label>
-          <input id="p-name" className="input-field" value={fullName} onChange={(e) => setFullName(e.target.value)} required maxLength={120} />
+          <label htmlFor="p-name" className={labelClass}>Full name *</label>
+          <Input id="p-name" className="h-10" value={fullName} onChange={(e) => setFullName(e.target.value)} required maxLength={120} />
         </div>
         <div>
-          <label htmlFor="p-phone" style={labelStyle}>Phone</label>
+          <label htmlFor="p-phone" className={labelClass}>Phone</label>
           <PhoneInput id="p-phone" value={phone} onChange={setPhone} defaultCountryIso="IN" />
         </div>
         <div>
-          <label htmlFor="p-designation" style={labelStyle}>Designation</label>
-          <input id="p-designation" className="input-field" value={designation} onChange={(e) => setDesignation(e.target.value)} maxLength={120} />
+          <label htmlFor="p-designation" className={labelClass}>Designation</label>
+          <Input id="p-designation" className="h-10" value={designation} onChange={(e) => setDesignation(e.target.value)} maxLength={120} />
         </div>
-        <dl style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '8px 16px', fontSize: '14px' }}>
-          <dt style={{ color: 'var(--color-text-secondary)' }}>Email</dt>
+        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+          <dt className="text-muted-foreground">Email</dt>
           <dd>{authEmail || profile.email}</dd>
-          <dt style={{ color: 'var(--color-text-secondary)' }}>Role</dt>
-          <dd style={{ textTransform: 'capitalize' }}>{profile.role}</dd>
-          <dt style={{ color: 'var(--color-text-secondary)' }}>Account created</dt>
+          <dt className="text-muted-foreground">Role</dt>
+          <dd className="capitalize">{profile.role}</dd>
+          <dt className="text-muted-foreground">Account created</dt>
           <dd>{formatDate(profile.created_at)}</dd>
-          <dt style={{ color: 'var(--color-text-secondary)' }}>Last sign-in</dt>
+          <dt className="text-muted-foreground">Last sign-in</dt>
           <dd>{formatDate(lastSignIn)}</dd>
         </dl>
-        <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>Email and role can&apos;t be changed here.</p>
-        {error && <div className="alert-error">{error}</div>}
-        {notice && <div className="alert-success">{notice}</div>}
-        <button type="submit" className="btn-primary" disabled={saving} style={{ alignSelf: 'flex-start' }}>{saving ? 'Saving...' : 'Save profile'}</button>
+        <p className="text-xs text-muted-foreground">Email and role can&apos;t be changed here.</p>
+        {error && <Alert variant="error">{error}</Alert>}
+        {notice && <Alert variant="success">{notice}</Alert>}
+        <Button type="submit" className="self-start" disabled={saving}>{saving ? 'Saving...' : 'Save profile'}</Button>
       </form>
 
       <ChangePassword email={authEmail} />
@@ -198,23 +201,23 @@ function ChangePassword({ email }: { email: string }) {
   }
 
   return (
-    <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '16px', border: '1px solid var(--color-border)', borderRadius: '6px' }}>
-      <h2 style={{ fontSize: '18px', fontWeight: 600 }}>Change password</h2>
+    <form onSubmit={submit} className="flex flex-col gap-4 rounded-md border border-border p-4">
+      <h2 className="text-lg font-semibold">Change password</h2>
       <div>
-        <label htmlFor="pw-current" style={labelStyle}>Current password</label>
-        <input id="pw-current" type="password" className="input-field" value={current} onChange={(e) => setCurrent(e.target.value)} autoComplete="current-password" required />
+        <label htmlFor="pw-current" className={labelClass}>Current password</label>
+        <Input id="pw-current" type="password" className="h-10" value={current} onChange={(e) => setCurrent(e.target.value)} autoComplete="current-password" required />
       </div>
       <div>
-        <label htmlFor="pw-new" style={labelStyle}>New password</label>
-        <input id="pw-new" type="password" className="input-field" value={next} onChange={(e) => setNext(e.target.value)} autoComplete="new-password" minLength={8} required />
+        <label htmlFor="pw-new" className={labelClass}>New password</label>
+        <Input id="pw-new" type="password" className="h-10" value={next} onChange={(e) => setNext(e.target.value)} autoComplete="new-password" minLength={8} required />
       </div>
       <div>
-        <label htmlFor="pw-confirm" style={labelStyle}>Confirm new password</label>
-        <input id="pw-confirm" type="password" className="input-field" value={confirmNext} onChange={(e) => setConfirmNext(e.target.value)} autoComplete="new-password" minLength={8} required />
+        <label htmlFor="pw-confirm" className={labelClass}>Confirm new password</label>
+        <Input id="pw-confirm" type="password" className="h-10" value={confirmNext} onChange={(e) => setConfirmNext(e.target.value)} autoComplete="new-password" minLength={8} required />
       </div>
-      {error && <div className="alert-error">{error}</div>}
-      {notice && <div className="alert-success">{notice}</div>}
-      <button type="submit" className="btn-primary" disabled={saving || !email} style={{ alignSelf: 'flex-start' }}>{saving ? 'Changing...' : 'Change password'}</button>
+      {error && <Alert variant="error">{error}</Alert>}
+      {notice && <Alert variant="success">{notice}</Alert>}
+      <Button type="submit" className="self-start" disabled={saving || !email}>{saving ? 'Changing...' : 'Change password'}</Button>
     </form>
   )
 }

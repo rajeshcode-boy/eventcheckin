@@ -140,7 +140,7 @@ export default function AppLayout({
       </header>
 
       {/* Main content */}
-      <main className="mx-auto max-w-[1040px] px-6 py-8 max-sm:px-4 max-sm:pt-4 max-sm:pb-24">
+      <main className="mx-auto max-w-[1280px] px-6 py-8 max-sm:px-4 max-sm:pt-4 max-sm:pb-24">
         {children}
       </main>
 

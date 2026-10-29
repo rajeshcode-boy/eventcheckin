@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEventRole } from '@/components/EventRoleContext'
 import { sectionsForRole } from '@/lib/permissions'
+import { cn } from '@/lib/utils'
 
 // Navigation between an event's pages. Shows only the sections the user's role on this event allows.
 export default function EventTabs({ eventUuid }: { eventUuid: string }) {
@@ -12,9 +13,9 @@ export default function EventTabs({ eventUuid }: { eventUuid: string }) {
   const base = `/events/${eventUuid}`
 
   return (
-    <nav aria-label="Event sections" style={{ marginBottom: '24px', borderBottom: '1px solid var(--color-border)', overflowX: 'auto' }}>
-      <div style={{ display: 'flex', gap: '4px', minWidth: 'max-content' }}>
-        <Link href="/events" style={{ padding: '10px 12px', fontSize: '14px', color: 'var(--color-text-secondary)' }}>
+    <nav aria-label="Event sections" className="mb-6 overflow-x-auto border-b border-border">
+      <div className="flex min-w-max gap-1">
+        <Link href="/events" className="px-3 py-2.5 text-sm text-muted-foreground">
           ← Events
         </Link>
         {sectionsForRole(role).map((tab) => {
@@ -25,14 +26,10 @@ export default function EventTabs({ eventUuid }: { eventUuid: string }) {
               key={tab.key}
               href={href}
               aria-current={active ? 'page' : undefined}
-              style={{
-                padding: '10px 12px',
-                fontSize: '14px',
-                fontWeight: active ? 600 : 400,
-                borderBottom: active ? '2px solid var(--color-primary)' : '2px solid transparent',
-                color: active ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
-                marginBottom: '-1px',
-              }}
+              className={cn(
+                '-mb-px border-b-2 px-3 py-2.5 text-sm',
+                active ? 'border-primary font-semibold text-foreground' : 'border-transparent text-muted-foreground'
+              )}
             >
               {tab.label}
             </Link>

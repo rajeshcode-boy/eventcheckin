@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { publicImageUrl } from '@/lib/images'
+import { cn } from '@/lib/utils'
 import ThemeMenu from '@/components/ThemeMenu'
 import ProfileMenu from '@/components/ProfileMenu'
 import {
@@ -82,8 +83,8 @@ export default function AppLayout({
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
-        <p style={{ color: 'var(--color-text-secondary)' }}>Loading...</p>
+      <div className="flex min-h-screen items-center justify-center">
+        <p className="text-muted-foreground">Loading...</p>
       </div>
     )
   }
@@ -94,26 +95,15 @@ export default function AppLayout({
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/')
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: 'var(--color-neutral-light)' }}>
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <header style={{
-        position: 'sticky',
-        top: 0,
-        zIndex: 20,
-        backgroundColor: 'var(--color-surface)',
-        borderBottom: '1px solid var(--color-border)',
-        padding: '10px 24px',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        gap: '12px',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '24px', minWidth: 0 }}>
-          <Link href="/events" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, fontSize: '17px', letterSpacing: '-0.01em', whiteSpace: 'nowrap' }}>
-            <span aria-hidden="true" style={{ width: '28px', height: '28px', borderRadius: '8px', backgroundColor: 'var(--color-primary)', color: '#ffffff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 700 }}>✓</span>
+      <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-border bg-card px-6 py-2.5">
+        <div className="flex min-w-0 items-center gap-6">
+          <Link href="/events" className="flex items-center gap-2 whitespace-nowrap text-[17px] font-bold tracking-tight">
+            <span aria-hidden="true" className="inline-flex size-7 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">✓</span>
             EventCheckin
           </Link>
-          <NavigationMenu className="app-nav-desktop" style={{ justifyContent: 'flex-start' }}>
+          <NavigationMenu className="justify-start max-sm:hidden">
             <NavigationMenuList>
               {nav.map((item) => (
                 <NavigationMenuItem key={item.href}>
@@ -125,7 +115,7 @@ export default function AppLayout({
             </NavigationMenuList>
           </NavigationMenu>
         </div>
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+        <div className="flex items-center gap-3">
           <EventNotifications />
           <ThemeMenu />
           <ProfileMenu
@@ -138,12 +128,12 @@ export default function AppLayout({
       </header>
 
       {/* Main content */}
-      <main className="app-main" style={{ padding: '32px 24px', maxWidth: '1040px', margin: '0 auto' }}>
+      <main className="mx-auto max-w-[1040px] px-6 py-8 max-sm:px-4 max-sm:pt-4 max-sm:pb-24">
         {children}
       </main>
 
       {/* Bottom tabs on phones */}
-      <nav aria-label="Main" className="app-tabbar">
+      <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-20 hidden justify-around border-t border-border bg-card px-2 pt-1.5 pb-[calc(0.375rem+env(safe-area-inset-bottom))] max-sm:flex">
         {nav.map((item) => {
           const active = isActive(item.href)
           return (
@@ -151,7 +141,10 @@ export default function AppLayout({
               key={item.href}
               href={item.href}
               aria-current={active ? 'page' : undefined}
-              style={{ color: active ? 'var(--color-primary)' : 'var(--color-text-secondary)', fontWeight: active ? 600 : 500 }}
+              className={cn(
+                'flex min-h-11 flex-1 items-center justify-center rounded-[10px] px-1 py-2.5 text-center text-sm',
+                active ? 'font-semibold text-primary' : 'font-medium text-muted-foreground'
+              )}
             >
               {item.label === 'My Profile' ? 'Profile' : item.label}
             </Link>

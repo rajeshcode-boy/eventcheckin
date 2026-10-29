@@ -4,6 +4,9 @@ import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useParams } from 'next/navigation'
 import { formatTime } from '@/lib/time'
+import { Alert } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 
 interface RecentRow {
   id: string
@@ -171,77 +174,72 @@ export default function PickupTab() {
   })()
 
   return (
-    <div style={{ maxWidth: '640px' }}>
-
-      <form
-        onSubmit={(e) => { e.preventDefault(); lookup(code) }}
-        style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '16px' }}
-      >
+    <div className="max-w-[640px]">
+      <form onSubmit={(e) => { e.preventDefault(); lookup(code) }} className="mb-4 flex flex-wrap gap-2">
         <label htmlFor="pickup-code" className="sr-only">
           Registration ID or badge link
         </label>
-        <input
+        <Input
           id="pickup-code"
           ref={inputRef}
-          className="input-field"
-          style={{ flex: '1 1 260px', width: 'auto', fontSize: '18px' }}
+          className="h-11 min-w-[260px] flex-1 text-lg"
           placeholder="Scan or type the registration ID"
           value={code}
           onChange={(e) => setCode(e.target.value)}
           autoComplete="off"
           autoCapitalize="characters"
         />
-        <button type="submit" className="btn-primary" style={{ width: 'auto' }} disabled={busy || !code.trim()}>
+        <Button type="submit" size="lg" className="h-11 px-4" disabled={busy || !code.trim()}>
           Find badge
-        </button>
+        </Button>
         {canScan && (
-          <button type="button" className="btn-secondary" onClick={startScan} disabled={scanning}>
+          <Button type="button" variant="outline" size="lg" className="h-11 px-4" onClick={startScan} disabled={scanning}>
             {scanning ? 'Scanning...' : 'Scan with camera'}
-          </button>
+          </Button>
         )}
       </form>
 
       {scanning && (
-        <video ref={videoRef} muted playsInline aria-label="Camera preview" style={{ width: '100%', borderRadius: '12px', marginBottom: '16px', backgroundColor: '#000' }} />
+        <video ref={videoRef} muted playsInline aria-label="Camera preview" className="mb-4 w-full rounded-xl bg-black" />
       )}
 
-      {message && <p role="status" style={{ fontSize: '14px', marginBottom: '12px', color: 'var(--color-text-secondary)' }}>{message}</p>}
+      {message && <p role="status" className="mb-3 text-sm text-muted-foreground">{message}</p>}
 
       {status && (
-        <div className={status.tone === 'success' ? 'alert-success' : status.tone === 'warning' ? 'alert-warning' : 'alert-error'} role="status" style={{ marginBottom: '16px' }}>
+        <Alert variant={status.tone === 'success' ? 'success' : status.tone === 'warning' ? 'warning' : 'error'} className="mb-4">
           {status.text}
-        </div>
+        </Alert>
       )}
 
       {found && found !== 'none' && (
-        <div className="card" style={{ padding: '20px' }}>
-          <p style={{ fontSize: '18px', fontWeight: 600 }}>{found.full_name}</p>
-          <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)', marginTop: '4px' }}>
+        <div className="rounded-xl border border-border bg-card p-5">
+          <p className="text-lg font-semibold">{found.full_name}</p>
+          <p className="mt-1 text-sm text-muted-foreground">
             {[found.designation, found.company].filter(Boolean).join(' · ')}
           </p>
-          <p style={{ fontSize: '13px', marginTop: '8px' }}>
-            Registration ID <code style={{ fontFamily: 'ui-monospace, monospace', fontWeight: 600 }}>{found.registration_id}</code>
+          <p className="mt-2 text-[13px]">
+            Registration ID <code className="font-mono font-semibold">{found.registration_id}</code>
           </p>
           {!found.badge_collected_at && found.checkins.length > 0 && (
-            <button type="button" className="btn-primary" onClick={collect} disabled={busy} style={{ width: '100%', marginTop: '16px', minHeight: '52px', fontSize: '16px' }}>
+            <Button type="button" className="mt-4 h-[52px] w-full text-base" onClick={collect} disabled={busy}>
               {busy ? 'Saving...' : 'Mark as collected'}
-            </button>
+            </Button>
           )}
         </div>
       )}
 
-      <section aria-labelledby="recent-heading" style={{ marginTop: '28px' }}>
-        <h2 id="recent-heading" style={{ fontSize: '15px', fontWeight: 600, marginBottom: '8px' }}>Recently collected</h2>
+      <section aria-labelledby="recent-heading" className="mt-7">
+        <h2 id="recent-heading" className="mb-2 text-[15px] font-semibold">Recently collected</h2>
         {recent.length === 0 ? (
-          <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)' }}>
+          <p className="text-sm text-muted-foreground">
             No badges collected yet. Each badge you mark as collected appears here.
           </p>
         ) : (
-          <ul className="card" style={{ listStyle: 'none', padding: '4px 0' }}>
+          <ul className="overflow-hidden rounded-xl border border-border bg-card">
             {recent.map((r) => (
-              <li key={r.id} style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', padding: '10px 16px', borderTop: '1px solid var(--color-border)', fontSize: '14px' }}>
-                <span style={{ fontWeight: 500 }}>{r.full_name}</span>
-                <span style={{ color: 'var(--color-text-secondary)', whiteSpace: 'nowrap' }}>
+              <li key={r.id} className="flex justify-between gap-3 border-t border-border px-4 py-2.5 text-sm first:border-t-0">
+                <span className="font-medium">{r.full_name}</span>
+                <span className="whitespace-nowrap text-muted-foreground">
                   {r.badge_collected_at ? formatTime(r.badge_collected_at) : ''}
                 </span>
               </li>

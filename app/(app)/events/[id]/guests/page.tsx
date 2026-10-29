@@ -16,8 +16,10 @@ import {
 } from '@/lib/guests'
 import { countryName, detectCountry } from '@/lib/countries'
 import ImportPanel from './ImportPanel'
-import AttendeeForm from './AttendeeForm'
 import BulkEditPanel from './BulkEditPanel'
+import GuestDrawer from './GuestDrawer'
+import { useEventRole } from '@/components/EventRoleContext'
+import { canManageGuests } from '@/lib/permissions'
 
 interface EventInfo {
   id: string
@@ -28,7 +30,8 @@ interface EventInfo {
 }
 
 type SortKey = 'created_desc' | 'created_asc' | 'name_asc' | 'name_desc'
-type Panel = '' | 'import' | 'add' | 'bulk-edit'
+type Panel = '' | 'import' | 'bulk-edit'
+type DrawerMode = 'view' | 'edit' | 'add'
 
 const EMPTY_FILTERS = { country: '', city: '', industry: '', status: '', confirmation: '', source: '' }
 const PAGE_SIZES = [25, 50, 100]
@@ -69,7 +72,11 @@ export default function GuestsPage() {
   const [pageSize, setPageSize] = useState(25)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [panel, setPanel] = useState<Panel>('')
-  const [editing, setEditing] = useState<Guest | null>(null)
+  // The guest drawer: one guest to view or edit, or a blank form to add
+  const [openId, setOpenId] = useState<string | null>(null)
+  const [drawerMode, setDrawerMode] = useState<DrawerMode | null>(null)
+  const role = useEventRole()
+  const canEdit = canManageGuests(role)
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -176,20 +183,38 @@ export default function GuestsPage() {
     setSelected(next)
   }
 
+  const openGuest = (id: string, mode: DrawerMode = 'view') => {
+    setOpenId(id)
+    setDrawerMode(mode)
+  }
+  const openAdd = () => {
+    setOpenId(null)
+    setDrawerMode('add')
+  }
+  const closeDrawer = useCallback(() => {
+    setOpenId(null)
+    setDrawerMode(null)
+  }, [])
+
   const finish = (message: string) => {
     setPanel('')
-    setEditing(null)
     setNotice(message)
     setError('')
     loadData()
   }
 
-  const handleDelete = async () => {
-    const count = selected.size
+  // From the drawer: a saved edit goes back to the details, a newly added guest closes it
+  const drawerChanged = (message?: string) => {
+    if (drawerMode === 'add') closeDrawer()
+    else setDrawerMode('view')
+    finish(message ?? '')
+  }
+
+  const deleteGuests = async (ids: string[]) => {
+    const count = ids.length
     if (!(await confirm({ title: `Delete ${count} attendee(s)?`, description: 'Their check-ins and badge print history are deleted too. This cannot be undone.', confirmLabel: 'Delete', destructive: true }))) return
     setError('')
     setNotice('')
-    const ids = [...selected]
     const { data, error: deleteError } = await supabase.from('registrations').delete().in('id', ids).eq('event_id', eventUuid).select('id')
 
     if (deleteError) {
@@ -199,8 +224,10 @@ export default function GuestsPage() {
     } else {
       setNotice(`Deleted ${data.length} attendee(s).`)
     }
+    if (openId && ids.includes(openId)) closeDrawer()
     loadData()
   }
+  const handleDelete = () => deleteGuests([...selected])
 
   const handleExport = () => {
     // Selected attendees (even ones hidden by the current filters), otherwise everything shown
@@ -216,10 +243,8 @@ export default function GuestsPage() {
 
   const handleEditSelected = () => {
     if (selected.size === 1) {
-      setEditing(guests.find((g) => selected.has(g.id)) ?? null)
-      setPanel('')
+      openGuest([...selected][0]!, 'edit')
     } else {
-      setEditing(null)
       setPanel('bulk-edit')
     }
   }
@@ -238,11 +263,16 @@ export default function GuestsPage() {
   }
 
   const eventCountry = event.country ?? detectCountry(event.location).iso
+  const openGuestRow = guests.find((g) => g.id === openId) ?? null
+  const drawerOpen = drawerMode !== null && (drawerMode === 'add' || openGuestRow !== null)
+  // With the drawer docked beside the table, show only the columns that still fit
+  const compact = drawerOpen
 
   return (
     <>
     {dialog}
-    <div style={{ maxWidth: '1400px' }}>
+    <div style={{ maxWidth: '1400px' }} className={drawerOpen ? 'grid items-start gap-5 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]' : undefined}>
+    <div className="min-w-0">
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', flexWrap: 'wrap', gap: '16px', marginBottom: '24px' }}>
         <div>
@@ -252,21 +282,24 @@ export default function GuestsPage() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-          <button className={panel === 'import' ? 'btn-secondary' : 'btn-primary'} onClick={() => setPanel(panel === 'import' ? '' : 'import')}>
-            {panel === 'import' ? 'Close import' : 'Import CSV/Excel'}
-          </button>
-          <button className="btn-secondary" onClick={() => { setEditing(null); setPanel(panel === 'add' ? '' : 'add') }}>
-            {panel === 'add' ? 'Close' : 'Add guest'}
-          </button>
+          {canEdit && <button className="btn-primary" onClick={() => setPanel('import')}>Import CSV/Excel</button>}
+          {canEdit && <button className="btn-secondary" onClick={openAdd}>Add guest</button>}
         </div>
       </div>
 
       {notice && <div className="alert-success" style={{ marginBottom: '16px' }}>{notice}</div>}
       {error && <div className="alert-error" style={{ marginBottom: '16px' }}>{error}</div>}
 
-      {panel === 'import' && <ImportPanel eventUuid={event.id} existing={guests} onDone={finish} />}
-      {panel === 'add' && <AttendeeForm eventUuid={event.id} eventCountry={eventCountry} existing={guests} onDone={finish} onCancel={() => setPanel('')} />}
-      {panel === 'bulk-edit' && <BulkEditPanel ids={[...selected]} onDone={finish} onCancel={() => setPanel('')} />}
+      {panel === 'import' && (
+        <Modal onClose={() => setPanel('')} label="Import attendees">
+          <ImportPanel eventUuid={event.id} existing={guests} onDone={finish} />
+        </Modal>
+      )}
+      {panel === 'bulk-edit' && (
+        <Modal onClose={() => setPanel('')} label="Edit selected attendees">
+          <BulkEditPanel ids={[...selected]} onDone={finish} onCancel={() => setPanel('')} />
+        </Modal>
+      )}
 
       {/* Search, filters and sort */}
       <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '12px' }}>
@@ -279,7 +312,7 @@ export default function GuestsPage() {
           aria-label="Search attendees"
           style={{ flex: '1 1 280px' }}
         />
-        <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)} className="input-field" style={{ flex: '0 0 210px' }} aria-label="Sort attendees">
+        <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)} className="input-field" style={{ flex: '1 1 180px', width: 'auto' }} aria-label="Sort attendees">
           <option value="created_desc">Newest registrations first</option>
           <option value="created_asc">Oldest registrations first</option>
           <option value="name_asc">Name A–Z</option>
@@ -337,20 +370,6 @@ export default function GuestsPage() {
         )}
       </div>
 
-      {editing && (
-        <Modal onClose={() => setEditing(null)}>
-          <AttendeeForm
-            key={editing.id}
-            eventUuid={event.id}
-            eventCountry={eventCountry}
-            existing={guests}
-            attendee={editing}
-            onDone={finish}
-            onCancel={() => setEditing(null)}
-          />
-        </Modal>
-      )}
-
       {guests.length === 0 ? (
         <div style={{ padding: '32px', textAlign: 'center', border: '1px solid var(--color-border)', borderRadius: '6px' }}>
           <p style={{ color: 'var(--color-text-secondary)' }}>No attendees yet. Import a CSV or Excel file, or add attendees one by one.</p>
@@ -365,23 +384,27 @@ export default function GuestsPage() {
                     <input type="checkbox" checked={pageAllSelected} onChange={togglePage} aria-label="Select all on this page" />
                   </th>
                   <th style={cellStyle}>Attendee</th>
-                  <th style={cellStyle}>Email</th>
-                  <th style={cellStyle}>Phone</th>
-                  <th style={cellStyle}>Company</th>
-                  <th style={cellStyle}>Country</th>
-                  <th style={cellStyle}>City</th>
-                  <th style={cellStyle}>Industry</th>
+                  {!compact && <th style={cellStyle}>Email</th>}
+                  {!compact && <th style={cellStyle}>Phone</th>}
+                  {!compact && <th style={cellStyle}>Company</th>}
+                  {!compact && <th style={cellStyle}>Country</th>}
+                  {!compact && <th style={cellStyle}>City</th>}
+                  {!compact && <th style={cellStyle}>Industry</th>}
                   <th style={cellStyle}>Registration</th>
-                  <th style={cellStyle}>Attendance</th>
-                  <th style={cellStyle}>Registered</th>
+                  {!compact && <th style={cellStyle}>Attendance</th>}
+                  {!compact && <th style={cellStyle}>Registered</th>}
                   <th style={cellStyle}>Check-in</th>
-                  <th style={cellStyle}><span className="sr-only">Actions</span></th>
+                  {!compact && <th style={cellStyle}><span className="sr-only">Actions</span></th>}
                 </tr>
               </thead>
               <tbody>
                 {pageRows.map((g) => (
-                  <tr key={g.id} style={{ borderBottom: '1px solid var(--color-border)', backgroundColor: selected.has(g.id) ? 'var(--color-neutral-light)' : undefined }}>
-                    <td style={cellStyle}>
+                  <tr
+                    key={g.id}
+                    onClick={() => openGuest(g.id)}
+                    style={{ borderBottom: '1px solid var(--color-border)', cursor: 'pointer', backgroundColor: g.id === openId ? 'var(--color-primary-soft)' : selected.has(g.id) ? 'var(--color-neutral-light)' : undefined }}
+                  >
+                    <td style={cellStyle} onClick={(e) => e.stopPropagation()}>
                       <input type="checkbox" checked={selected.has(g.id)} onChange={() => toggleOne(g.id)} aria-label={`Select ${g.full_name}`} />
                     </td>
                     <td style={cellStyle}>
@@ -391,31 +414,43 @@ export default function GuestsPage() {
                         {g.designation ? ` • ${g.designation}` : ''} • {g.source}
                       </div>
                     </td>
-                    <td style={cellStyle}>
-                      <div>{g.company_email || g.email}</div>
-                      {g.company_email && g.email && <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>{g.email}</div>}
-                    </td>
-                    <td style={cellStyle}>{g.phone}</td>
-                    <td style={cellStyle}>{g.company}</td>
-                    <td style={cellStyle}>{countryName(g.country)}</td>
-                    <td style={cellStyle}>{g.city}</td>
-                    <td style={cellStyle}>{g.industry}</td>
+                    {!compact && (
+                      <>
+                        <td style={cellStyle}>
+                          <div>{g.company_email || g.email}</div>
+                          {g.company_email && g.email && <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>{g.email}</div>}
+                        </td>
+                        <td style={cellStyle}>{g.phone}</td>
+                        <td style={cellStyle}>{g.company}</td>
+                        <td style={cellStyle}>{countryName(g.country)}</td>
+                        <td style={cellStyle}>{g.city}</td>
+                        <td style={cellStyle}>{g.industry}</td>
+                      </>
+                    )}
                     <td style={cellStyle}><Pill value={g.registration_status} label={registrationStatusLabel(g.registration_status)} /></td>
-                    <td style={cellStyle}><Pill value={g.attendance_confirmation} label={attendanceConfirmationLabel(g.attendance_confirmation)} /></td>
-                    <td style={cellStyle}>{formatDate(g.created_at)}</td>
+                    {!compact && (
+                      <>
+                        <td style={cellStyle}><Pill value={g.attendance_confirmation} label={attendanceConfirmationLabel(g.attendance_confirmation)} /></td>
+                        <td style={cellStyle}>{formatDate(g.created_at)}</td>
+                      </>
+                    )}
                     <td style={{ ...cellStyle, color: checkedIn.has(g.id) ? 'var(--color-primary)' : 'var(--color-text-secondary)' }}>
                       {checkedIn.has(g.id) ? 'Checked in' : '—'}
                     </td>
-                    <td style={cellStyle}>
-                      <button className="btn-secondary" onClick={() => { setPanel(''); setEditing(g) }} style={{ minHeight: '32px', padding: '4px 12px' }}>
-                        Edit
-                      </button>
-                    </td>
+                    {!compact && (
+                      <td style={cellStyle} onClick={(e) => e.stopPropagation()}>
+                        {canEdit && (
+                          <button className="btn-secondary" onClick={() => openGuest(g.id, 'edit')} style={{ minHeight: '32px', padding: '4px 12px' }}>
+                            Edit
+                          </button>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))}
                 {pageRows.length === 0 && (
                   <tr>
-                    <td colSpan={13} style={{ ...cellStyle, textAlign: 'center', color: 'var(--color-text-secondary)' }}>
+                    <td colSpan={compact ? 4 : 13} style={{ ...cellStyle, textAlign: 'center', color: 'var(--color-text-secondary)' }}>
                       No attendees match your search or filters.
                     </td>
                   </tr>
@@ -441,6 +476,21 @@ export default function GuestsPage() {
         </>
       )}
     </div>
+    {drawerOpen && (
+      <GuestDrawer
+        eventUuid={event.id}
+        eventCountry={eventCountry}
+        guests={guests}
+        guest={drawerMode === 'add' ? null : openGuestRow}
+        mode={drawerMode!}
+        checkedIn={!!openGuestRow && checkedIn.has(openGuestRow.id)}
+        onMode={(m) => setDrawerMode(m)}
+        onClose={closeDrawer}
+        onChanged={drawerChanged}
+        onDelete={(id) => deleteGuests([id])}
+      />
+    )}
+    </div>
     </>
   )
 }
@@ -449,7 +499,7 @@ const cellStyle: React.CSSProperties = { padding: '10px 12px', whiteSpace: 'nowr
 
 function FilterSelect({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: { value: string; label: string }[] }) {
   return (
-    <select value={value} onChange={(e) => onChange(e.target.value)} className="input-field" aria-label={`Filter by ${label.toLowerCase()}`}>
+    <select value={value} onChange={(e) => onChange(e.target.value)} className="input-field" style={{ flex: '1 1 160px', width: 'auto' }} aria-label={`Filter by ${label.toLowerCase()}`}>
       <option value="">{label}: all</option>
       {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
     </select>
@@ -465,7 +515,7 @@ function Pill({ value, label }: { value?: string; label: string }) {
   )
 }
 
-function Modal({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
+function Modal({ children, onClose, label }: { children: React.ReactNode; onClose: () => void; label: string }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     document.addEventListener('keydown', onKey)
@@ -476,6 +526,7 @@ function Modal({ children, onClose }: { children: React.ReactNode; onClose: () =
     <div
       role="dialog"
       aria-modal="true"
+      aria-label={label}
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
       style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', padding: '32px 16px', overflowY: 'auto' }}
     >

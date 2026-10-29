@@ -108,6 +108,12 @@ export default function BadgesPage() {
     loadData()
   }, [loadData])
 
+  // Arriving from a guest's drawer (?guest=<id>): start with that guest selected
+  useEffect(() => {
+    const guestId = new URLSearchParams(window.location.search).get('guest')
+    if (guestId) setSelected(new Set([guestId]))
+  }, [])
+
   // Saved design chosen for printing, or the built-in default template
   const design: BadgeDesign = useMemo(() => {
     const saved = designs.find((d) => d.id === designId)

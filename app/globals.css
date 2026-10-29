@@ -54,10 +54,19 @@
   color-scheme: dark;
 }
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+/* In the base layer, not unlayered: unlayered rules beat every Tailwind utility, so a global
+   padding reset here would zero out p-*, m-* and every shadcn component's spacing. */
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
 }
 
 html,
@@ -75,11 +84,6 @@ body {
 body {
   max-width: 100vw;
   overflow-x: hidden;
-}
-
-a {
-  color: inherit;
-  text-decoration: none;
 }
 
 button {

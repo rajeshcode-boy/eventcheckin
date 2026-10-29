@@ -36,8 +36,7 @@ export default function ShareLinkCard({ path, title, children }: { path: string;
             {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
             {copied ? 'Copied' : 'Copy link'}
           </Button>
-          {/* text-primary-foreground! because the global `a { color: inherit }` rule is unlayered and would win */}
-          <Button render={<a href={path} target="_blank" rel="noopener noreferrer" className="text-primary-foreground!" />} nativeButton={false}>
+          <Button render={<a href={path} target="_blank" rel="noopener noreferrer" />} nativeButton={false}>
             <ExternalLink className="size-4" />
             Open
           </Button>

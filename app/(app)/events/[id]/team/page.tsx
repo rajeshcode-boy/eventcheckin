@@ -3,16 +3,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { useEventRole } from '@/components/EventRoleContext'
+import { canAssignOwner, canManageTeam, EVENT_ROLES, ROLE_DESCRIPTIONS, ROLE_LABELS, type EventRole as Role } from '@/lib/permissions'
 
-type Role = 'coordinator' | 'check_in' | 'registration' | 'badges' | 'other'
-
-const ROLES: { value: Role; label: string }[] = [
-  { value: 'coordinator', label: 'Coordinator' },
-  { value: 'check_in', label: 'Check-in' },
-  { value: 'registration', label: 'Registration desk' },
-  { value: 'badges', label: 'Badges' },
-  { value: 'other', label: 'Other' },
-]
+const ROLES: { value: Role; label: string }[] = EVENT_ROLES.map((value) => ({ value, label: ROLE_LABELS[value] }))
 
 interface Member {
   id: string
@@ -33,11 +27,14 @@ export default function TeamPage() {
   const eventUuid = params.id as string
   const [orgId, setOrgId] = useState<string | null>(null)
   const [me, setMe] = useState<string | null>(null)
-  const [isAdmin, setIsAdmin] = useState(false)
+  const myRole = useEventRole()
+  const isAdmin = canManageTeam(myRole)
+  // Only an owner can hand out the Owner role
+  const assignable = ROLES.filter((r) => r.value !== 'owner' || canAssignOwner(myRole))
   const [members, setMembers] = useState<Member[]>([])
   const [assignments, setAssignments] = useState<Assignment[]>([])
   const [newProfile, setNewProfile] = useState('')
-  const [newRole, setNewRole] = useState<Role>('check_in')
+  const [newRole, setNewRole] = useState<Role>('staff')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
 
@@ -53,7 +50,6 @@ export default function TeamPage() {
         return
       }
       setOrgId(profile.organization_id)
-      setIsAdmin(profile.role === 'admin')
 
       const [membersRes, assignRes] = await Promise.all([
         supabase.from('profiles').select('id, full_name').eq('organization_id', profile.organization_id).order('full_name'),
@@ -125,6 +121,9 @@ export default function TeamPage() {
         <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px', marginTop: '4px' }}>
           {assignments.length} assigned · {onSiteCount} on site now
         </p>
+        <ul style={{ listStyle: 'none', marginTop: '10px', display: 'grid', gap: '4px', fontSize: '13px', color: 'var(--color-text-secondary)' }}>
+          {assignable.map((r) => <li key={r.value}><b>{r.label}:</b> {ROLE_DESCRIPTIONS[r.value]}</li>)}
+        </ul>
         {error && <p className="alert-error" style={{ marginTop: '12px' }}>{error}</p>}
       </section>
 
@@ -142,7 +141,7 @@ export default function TeamPage() {
                 ))}
               </select>
               <select value={newRole} onChange={(e) => setNewRole(e.target.value as Role)} className="input-field" style={{ maxWidth: '200px' }} aria-label="Role">
-                {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+                {assignable.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
               </select>
               <button type="button" className="btn-primary" style={{ width: 'auto' }} onClick={addMember} disabled={!newProfile}>Add</button>
             </div>
@@ -161,9 +160,9 @@ export default function TeamPage() {
                 <li key={a.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap', borderBottom: '1px solid var(--color-border)', paddingBottom: '10px' }}>
                   <div>
                     <p style={{ fontWeight: 600 }}>{a.profiles?.full_name || 'Unnamed member'}{mine && <span style={{ color: 'var(--color-text-secondary)', fontWeight: 400 }}> (you)</span>}</p>
-                    {isAdmin ? (
+                    {isAdmin && (a.role !== 'owner' || canAssignOwner(myRole)) ? (
                       <select value={a.role} onChange={(e) => changeRole(a.id, e.target.value as Role)} className="input-field" style={{ marginTop: '4px', maxWidth: '200px' }} aria-label={`Role for ${a.profiles?.full_name ?? 'member'}`}>
-                        {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+                        {assignable.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
                       </select>
                     ) : (
                       <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>{ROLES.find((r) => r.value === a.role)?.label}</p>

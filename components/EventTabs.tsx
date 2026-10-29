@@ -2,22 +2,13 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useEventRole } from '@/components/EventRoleContext'
+import { sectionsForRole } from '@/lib/permissions'
 
-const TABS = [
-  { href: '', label: 'Overview' },
-  { href: '/guests', label: 'Guests' },
-  { href: '/dashboard', label: 'Dashboard' },
-  { href: '/badge-design', label: 'Badge design' },
-  { href: '/badges', label: 'Badges' },
-  { href: '/pickup', label: 'Pickup' },
-  { href: '/team', label: 'Team' },
-  { href: '/report', label: 'Report' },
-  { href: '/edit', label: 'Settings' },
-]
-
-// Navigation between an event's pages
+// Navigation between an event's pages. Shows only the sections the user's role on this event allows.
 export default function EventTabs({ eventUuid }: { eventUuid: string }) {
   const pathname = usePathname()
+  const role = useEventRole()
   const base = `/events/${eventUuid}`
 
   return (
@@ -26,12 +17,12 @@ export default function EventTabs({ eventUuid }: { eventUuid: string }) {
         <Link href="/events" style={{ padding: '10px 12px', fontSize: '14px', color: 'var(--color-text-secondary)' }}>
           ← Events
         </Link>
-        {TABS.map((tab) => {
+        {sectionsForRole(role).map((tab) => {
           const href = base + tab.href
           const active = pathname === href
           return (
             <Link
-              key={tab.href}
+              key={tab.key}
               href={href}
               aria-current={active ? 'page' : undefined}
               style={{

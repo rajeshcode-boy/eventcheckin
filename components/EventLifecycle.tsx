@@ -1,8 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { useEventRole } from '@/components/EventRoleContext'
+import { canDeleteEvent } from '@/lib/permissions'
 
 interface Props {
   eventUuid: string
@@ -14,24 +16,16 @@ interface Props {
 
 type Dialog = 'confirm-delete' | 'not-admin' | 'deleted' | null
 
-// Archive hides an event from the lists and keeps its data. Delete removes everything (admins only).
+// Archive hides an event from the lists and keeps its data. Delete removes everything (event owners only).
 export default function EventLifecycle({ eventUuid, name, archivedAt, bannerPath, logoPath }: Props) {
   const router = useRouter()
-  const [isAdmin, setIsAdmin] = useState(false)
+  const role = useEventRole()
+  const isAdmin = canDeleteEvent(role)
   const [archived, setArchived] = useState(!!archivedAt)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [dialog, setDialog] = useState<Dialog>(null)
 
-  useEffect(() => {
-    const load = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-      setIsAdmin(profile?.role === 'admin')
-    }
-    load()
-  }, [])
 
   const toggleArchive = async () => {
     setBusy(true)
@@ -66,7 +60,7 @@ export default function EventLifecycle({ eventUuid, name, archivedAt, bannerPath
     const { data, error: deleteError } = await supabase.from('events').delete().eq('id', eventUuid).select('id')
     setBusy(false)
     if (deleteError || !data || data.length === 0) {
-      setError(deleteError?.message ?? 'The event could not be deleted. Only admins can delete events.')
+      setError(deleteError?.message ?? 'The event could not be deleted. Only event owners can delete events.')
       return
     }
     setDialog('deleted')
@@ -132,9 +126,9 @@ export default function EventLifecycle({ eventUuid, name, archivedAt, bannerPath
 
             {dialog === 'not-admin' && (
               <>
-                <h2 id="lifecycle-dialog-title" style={{ fontSize: '20px', fontWeight: 700, marginBottom: '10px' }}>Only admins can delete</h2>
+                <h2 id="lifecycle-dialog-title" style={{ fontSize: '20px', fontWeight: 700, marginBottom: '10px' }}>Only owners can delete</h2>
                 <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)', lineHeight: 1.6, marginBottom: '20px' }}>
-                  Only the admin or owner account can delete events. Ask an admin to delete this event.
+                  Only an event owner can delete events. Ask an owner to delete this event.
                 </p>
                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                   <button type="button" className="btn-primary" style={{ width: 'auto' }} onClick={() => setDialog(null)}>OK</button>

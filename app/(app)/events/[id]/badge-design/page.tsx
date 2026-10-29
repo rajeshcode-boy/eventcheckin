@@ -11,6 +11,8 @@ import {
 } from '@/lib/badgeDesign'
 import { BADGE_BACKGROUND_RULES, ImageRules, LOGO_RULES, validateImageFile } from '@/lib/images'
 import { uploadImage } from '@/lib/storage'
+import { useEventRole } from '@/components/EventRoleContext'
+import { canManageEvent } from '@/lib/permissions'
 
 interface EventInfo {
   id: string
@@ -62,7 +64,8 @@ export default function BadgeDesignPage() {
   const params = useParams()
   const eventUuid = params.id as string
   const [event, setEvent] = useState<EventInfo | null>(null)
-  const [isAdmin, setIsAdmin] = useState(false)
+  const role = useEventRole()
+  const isAdmin = canManageEvent(role)
   const [designs, setDesigns] = useState<SavedDesign[]>([])
   const [attendees, setAttendees] = useState<PreviewAttendee[]>([])
   const [currentId, setCurrentId] = useState<string | null>(null)
@@ -77,19 +80,16 @@ export default function BadgeDesignPage() {
   const [busy, setBusy] = useState(false)
 
   const load = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    const [eventRes, designRes, attendeeRes, profileRes] = await Promise.all([
+    const [eventRes, designRes, attendeeRes] = await Promise.all([
       supabase.from('events').select('id, organization_id, event_id, name, location, country, city, event_date, logo_path, organizations(logo_path)').eq('id', eventUuid).single(),
       supabase.from('badge_designs').select('id, name, is_default, design').eq('event_id', eventUuid).order('created_at'),
       supabase.from('registrations').select('id, registration_id, full_name, first_name, last_name, company, designation, country, city, industry, registration_status').eq('event_id', eventUuid).order('full_name').limit(500),
-      user ? supabase.from('profiles').select('role').eq('id', user.id).single() : Promise.resolve({ data: null }),
     ])
     if (eventRes.error || !eventRes.data) {
       setError('Event not found')
       return
     }
     setEvent(eventRes.data as unknown as EventInfo)
-    setIsAdmin(profileRes.data?.role === 'admin')
     setAttendees((attendeeRes.data ?? []) as PreviewAttendee[])
     const list = (designRes.data ?? []) as SavedDesign[]
     setDesigns(list)
@@ -297,7 +297,7 @@ export default function BadgeDesignPage() {
         <Link href={`/events/${event.id}/badges`} className="btn-secondary">Go to Badge Printing →</Link>
       </div>
 
-      {!isAdmin && <div className="alert-warning" style={{ marginBottom: '16px' }}>Only admins can save badge designs.</div>}
+      {!isAdmin && <div className="alert-warning" style={{ marginBottom: '16px' }}>Only owners and managers can save badge designs.</div>}
 
       {/* Design selection and saving */}
       <div style={{ ...section, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: '16px' }}>

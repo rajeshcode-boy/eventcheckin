@@ -33,6 +33,8 @@ END;
 $$;
 
 REVOKE EXECUTE ON FUNCTION undo_check_in(UUID) FROM PUBLIC;
+-- Supabase grants new functions to anon directly, which FROM PUBLIC does not remove
+REVOKE EXECUTE ON FUNCTION undo_check_in(UUID) FROM anon;
 GRANT EXECUTE ON FUNCTION undo_check_in(UUID) TO authenticated;
 
 NOTIFY pgrst, 'reload schema';

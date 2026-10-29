@@ -19,6 +19,14 @@ badges, desk badge pickup, dashboards, and web push notifications
   Project id: `noultxhwoyanalvgstbq` ("EventCheckIn", region ap-northeast-2).
 - **Vercel**: auto-deploys `main` to production. Preview deployments build
   from every branch/PR and need their own copy of the env vars (see below).
+- **Analytics**, all behind one cookie consent banner (see rule 12):
+  - **PostHog** (US Cloud): product analytics, session replays with all text
+    and inputs masked, and error tracking (`capture_exceptions`). Organisers are
+    identified by account ID only. Dashboard: "EventCheckin growth".
+  - **Google Analytics 4** (`G-NJXY2K8DVN`): public website pages only.
+    "Page changes based on browser history events" is turned off in GA's
+    enhanced measurement, because the app sends page views itself.
+  - **Vercel Web Analytics**: cookie-free visit counts, always on.
 - **Vitest** for unit tests (`npm test`). `npx tsc --noEmit` for type checking.
 - Styling is Tailwind utility classes plus the shadcn components in
   `components/ui` (Tailwind 4, Base UI). Colours come from the CSS variables in
@@ -29,6 +37,15 @@ badges, desk badge pickup, dashboards, and web push notifications
 
 ## Layout
 
+- `app/page.tsx` — the public website home page, built from
+  `components/home/` (header, footer, demo; copy and links such as the
+  Calendly booking URL live in `components/home/content.ts`). Signed-in
+  organisers are redirected to `/events`. `app/privacy/` and `app/terms/` are
+  the legal pages; keep the Privacy Policy in step with any new tracking or
+  data processor.
+- `components/Analytics.tsx` + `lib/analytics.ts` — the consent banner and
+  the PostHog / Google Analytics loaders, with the lists of which pages each
+  tool may run on.
 - `app/(app)/` — signed-in organiser pages, wrapped by `app/(app)/layout.tsx`
   (header, nav, auth guard via `supabase.auth.getSession()`).
 - `app/(app)/events/[id]/` — one event's pages, wrapped by a shared sidebar
@@ -102,6 +119,16 @@ badges, desk badge pickup, dashboards, and web push notifications
     instance and trusts the client-supplied `x-forwarded-for` header** — known
     to be weak, not a real abuse defense. Don't treat it as one when reasoning
     about security; flag it if asked to harden the app further.
+12. **Analytics only after consent, never on guest pages.** PostHog and
+    Google Analytics load only after the visitor clicks Accept in the banner,
+    and each is switched off by a missing env var. Guest-facing pages
+    (`/checkin`, `/register`, `/badge`, `/pass`, `/kiosk`, `/api`) are never
+    tracked (`isTrackedPath`). Google Analytics runs only on `/`, `/signup`,
+    `/login`, `/privacy` and `/terms` (`isGaPath`). Never send names, emails,
+    phone numbers or guest details to either tool: identify organisers by
+    account ID only, and keep PostHog's text and input masking on. Adding a
+    tracking tool, widening either page list, or turning off masking needs the
+    user's go-ahead and a matching Privacy Policy update.
 
 ## Known accepted gaps (don't "fix" these without asking first)
 
@@ -113,6 +140,9 @@ badges, desk badge pickup, dashboards, and web push notifications
   `next.config.ts`.
 - `remove_push_subscription` lets any anon caller delete a subscription by
   endpoint (low risk — endpoints aren't realistically guessable).
+- Error tracking only covers visitors who accepted cookies, on tracked pages.
+  Errors on guest pages and in server routes are not reported anywhere.
+  Sentry was discussed as the fix and deferred.
 
 ## Before adding a feature
 

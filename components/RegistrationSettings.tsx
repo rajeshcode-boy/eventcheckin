@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useConfirm } from '@/components/ConfirmDialog'
 
 interface EventSettings {
   registration_token: string
@@ -31,6 +32,7 @@ const newCode = () => {
 
 // Registration link controls for the organiser: open or close, approval, capacity, and team links
 export default function RegistrationSettings({ eventUuid, organizationId, registrations }: { eventUuid: string; organizationId: string; registrations: RegistrationRow[] }) {
+  const { confirm, dialog } = useConfirm()
   const [settings, setSettings] = useState<EventSettings | null>(null)
   const [members, setMembers] = useState<TeamMember[]>([])
   const [capacityInput, setCapacityInput] = useState('')
@@ -82,7 +84,7 @@ export default function RegistrationSettings({ eventUuid, organizationId, regist
   }
 
   const newLink = async () => {
-    if (!window.confirm('Create a new link? The current link will stop working.')) return
+    if (!(await confirm({ title: 'Create a new link?', description: 'The current link will stop working.', confirmLabel: 'Create new link', destructive: true }))) return
     const token = crypto.randomUUID().replace(/-/g, '')
     await save({ registration_token: token }, 'New link created. Share the new link only.')
   }
@@ -113,7 +115,7 @@ export default function RegistrationSettings({ eventUuid, organizationId, regist
   }
 
   const removeMember = async (member: TeamMember) => {
-    if (!window.confirm(`Remove ${member.name}? Their link will stop crediting new registrations.`)) return
+    if (!(await confirm({ title: `Remove ${member.name}?`, description: 'Their link will stop crediting new registrations.', confirmLabel: 'Remove', destructive: true }))) return
     const { error } = await supabase.from('event_team_members').delete().eq('id', member.id)
     if (error) {
       setMessage("Couldn't remove that team member.")
@@ -132,6 +134,8 @@ export default function RegistrationSettings({ eventUuid, organizationId, regist
   const label = { display: 'block', fontSize: '14px', fontWeight: 500, marginBottom: '6px' } as const
 
   return (
+    <>
+    {dialog}
     <section className="card" style={{ padding: '20px' }} aria-labelledby="registration-heading">
       <h2 id="registration-heading" style={{ fontSize: '18px', fontWeight: 600, marginBottom: '4px' }}>Public registration</h2>
       <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)', marginBottom: '16px' }}>
@@ -207,5 +211,6 @@ export default function RegistrationSettings({ eventUuid, organizationId, regist
 
       {message && <p role="status" style={{ marginTop: '12px', fontSize: '14px', color: 'var(--color-text-secondary)' }}>{message}</p>}
     </section>
+    </>
   )
 }

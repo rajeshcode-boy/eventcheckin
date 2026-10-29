@@ -8,6 +8,7 @@ import { matchScan, searchGuests } from '@/lib/kiosk/search'
 import { clearSession, loadSession, saveSession } from '@/lib/kiosk/session'
 import { describeConflict, flushQueue } from '@/lib/kiosk/sync'
 import type { KioskGuest, KioskSession, QueuedScan, SyncResult } from '@/lib/kiosk/types'
+import { useConfirm } from '@/components/ConfirmDialog'
 
 // Public tablet page (no organiser login). Paired with a 6-digit code; everything after that is
 // authorised by the kiosk token. Works offline: scans go into IndexedDB and upload when Wi-Fi returns.
@@ -107,6 +108,7 @@ function Pairing({ onPaired }: { onPaired: (s: KioskSession) => void }) {
 }
 
 function Desk({ session, onUnpair }: { session: KioskSession; onUnpair: () => void }) {
+  const { confirm, dialog } = useConfirm()
   const [guests, setGuests] = useState<KioskGuest[]>([])
   const [pending, setPending] = useState(0)
   const [online, setOnline] = useState(true)
@@ -303,6 +305,8 @@ function Desk({ session, onUnpair }: { session: KioskSession; onUnpair: () => vo
   const tone = { ok: 'var(--color-live)', warn: 'var(--color-amber-warning)', err: 'var(--color-error-red)' }
 
   return (
+    <>
+    {dialog}
     <main style={{ minHeight: '100vh', display: 'grid', gridTemplateRows: 'auto 1fr', background: 'var(--color-neutral-light)', color: 'var(--color-text-primary)' }}>
       <header style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '12px 24px', background: 'var(--color-surface)', borderBottom: '1px solid var(--color-border)', flexWrap: 'wrap' }}>
         <div style={{ flex: 1, minWidth: 200 }}>
@@ -313,7 +317,7 @@ function Desk({ session, onUnpair }: { session: KioskSession; onUnpair: () => vo
           {online ? (syncing ? 'Syncing…' : 'Online') : 'Offline · scans are saved'}
         </span>
         {pending > 0 && <span style={{ fontWeight: 600 }}>{pending} waiting to upload</span>}
-        <button onClick={() => { if (window.confirm('Unpair this tablet? Scans not yet uploaded will be lost.')) onUnpair() }} style={{ background: 'none', border: 'none', color: 'var(--color-text-secondary)', textDecoration: 'underline', cursor: 'pointer', fontSize: 16, minHeight: 44 }}>Unpair</button>
+        <button onClick={async () => { if (await confirm({ title: 'Unpair this tablet?', description: 'Scans not yet uploaded will be lost.', confirmLabel: 'Unpair', destructive: true })) onUnpair() }} style={{ background: 'none', border: 'none', color: 'var(--color-text-secondary)', textDecoration: 'underline', cursor: 'pointer', fontSize: 16, minHeight: 44 }}>Unpair</button>
       </header>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(280px, 1fr)', gap: 24, padding: 24, alignItems: 'start' }}>
@@ -382,5 +386,6 @@ function Desk({ session, onUnpair }: { session: KioskSession; onUnpair: () => vo
         </aside>
       </div>
     </main>
+    </>
   )
 }

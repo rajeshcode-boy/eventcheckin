@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useConfirm } from '@/components/ConfirmDialog'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -51,6 +52,7 @@ const formatDate = (iso?: string) =>
   iso ? new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : ''
 
 export default function GuestsPage() {
+  const { confirm, dialog } = useConfirm()
   const params = useParams()
   const eventUuid = params.id as string
   const [event, setEvent] = useState<EventInfo | null>(null)
@@ -184,7 +186,7 @@ export default function GuestsPage() {
 
   const handleDelete = async () => {
     const count = selected.size
-    if (!confirm(`Delete ${count} attendee(s)?\n\nTheir check-ins and badge print history are deleted too. This cannot be undone.`)) return
+    if (!(await confirm({ title: `Delete ${count} attendee(s)?`, description: 'Their check-ins and badge print history are deleted too. This cannot be undone.', confirmLabel: 'Delete', destructive: true }))) return
     setError('')
     setNotice('')
     const ids = [...selected]
@@ -238,6 +240,8 @@ export default function GuestsPage() {
   const eventCountry = event.country ?? detectCountry(event.location).iso
 
   return (
+    <>
+    {dialog}
     <div style={{ maxWidth: '1400px' }}>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', flexWrap: 'wrap', gap: '16px', marginBottom: '24px' }}>
@@ -437,6 +441,7 @@ export default function GuestsPage() {
         </>
       )}
     </div>
+    </>
   )
 }
 

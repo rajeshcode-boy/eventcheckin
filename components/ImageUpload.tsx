@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ImageMime, ImageRules, validateImageFile } from '@/lib/images'
 import { Bucket, publicImageUrl, removeImage, uploadImage } from '@/lib/storage'
+import { useConfirm } from '@/components/ConfirmDialog'
 
 export interface PendingImage {
   file: File
@@ -47,6 +48,7 @@ const PREVIEW_STYLES: Record<CommonProps['shape'], React.CSSProperties> = {
 }
 
 export default function ImageUpload(props: Props) {
+  const { confirm, dialog } = useConfirm()
   const inputRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -77,7 +79,7 @@ export default function ImageUpload(props: Props) {
       return
     }
 
-    if (props.path && !confirm(`Replace the current ${props.label.toLowerCase()}?`)) return
+    if (props.path && !(await confirm({ title: `Replace the current ${props.label.toLowerCase()}?`, confirmLabel: 'Replace' }))) return
     setBusy(true)
     try {
       const newPath = await uploadImage(props.bucket, props.folder, props.kind, file, check.type)
@@ -103,7 +105,7 @@ export default function ImageUpload(props: Props) {
       props.onPendingChange(null)
       return
     }
-    if (!confirm(`Remove the ${props.label.toLowerCase()}?`)) return
+    if (!(await confirm({ title: `Remove the ${props.label.toLowerCase()}?`, confirmLabel: 'Remove', destructive: true }))) return
     setBusy(true)
     const saved = await props.onSave(null)
     if (saved) {
@@ -116,6 +118,8 @@ export default function ImageUpload(props: Props) {
   }
 
   return (
+    <>
+    {dialog}
     <div>
       <p style={{ marginBottom: '8px', fontWeight: 500 }}>{props.label}</p>
       <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -158,5 +162,6 @@ export default function ImageUpload(props: Props) {
       {error && <div className="alert-error" style={{ marginTop: '8px', fontSize: '14px' }}>{error}</div>}
       {message && <div className="alert-success" style={{ marginTop: '8px', fontSize: '14px' }}>{message}</div>}
     </div>
+    </>
   )
 }

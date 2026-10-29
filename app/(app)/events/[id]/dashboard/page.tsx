@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useConfirm } from '@/components/ConfirmDialog'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { formatTime } from '@/lib/time'
@@ -33,6 +34,7 @@ interface Checkin {
 const FEED_SIZE = 20
 
 export default function DashboardPage() {
+  const { confirm, dialog } = useConfirm()
   const params = useParams()
   const eventUuid = params.id as string
   const [event, setEvent] = useState<EventInfo | null>(null)
@@ -113,10 +115,12 @@ export default function DashboardPage() {
   const setStatus = async (status: EventInfo['status']) => {
     if (!event) return
     if (status === 'closed') {
-      const ok = confirm(
-        `Close check-in for ${event.name}?\n\n${stats.notArrived} registered guest(s) who haven't arrived will be marked as no-shows. ` +
-          'No new check-ins or walk-ins will be accepted until you reopen.'
-      )
+      const ok = await confirm({
+        title: `Close check-in for ${event.name}?`,
+        description: `${stats.notArrived} registered guest(s) who haven't arrived will be marked as no-shows. No new check-ins or walk-ins will be accepted until you reopen.`,
+        confirmLabel: 'Close check-in',
+        destructive: true,
+      })
       if (!ok) return
     }
     setBusy(true)
@@ -150,6 +154,8 @@ export default function DashboardPage() {
   const closed = event.status === 'closed'
 
   return (
+    <>
+    {dialog}
     <div style={{ maxWidth: '1100px' }}>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', flexWrap: 'wrap', gap: '16px', marginBottom: '24px' }}>
@@ -245,6 +251,7 @@ export default function DashboardPage() {
         </ul>
       )}
     </div>
+    </>
   )
 }
 

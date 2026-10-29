@@ -13,6 +13,7 @@ import { BADGE_BACKGROUND_RULES, ImageRules, LOGO_RULES, validateImageFile } fro
 import { uploadImage } from '@/lib/storage'
 import { useEventRole } from '@/components/EventRoleContext'
 import { canManageEvent } from '@/lib/permissions'
+import { useConfirm } from '@/components/ConfirmDialog'
 
 interface EventInfo {
   id: string
@@ -61,6 +62,7 @@ function elementName(el: BadgeElement): string {
 }
 
 export default function BadgeDesignPage() {
+  const { confirm, dialog } = useConfirm()
   const params = useParams()
   const eventUuid = params.id as string
   const [event, setEvent] = useState<EventInfo | null>(null)
@@ -231,7 +233,7 @@ export default function BadgeDesignPage() {
   const deleteDesign = async () => {
     if (!currentId) return
     const current = designs.find((d) => d.id === currentId)
-    if (!confirm(`Delete the design "${current?.name}"? This cannot be undone.`)) return
+    if (!(await confirm({ title: `Delete the design "${current?.name}"?`, description: 'This cannot be undone.', confirmLabel: 'Delete', destructive: true }))) return
     setBusy(true)
     const { error: deleteError } = await supabase.from('badge_designs').delete().eq('id', currentId)
     setBusy(false)
@@ -251,8 +253,8 @@ export default function BadgeDesignPage() {
     setNotice('Design deleted.')
   }
 
-  const newDesign = () => {
-    if (dirty && !confirm('Discard unsaved changes?')) return
+  const newDesign = async () => {
+    if (dirty && !(await confirm({ title: 'Discard unsaved changes?', confirmLabel: 'Discard', destructive: true }))) return
     setCurrentId(null)
     setName(designs.length ? `Badge ${designs.length + 1}` : 'Default badge')
     setDesign(defaultDesign())
@@ -260,8 +262,8 @@ export default function BadgeDesignPage() {
     setSelectedId(null)
   }
 
-  const restoreDefault = () => {
-    if (!confirm('Replace this design with the default template? Unsaved changes are lost; save afterwards to keep it.')) return
+  const restoreDefault = async () => {
+    if (!(await confirm({ title: 'Replace this design with the default template?', description: 'Unsaved changes are lost. Save afterwards to keep it.', confirmLabel: 'Replace', destructive: true }))) return
     change(defaultDesign())
     setSelectedId(null)
   }
@@ -285,6 +287,8 @@ export default function BadgeDesignPage() {
   const folder = `${event.organization_id}/events/${event.id}/badge`
 
   return (
+    <>
+    {dialog}
     <div style={{ maxWidth: '1400px' }}>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', flexWrap: 'wrap', gap: '16px', marginBottom: '16px' }}>
@@ -307,9 +311,9 @@ export default function BadgeDesignPage() {
             id="design-select"
             className="input-field"
             value={currentId ?? ''}
-            onChange={(e) => {
+            onChange={async (e) => {
               const d = designs.find((x) => x.id === e.target.value)
-              if (d && (!dirty || confirm('Discard unsaved changes?'))) openDesign(d)
+              if (d && (!dirty || (await confirm({ title: 'Discard unsaved changes?', confirmLabel: 'Discard', destructive: true })))) openDesign(d)
             }}
           >
             {!currentId && <option value="">{name} (not saved yet)</option>}
@@ -423,6 +427,7 @@ export default function BadgeDesignPage() {
         </div>
       </div>
     </div>
+    </>
   )
 }
 

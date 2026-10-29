@@ -19,7 +19,11 @@ import { COUNTRIES } from '@/lib/countries'
 import { citiesFor } from '@/lib/cities'
 import SearchSelect from '@/components/SearchSelect'
 import PhoneInput from '@/components/PhoneInput'
-import { panelStyle } from './ImportPanel'
+import { panelClass } from './ImportPanel'
+import { Alert } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { NativeSelect } from '@/components/ui/native-select'
 
 interface Props {
   eventUuid: string
@@ -31,7 +35,7 @@ interface Props {
   onCancel?: () => void
 }
 
-const labelStyle: React.CSSProperties = { display: 'block', marginBottom: '8px', fontWeight: 500 }
+const labelClass = 'mb-2 block font-medium'
 const isPreset = (industry: string) => (INDUSTRIES as readonly string[]).includes(industry)
 
 export default function AttendeeForm({ eventUuid, eventCountry, existing, attendee, onDone, onCancel }: Props) {
@@ -157,8 +161,8 @@ export default function AttendeeForm({ eventUuid, eventCountry, existing, attend
 
   const text = (id: string, label: string, value: string, set: (v: string) => void, opts: { type?: string; required?: boolean; hint?: string } = {}) => (
     <div>
-      <label htmlFor={id} style={labelStyle}>{label}{opts.required ? ' *' : ''}</label>
-      <input
+      <label htmlFor={id} className={labelClass}>{label}{opts.required ? ' *' : ''}</label>
+      <Input
         id={id}
         type={opts.type ?? 'text'}
         value={value}
@@ -166,21 +170,21 @@ export default function AttendeeForm({ eventUuid, eventCountry, existing, attend
           set(e.target.value)
           setWarning('')
         }}
-        className="input-field"
+        className="h-10"
         required={opts.required}
         maxLength={opts.type === 'email' ? 254 : 120}
       />
-      {opts.hint && <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginTop: '4px' }}>{opts.hint}</p>}
+      {opts.hint && <p className="mt-1 text-xs text-muted-foreground">{opts.hint}</p>}
     </div>
   )
 
   return (
-    <form onSubmit={handleSubmit} style={panelStyle}>
-      <h2 style={{ fontSize: '20px', fontWeight: 600, marginBottom: '16px' }}>
+    <form onSubmit={handleSubmit} className={panelClass}>
+      <h2 className="mb-4 text-xl font-semibold">
         {editing ? `Edit ${attendee.full_name}` : 'Add attendee'}
-        {editing && <span style={{ fontFamily: 'monospace', fontSize: '14px', color: 'var(--color-text-secondary)', marginLeft: '8px' }}>{attendee.registration_id}</span>}
+        {editing && <span className="ml-2 font-mono text-sm text-muted-foreground">{attendee.registration_id}</span>}
       </h2>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '16px' }}>
+      <div className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4">
         {text('att-first', 'First name', firstName, setFirstName, { required: true })}
         {text('att-last', 'Last name', lastName, setLastName)}
         {editing ? (
@@ -192,13 +196,13 @@ export default function AttendeeForm({ eventUuid, eventCountry, existing, attend
           text('att-email', 'Email', email, setEmail, { type: 'email', hint: 'Corporate email preferred. Personal addresses (Gmail, Yahoo…) are saved as personal email.' })
         )}
         <div>
-          <label htmlFor="att-phone" style={labelStyle}>Phone</label>
+          <label htmlFor="att-phone" className={labelClass}>Phone</label>
           <PhoneInput id="att-phone" value={phone} onChange={setPhone} defaultCountryIso={country || eventCountry || 'IN'} />
         </div>
         {text('att-company', 'Company', company, setCompany)}
         {text('att-designation', 'Designation', designation, setDesignation)}
         <div>
-          <label htmlFor="att-country" style={labelStyle}>Country</label>
+          <label htmlFor="att-country" className={labelClass}>Country</label>
           <SearchSelect
             id="att-country"
             options={countryOptions}
@@ -211,54 +215,53 @@ export default function AttendeeForm({ eventUuid, eventCountry, existing, attend
           />
         </div>
         <div>
-          <label htmlFor="att-city" style={labelStyle}>City</label>
+          <label htmlFor="att-city" className={labelClass}>City</label>
           <SearchSelect id="att-city" options={cityOptions} value={city} onChange={setCity} placeholder="Search or type a city" allowCustom />
         </div>
         <div>
-          <label htmlFor="att-industry" style={labelStyle}>Industry</label>
-          <select id="att-industry" value={industryChoice} onChange={(e) => setIndustryChoice(e.target.value)} className="input-field">
+          <label htmlFor="att-industry" className={labelClass}>Industry</label>
+          <NativeSelect id="att-industry" className="h-10" value={industryChoice} onChange={(e) => setIndustryChoice(e.target.value)}>
             <option value="">— Not set —</option>
             {INDUSTRIES.map((i) => <option key={i} value={i}>{i}</option>)}
-          </select>
+          </NativeSelect>
           {industryChoice === 'Other' && (
-            <input
+            <Input
               aria-label="Other industry"
               value={industryOther}
               onChange={(e) => setIndustryOther(e.target.value)}
-              className="input-field"
+              className="mt-2 h-10"
               placeholder="Type the industry"
               maxLength={80}
-              style={{ marginTop: '8px' }}
             />
           )}
         </div>
         <div>
-          <label htmlFor="att-status" style={labelStyle}>Registration status</label>
-          <select id="att-status" value={status} onChange={(e) => setStatus(e.target.value)} className="input-field">
+          <label htmlFor="att-status" className={labelClass}>Registration status</label>
+          <NativeSelect id="att-status" className="h-10" value={status} onChange={(e) => setStatus(e.target.value)}>
             {REGISTRATION_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-          </select>
+          </NativeSelect>
         </div>
         <div>
-          <label htmlFor="att-confirmation" style={labelStyle}>Attendance confirmation</label>
-          <select id="att-confirmation" value={confirmation} onChange={(e) => setConfirmation(e.target.value)} className="input-field">
+          <label htmlFor="att-confirmation" className={labelClass}>Attendance confirmation</label>
+          <NativeSelect id="att-confirmation" className="h-10" value={confirmation} onChange={(e) => setConfirmation(e.target.value)}>
             {ATTENDANCE_CONFIRMATIONS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-          </select>
+          </NativeSelect>
         </div>
       </div>
-      {error && <div className="alert-error" style={{ marginBottom: '16px' }}>{error}</div>}
-      {warning && <div className="alert-warning" style={{ marginBottom: '16px' }}>{warning}</div>}
-      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-        <button type="submit" className="btn-primary" disabled={saving}>
+      {error && <Alert variant="error" className="mb-4">{error}</Alert>}
+      {warning && <Alert variant="warning" className="mb-4">{warning}</Alert>}
+      <div className="flex flex-wrap gap-3">
+        <Button type="submit" disabled={saving}>
           {saving ? 'Saving...' : editing ? 'Save changes' : 'Add attendee'}
-        </button>
+        </Button>
         {onCancel && (
-          <button type="button" className="btn-secondary" onClick={onCancel} disabled={saving}>
+          <Button type="button" variant="outline" onClick={onCancel} disabled={saving}>
             Cancel
-          </button>
+          </Button>
         )}
       </div>
       {!editing && (
-        <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)', marginTop: '8px' }}>
+        <p className="mt-2 text-sm text-muted-foreground">
           A 6-character registration ID is generated automatically. Attendance confirmation is separate from check-in.
         </p>
       )}

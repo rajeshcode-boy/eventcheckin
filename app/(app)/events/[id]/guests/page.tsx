@@ -20,6 +20,11 @@ import BulkEditPanel from './BulkEditPanel'
 import GuestDrawer from './GuestDrawer'
 import { useEventRole } from '@/components/EventRoleContext'
 import { canManageGuests } from '@/lib/permissions'
+import { Alert } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { NativeSelect } from '@/components/ui/native-select'
+import { cn } from '@/lib/utils'
 
 interface EventInfo {
   id: string
@@ -40,15 +45,21 @@ const ATTENDEE_COLUMNS =
   'id, registration_id, source, source_id, full_name, first_name, last_name, email, company_email, phone, designation, company, ' +
   'country, city, industry, registration_status, attendance_confirmation, created_at'
 
-const STATUS_COLORS: Record<string, string> = {
-  approved: 'var(--color-primary)',
-  registered: 'var(--color-primary)',
-  pending: 'var(--color-amber-warning)',
-  rejected: 'var(--color-error-red)',
-  cancelled: 'var(--color-error-red)',
-  confirmed: 'var(--color-primary)',
-  maybe: 'var(--color-amber-warning)',
-  not_confirmed: 'var(--color-text-secondary)',
+const TONE = {
+  good: 'border-primary text-primary',
+  warn: 'border-amber-500 text-amber-600',
+  bad: 'border-destructive text-destructive',
+  quiet: 'border-muted-foreground text-muted-foreground',
+}
+const STATUS_TONES: Record<string, string> = {
+  approved: TONE.good,
+  registered: TONE.good,
+  pending: TONE.warn,
+  rejected: TONE.bad,
+  cancelled: TONE.bad,
+  confirmed: TONE.good,
+  maybe: TONE.warn,
+  not_confirmed: TONE.quiet,
 }
 
 const formatDate = (iso?: string) =>
@@ -253,11 +264,9 @@ export default function GuestsPage() {
 
   if (!event) {
     return (
-      <div>
-        <p className="alert-error">{error}</p>
-        <Link href="/events" className="btn-primary" style={{ marginTop: '16px', display: 'inline-block' }}>
-          Back to events
-        </Link>
+      <div className="grid gap-4">
+        <Alert variant="error">{error}</Alert>
+        <Button className="w-fit" render={<Link href="/events" />} nativeButton={false}>Back to events</Button>
       </div>
     )
   }
@@ -267,28 +276,29 @@ export default function GuestsPage() {
   const drawerOpen = drawerMode !== null && (drawerMode === 'add' || openGuestRow !== null)
   // With the drawer docked beside the table, show only the columns that still fit
   const compact = drawerOpen
+  const cell = 'whitespace-nowrap px-3 py-2.5 align-top'
 
   return (
     <>
     {dialog}
-    <div style={{ maxWidth: '1400px' }} className={drawerOpen ? 'grid items-start gap-5 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]' : undefined}>
+    <div className={cn('max-w-[1400px]', drawerOpen && 'grid items-start gap-5 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]')}>
     <div className="min-w-0">
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', flexWrap: 'wrap', gap: '16px', marginBottom: '24px' }}>
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '8px' }}>Guests</h1>
-          <p style={{ color: 'var(--color-text-secondary)', fontSize: '15px' }}>
+          <h1 className="mb-2 text-[28px] font-bold">Guests</h1>
+          <p className="text-[15px] text-muted-foreground">
             {guests.length} guest{guests.length === 1 ? '' : 's'} for {event.name}
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-          {canEdit && <button className="btn-primary" onClick={() => setPanel('import')}>Import CSV/Excel</button>}
-          {canEdit && <button className="btn-secondary" onClick={openAdd}>Add guest</button>}
+        <div className="flex flex-wrap gap-3">
+          {canEdit && <Button onClick={() => setPanel('import')}>Import CSV/Excel</Button>}
+          {canEdit && <Button variant="outline" onClick={openAdd}>Add guest</Button>}
         </div>
       </div>
 
-      {notice && <div className="alert-success" style={{ marginBottom: '16px' }}>{notice}</div>}
-      {error && <div className="alert-error" style={{ marginBottom: '16px' }}>{error}</div>}
+      {notice && <Alert variant="success" className="mb-4">{notice}</Alert>}
+      {error && <Alert variant="error" className="mb-4">{error}</Alert>}
 
       {panel === 'import' && (
         <Modal onClose={() => setPanel('')} label="Import attendees">
@@ -302,37 +312,36 @@ export default function GuestsPage() {
       )}
 
       {/* Search, filters and sort */}
-      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '12px' }}>
-        <input
+      <div className="mb-3 flex flex-wrap gap-3">
+        <Input
           type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="input-field"
+          className="h-10 min-w-[280px] flex-1"
           placeholder="Search name, email, phone, company or reg ID"
           aria-label="Search attendees"
-          style={{ flex: '1 1 280px' }}
         />
-        <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)} className="input-field" style={{ flex: '1 1 180px', width: 'auto' }} aria-label="Sort attendees">
+        <NativeSelect value={sort} onChange={(e) => setSort(e.target.value as SortKey)} className="h-10 flex-1 basis-[180px]" aria-label="Sort attendees">
           <option value="created_desc">Newest registrations first</option>
           <option value="created_asc">Oldest registrations first</option>
           <option value="name_asc">Name A–Z</option>
           <option value="name_desc">Name Z–A</option>
-        </select>
+        </NativeSelect>
       </div>
       {/* The two most-used filters stay visible; the rest sit behind "More filters" */}
       {(() => {
         const hiddenActive = [filters.country, filters.city, filters.industry, filters.source].filter(Boolean).length
         return (
           <>
-            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '12px', alignItems: 'center' }}>
+            <div className="mb-3 flex flex-wrap items-center gap-3">
               <FilterSelect label="Registration status" value={filters.status} onChange={(v) => setFilter('status', v)} options={REGISTRATION_STATUSES.map((s) => ({ value: s.value, label: s.label }))} />
               <FilterSelect label="Attendance" value={filters.confirmation} onChange={(v) => setFilter('confirmation', v)} options={ATTENDANCE_CONFIRMATIONS.map((s) => ({ value: s.value, label: s.label }))} />
-              <button type="button" className="btn-secondary" aria-expanded={moreFilters} onClick={() => setMoreFilters(!moreFilters)}>
+              <Button type="button" variant="outline" aria-expanded={moreFilters} onClick={() => setMoreFilters(!moreFilters)}>
                 {moreFilters ? 'Fewer filters' : `More filters${hiddenActive ? ` (${hiddenActive})` : ''}`}
-              </button>
+              </Button>
             </div>
             {moreFilters && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px', marginBottom: '16px' }}>
+              <div className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3">
                 <FilterSelect label="Country" value={filters.country} onChange={(v) => setFilter('country', v)} options={options.countries} />
                 <FilterSelect label="City" value={filters.city} onChange={(v) => setFilter('city', v)} options={options.cities.map((c) => ({ value: c, label: c }))} />
                 <FilterSelect label="Industry" value={filters.industry} onChange={(v) => setFilter('industry', v)} options={options.industries.map((i) => ({ value: i, label: i }))} />
@@ -344,57 +353,57 @@ export default function GuestsPage() {
       })()}
 
       {/* Selection actions */}
-      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '12px', minHeight: '44px' }}>
-        <span style={{ fontSize: '14px', color: 'var(--color-text-secondary)' }}>
+      <div className="mb-3 flex min-h-11 flex-wrap items-center gap-3">
+        <span className="text-sm text-muted-foreground">
           {selected.size > 0 ? `${selected.size} selected` : `Showing ${filtered.length} of ${guests.length}`}
         </span>
         {filtersActive && (
-          <button className="btn-secondary" onClick={clearFilters}>Clear filters</button>
+          <Button variant="outline" onClick={clearFilters}>Clear filters</Button>
         )}
         {selected.size > 0 ? (
           <>
-            <button className="btn-secondary" onClick={handleExport}>Export selected (CSV)</button>
-            <button className="btn-secondary" onClick={handleEditSelected}>{selected.size === 1 ? 'Edit' : `Edit ${selected.size}`}</button>
-            <button className="btn-secondary" onClick={handleDelete} style={{ color: 'var(--color-error-red)', borderColor: 'var(--color-error-red)' }}>
+            <Button variant="outline" onClick={handleExport}>Export selected (CSV)</Button>
+            <Button variant="outline" onClick={handleEditSelected}>{selected.size === 1 ? 'Edit' : `Edit ${selected.size}`}</Button>
+            <Button variant="outline" className="border-destructive text-destructive" onClick={handleDelete}>
               Delete {selected.size}
-            </button>
-            <button className="btn-secondary" onClick={() => setSelected(new Set())}>Clear selection</button>
+            </Button>
+            <Button variant="outline" onClick={() => setSelected(new Set())}>Clear selection</Button>
             {selected.size < filtered.length && (
-              <button className="btn-secondary" onClick={() => setSelected(new Set(filtered.map((g) => g.id)))}>
+              <Button variant="outline" onClick={() => setSelected(new Set(filtered.map((g) => g.id)))}>
                 Select all {filtered.length} shown
-              </button>
+              </Button>
             )}
           </>
         ) : (
-          <button className="btn-secondary" onClick={handleExport} disabled={filtered.length === 0}>Export shown (CSV)</button>
+          <Button variant="outline" onClick={handleExport} disabled={filtered.length === 0}>Export shown (CSV)</Button>
         )}
       </div>
 
       {guests.length === 0 ? (
-        <div style={{ padding: '32px', textAlign: 'center', border: '1px solid var(--color-border)', borderRadius: '6px' }}>
-          <p style={{ color: 'var(--color-text-secondary)' }}>No attendees yet. Import a CSV or Excel file, or add attendees one by one.</p>
+        <div className="rounded-md border border-border p-8 text-center">
+          <p className="text-muted-foreground">No attendees yet. Import a CSV or Excel file, or add attendees one by one.</p>
         </div>
       ) : (
         <>
-          <div style={{ overflowX: 'auto', border: '1px solid var(--color-border)', borderRadius: '6px' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+          <div className="overflow-x-auto rounded-md border border-border">
+            <table className="w-full border-collapse text-sm">
               <thead>
-                <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--color-border)' }}>
-                  <th style={cellStyle}>
-                    <input type="checkbox" checked={pageAllSelected} onChange={togglePage} aria-label="Select all on this page" />
+                <tr className="border-b border-border text-left">
+                  <th className={cell}>
+                    <input type="checkbox" className="accent-primary" checked={pageAllSelected} onChange={togglePage} aria-label="Select all on this page" />
                   </th>
-                  <th style={cellStyle}>Attendee</th>
-                  {!compact && <th style={cellStyle}>Email</th>}
-                  {!compact && <th style={cellStyle}>Phone</th>}
-                  {!compact && <th style={cellStyle}>Company</th>}
-                  {!compact && <th style={cellStyle}>Country</th>}
-                  {!compact && <th style={cellStyle}>City</th>}
-                  {!compact && <th style={cellStyle}>Industry</th>}
-                  <th style={cellStyle}>Registration</th>
-                  {!compact && <th style={cellStyle}>Attendance</th>}
-                  {!compact && <th style={cellStyle}>Registered</th>}
-                  <th style={cellStyle}>Check-in</th>
-                  {!compact && <th style={cellStyle}><span className="sr-only">Actions</span></th>}
+                  <th className={cell}>Attendee</th>
+                  {!compact && <th className={cell}>Email</th>}
+                  {!compact && <th className={cell}>Phone</th>}
+                  {!compact && <th className={cell}>Company</th>}
+                  {!compact && <th className={cell}>Country</th>}
+                  {!compact && <th className={cell}>City</th>}
+                  {!compact && <th className={cell}>Industry</th>}
+                  <th className={cell}>Registration</th>
+                  {!compact && <th className={cell}>Attendance</th>}
+                  {!compact && <th className={cell}>Registered</th>}
+                  <th className={cell}>Check-in</th>
+                  {!compact && <th className={cell}><span className="sr-only">Actions</span></th>}
                 </tr>
               </thead>
               <tbody>
@@ -402,47 +411,47 @@ export default function GuestsPage() {
                   <tr
                     key={g.id}
                     onClick={() => openGuest(g.id)}
-                    style={{ borderBottom: '1px solid var(--color-border)', cursor: 'pointer', backgroundColor: g.id === openId ? 'var(--color-primary-soft)' : selected.has(g.id) ? 'var(--color-neutral-light)' : undefined }}
+                    className={cn('cursor-pointer border-b border-border', g.id === openId ? 'bg-accent' : selected.has(g.id) && 'bg-muted')}
                   >
-                    <td style={cellStyle} onClick={(e) => e.stopPropagation()}>
-                      <input type="checkbox" checked={selected.has(g.id)} onChange={() => toggleOne(g.id)} aria-label={`Select ${g.full_name}`} />
+                    <td className={cell} onClick={(e) => e.stopPropagation()}>
+                      <input type="checkbox" className="accent-primary" checked={selected.has(g.id)} onChange={() => toggleOne(g.id)} aria-label={`Select ${g.full_name}`} />
                     </td>
-                    <td style={cellStyle}>
-                      <div style={{ fontWeight: 600 }}>{g.full_name}</div>
-                      <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>
-                        <span style={{ fontFamily: 'monospace' }}>{g.registration_id}</span>
+                    <td className={cell}>
+                      <div className="font-semibold">{g.full_name}</div>
+                      <div className="text-xs text-muted-foreground">
+                        <span className="font-mono">{g.registration_id}</span>
                         {g.designation ? ` • ${g.designation}` : ''} • {g.source}
                       </div>
                     </td>
                     {!compact && (
                       <>
-                        <td style={cellStyle}>
+                        <td className={cell}>
                           <div>{g.company_email || g.email}</div>
-                          {g.company_email && g.email && <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>{g.email}</div>}
+                          {g.company_email && g.email && <div className="text-xs text-muted-foreground">{g.email}</div>}
                         </td>
-                        <td style={cellStyle}>{g.phone}</td>
-                        <td style={cellStyle}>{g.company}</td>
-                        <td style={cellStyle}>{countryName(g.country)}</td>
-                        <td style={cellStyle}>{g.city}</td>
-                        <td style={cellStyle}>{g.industry}</td>
+                        <td className={cell}>{g.phone}</td>
+                        <td className={cell}>{g.company}</td>
+                        <td className={cell}>{countryName(g.country)}</td>
+                        <td className={cell}>{g.city}</td>
+                        <td className={cell}>{g.industry}</td>
                       </>
                     )}
-                    <td style={cellStyle}><Pill value={g.registration_status} label={registrationStatusLabel(g.registration_status)} /></td>
+                    <td className={cell}><Pill value={g.registration_status} label={registrationStatusLabel(g.registration_status)} /></td>
                     {!compact && (
                       <>
-                        <td style={cellStyle}><Pill value={g.attendance_confirmation} label={attendanceConfirmationLabel(g.attendance_confirmation)} /></td>
-                        <td style={cellStyle}>{formatDate(g.created_at)}</td>
+                        <td className={cell}><Pill value={g.attendance_confirmation} label={attendanceConfirmationLabel(g.attendance_confirmation)} /></td>
+                        <td className={cell}>{formatDate(g.created_at)}</td>
                       </>
                     )}
-                    <td style={{ ...cellStyle, color: checkedIn.has(g.id) ? 'var(--color-primary)' : 'var(--color-text-secondary)' }}>
+                    <td className={cn(cell, checkedIn.has(g.id) ? 'text-primary' : 'text-muted-foreground')}>
                       {checkedIn.has(g.id) ? 'Checked in' : '—'}
                     </td>
                     {!compact && (
-                      <td style={cellStyle} onClick={(e) => e.stopPropagation()}>
+                      <td className={cell} onClick={(e) => e.stopPropagation()}>
                         {canEdit && (
-                          <button className="btn-secondary" onClick={() => openGuest(g.id, 'edit')} style={{ minHeight: '32px', padding: '4px 12px' }}>
+                          <Button variant="outline" size="sm" onClick={() => openGuest(g.id, 'edit')}>
                             Edit
-                          </button>
+                          </Button>
                         )}
                       </td>
                     )}
@@ -450,7 +459,7 @@ export default function GuestsPage() {
                 ))}
                 {pageRows.length === 0 && (
                   <tr>
-                    <td colSpan={compact ? 4 : 13} style={{ ...cellStyle, textAlign: 'center', color: 'var(--color-text-secondary)' }}>
+                    <td colSpan={compact ? 4 : 13} className={cn(cell, 'text-center text-muted-foreground')}>
                       No attendees match your search or filters.
                     </td>
                   </tr>
@@ -460,17 +469,17 @@ export default function GuestsPage() {
           </div>
 
           {/* Pagination */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginTop: '12px' }}>
-            <label style={{ fontSize: '14px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+            <label className="flex items-center gap-2 text-sm">
               Rows per page
-              <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))} className="input-field" style={{ width: '90px' }}>
+              <NativeSelect value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))} className="h-10 w-[90px]">
                 {PAGE_SIZES.map((n) => <option key={n} value={n}>{n}</option>)}
-              </select>
+              </NativeSelect>
             </label>
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <button className="btn-secondary" onClick={() => setPage(currentPage - 1)} disabled={currentPage <= 1}>Previous</button>
-              <span style={{ fontSize: '14px' }}>Page {currentPage} of {pageCount}</span>
-              <button className="btn-secondary" onClick={() => setPage(currentPage + 1)} disabled={currentPage >= pageCount}>Next</button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={() => setPage(currentPage - 1)} disabled={currentPage <= 1}>Previous</Button>
+              <span className="text-sm">Page {currentPage} of {pageCount}</span>
+              <Button variant="outline" onClick={() => setPage(currentPage + 1)} disabled={currentPage >= pageCount}>Next</Button>
             </div>
           </div>
         </>
@@ -495,21 +504,19 @@ export default function GuestsPage() {
   )
 }
 
-const cellStyle: React.CSSProperties = { padding: '10px 12px', whiteSpace: 'nowrap', verticalAlign: 'top' }
-
 function FilterSelect({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: { value: string; label: string }[] }) {
   return (
-    <select value={value} onChange={(e) => onChange(e.target.value)} className="input-field" style={{ flex: '1 1 160px', width: 'auto' }} aria-label={`Filter by ${label.toLowerCase()}`}>
+    <NativeSelect value={value} onChange={(e) => onChange(e.target.value)} className="h-10 flex-1 basis-[160px]" aria-label={`Filter by ${label.toLowerCase()}`}>
       <option value="">{label}: all</option>
       {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-    </select>
+    </NativeSelect>
   )
 }
 
 function Pill({ value, label }: { value?: string; label: string }) {
-  const color = (value && STATUS_COLORS[value]) || 'var(--color-text-secondary)'
+  const tone = (value && STATUS_TONES[value]) || TONE.quiet
   return (
-    <span style={{ display: 'inline-block', fontSize: '12px', fontWeight: 600, color, border: `1px solid ${color}`, borderRadius: '999px', padding: '2px 8px' }}>
+    <span className={cn('inline-block rounded-full border px-2 py-0.5 text-xs font-semibold', tone)}>
       {label}
     </span>
   )
@@ -528,9 +535,9 @@ function Modal({ children, onClose, label }: { children: React.ReactNode; onClos
       aria-modal="true"
       aria-label={label}
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
-      style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', padding: '32px 16px', overflowY: 'auto' }}
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 px-4 py-8"
     >
-      <div style={{ width: '100%', maxWidth: '900px', backgroundColor: 'var(--color-white)', borderRadius: '8px' }}>{children}</div>
+      <div className="w-full max-w-[900px] rounded-lg bg-background">{children}</div>
     </div>
   )
 }

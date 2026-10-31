@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation'
 import { formatTime } from '@/lib/time'
 import { Alert } from '@/components/ui/alert'
 import { cameraAvailable, startScanner } from '@/lib/kiosk/scanner'
+import { parseBadgeCode } from '@/lib/badgeCode'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
@@ -26,16 +27,6 @@ interface Found {
   badge_collected_at: string | null
   badge_collected_by: string | null
   checkins: { checked_in_at: string }[]
-}
-
-// Accepts a registration ID, a badge link, or a token. Returns the lookup key.
-function parseCode(input: string): { kind: 'token' | 'reg'; value: string } | null {
-  const text = input.trim()
-  if (!text) return null
-  const badgeMatch = text.match(/\/badge\/([A-Za-z0-9]+)/)
-  if (badgeMatch) return { kind: 'token', value: badgeMatch[1]! }
-  if (/^[A-Za-z0-9]{32}$/.test(text)) return { kind: 'token', value: text }
-  return { kind: 'reg', value: text.toUpperCase() }
 }
 
 // Pickup tab of the Desk: find a guest's badge, check it is ready, and mark it collected once.
@@ -81,9 +72,14 @@ export default function PickupTab() {
   }, [eventUuid])
 
   const lookup = async (raw: string) => {
-    const parsed = parseCode(raw)
+    const parsed = parseBadgeCode(raw)
     if (!parsed) return
     setMessage('')
+    if (parsed.kind === 'unknown') {
+      setFound(null)
+      setMessage("That QR code isn't an EventCheckin badge. Scan the QR on the guest's pass or badge.")
+      return
+    }
     setBusy(true)
     const base = supabase
       .from('registrations')
@@ -97,6 +93,16 @@ export default function PickupTab() {
     if (error) {
       setMessage("Couldn't look that up. Try again.")
       return
+    }
+    // A guest registered for several events has a different pass for each; say which event this one is for
+    if (!data && parsed.kind === 'token') {
+      const { data: other } = await supabase
+        .from('registrations')
+        .select('events(name)')
+        .eq('badge_token', parsed.value)
+        .maybeSingle()
+      const otherEvent = (other as { events: { name: string } | null } | null)?.events?.name
+      if (otherEvent) setMessage(`This pass is for ${otherEvent}, not this event. Ask the guest for their pass for this event, or look them up by registration ID.`)
     }
     setFound(data ? (data as unknown as Found) : 'none')
     setCode('')
@@ -157,6 +163,13 @@ export default function PickupTab() {
     }
   }
 
+  const stopScan = () => {
+    stopRef.current?.()
+    stopRef.current = null
+    setScanning(false)
+    inputRef.current?.focus()
+  }
+
   // Release the camera if the tab is left while scanning
   useEffect(() => () => stopRef.current?.(), [])
 
@@ -197,7 +210,17 @@ export default function PickupTab() {
       </form>
 
       {scanning && (
-        <video ref={videoRef} muted playsInline aria-label="Camera preview" className="mb-4 w-full rounded-xl bg-black" />
+        <div className="mb-4">
+          <video ref={videoRef} muted playsInline aria-label="Camera preview" className="w-full rounded-xl bg-black" />
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm text-muted-foreground">
+              Hold the QR code steady, about a hand&apos;s width from the camera. Turn the phone&apos;s brightness up if it doesn&apos;t read.
+            </p>
+            <Button type="button" variant="outline" onClick={stopScan}>
+              Cancel
+            </Button>
+          </div>
+        </div>
       )}
 
       {message && <p role="status" className="mb-3 text-sm text-muted-foreground">{message}</p>}

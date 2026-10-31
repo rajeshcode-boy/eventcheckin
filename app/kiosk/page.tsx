@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { cameraAvailable, startScanner, type Facing } from '@/lib/kiosk/scanner'
 import { keepScreenAwake } from '@/lib/kiosk/wakelock'
 import ScanFlash, { type Flash } from '@/components/kiosk/ScanFlash'
+import ScannerOverlay from '@/components/ScannerOverlay'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { clearAll, dequeue, enqueue, getGuests, getQueue, putGuest, replaceGuests } from '@/lib/kiosk/db'
@@ -398,7 +399,10 @@ function Desk({ session, onUnpair }: { session: KioskSession; onUnpair: () => vo
             </div>
           )}
 
-          <video ref={videoRef} muted playsInline className={cn('max-h-80 w-full rounded-xl bg-black object-cover', facing === 'user' && '-scale-x-100', scanning ? 'block' : 'hidden')} />
+          <div className={cn('relative overflow-hidden rounded-xl bg-black', scanning ? 'block' : 'hidden')}>
+            <video ref={videoRef} muted playsInline className={cn('max-h-80 w-full object-cover', facing === 'user' && '-scale-x-100')} />
+            {scanning && <ScannerOverlay hint="Hold the QR code on your pass inside the box" />}
+          </div>
 
           <div className="grid gap-2.5">
             {results.map((g) => (

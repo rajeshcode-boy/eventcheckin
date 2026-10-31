@@ -7,6 +7,7 @@ import { formatTime } from '@/lib/time'
 import { Alert } from '@/components/ui/alert'
 import { cameraAvailable, startScanner } from '@/lib/kiosk/scanner'
 import { parseBadgeCode } from '@/lib/badgeCode'
+import ScannerOverlay from '@/components/ScannerOverlay'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
@@ -211,7 +212,10 @@ export default function PickupTab() {
 
       {scanning && (
         <div className="mb-4">
-          <video ref={videoRef} muted playsInline aria-label="Camera preview" className="w-full rounded-xl bg-black" />
+          <div className="relative overflow-hidden rounded-xl bg-black">
+            <video ref={videoRef} muted playsInline aria-label="Camera preview" className="w-full" />
+            <ScannerOverlay hint="Place the QR code on the guest's pass inside the box" />
+          </div>
           <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm text-muted-foreground">
               Hold the QR code steady, about a hand&apos;s width from the camera. Turn the phone&apos;s brightness up if it doesn&apos;t read.

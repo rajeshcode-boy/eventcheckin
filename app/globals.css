@@ -180,6 +180,13 @@ body {
   .kiosk-flash, .kiosk-flash-badge, .kiosk-flash-check, .kiosk-flash-text { animation: none; }
 }
 
+/* Scan line inside the camera guide box (components/ScannerOverlay.tsx) */
+@keyframes scanner-sweep { 0%, 100% { top: 8%; } 50% { top: 90%; } }
+.scanner-sweep { animation: scanner-sweep 2s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .scanner-sweep { animation: none; top: 50%; }
+}
+
 /* Scanner line on the home page kiosk illustration (components/home/HeroVisual.tsx) */
 @keyframes hp-scan { 0%, 100% { top: 10%; } 50% { top: 88%; } }
 .hp-scan-line { animation: hp-scan 2.4s ease-in-out infinite; }

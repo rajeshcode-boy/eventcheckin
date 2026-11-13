@@ -94,6 +94,20 @@ export default function EventLayout({ children }: { children: React.ReactNode })
           aria-label="Event sections"
           className="flex gap-1.5 overflow-x-auto pb-1 md:sticky md:top-[84px] md:flex-col md:gap-0.5 md:overflow-visible md:pb-0"
         >
+          {/* Back to All Events at the very top */}
+          <Link
+            href="/events"
+            className={cn(
+              linkClass,
+              'font-semibold text-foreground/80 hover:text-foreground md:mb-2 md:rounded-lg md:border md:border-border/70 md:bg-muted/40 md:py-1.5'
+            )}
+          >
+            <span className="flex items-center gap-1.5">
+              <span>←</span>
+              <span>All events</span>
+            </span>
+          </Link>
+
           {role && (
             <div className="shrink-0 px-3 pb-2 max-md:flex max-md:items-center max-md:px-0 max-md:pb-0">
               <RoleBadge role={role} />
@@ -128,13 +142,6 @@ export default function EventLayout({ children }: { children: React.ReactNode })
               </div>
             )
           })}
-
-          <Link
-            href="/events"
-            className={cn(linkClass, 'md:mt-4 md:rounded-none md:border-t md:border-border md:pt-3.5')}
-          >
-            <span>← All events</span>
-          </Link>
         </nav>
 
         <div className="min-w-0">{content}</div>

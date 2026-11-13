@@ -6,6 +6,8 @@ import Link from 'next/link'
 import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import CanvaStudioDashboard from '@/components/dashboard/CanvaStudioDashboard'
+import { Sparkles, LayoutGrid } from 'lucide-react'
 
 interface EventRow {
   id: string
@@ -43,6 +45,29 @@ export default function OrgDashboardPage() {
   const [checkins, setCheckins] = useState<CheckinRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [userName, setUserName] = useState('Organizer')
+  const [orgName, setOrgName] = useState('EventCheckin')
+  const [viewMode, setViewMode] = useState<'canva' | 'classic'>('canva')
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('dashboard_view_mode')
+      if (saved === 'classic' || saved === 'canva') {
+        setViewMode(saved)
+      }
+    } catch {
+      // Ignore localStorage read errors
+    }
+  }, [])
+
+  const handleToggleView = (mode: 'canva' | 'classic') => {
+    setViewMode(mode)
+    try {
+      localStorage.setItem('dashboard_view_mode', mode)
+    } catch {
+      // Ignore localStorage write errors
+    }
+  }
 
   useEffect(() => {
     load()
@@ -54,8 +79,17 @@ export default function OrgDashboardPage() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-      const { data: profile } = await supabase.from('profiles').select('organization_id').eq('id', user.id).single()
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name, organization_id, organizations(name)')
+        .eq('id', user.id)
+        .single()
+
       if (!profile) return
+
+      if (profile.full_name) setUserName(profile.full_name)
+      const org = profile.organizations as any
+      if (org?.name) setOrgName(org.name)
 
       const { data: eventRows, error: eventsError } = await supabase
         .from('events')
@@ -139,6 +173,29 @@ export default function OrgDashboardPage() {
 
   const card = 'rounded-xl border border-border bg-card p-5'
 
+  // Render Canva Studio Mode
+  if (viewMode === 'canva') {
+    return (
+      <div className="max-w-[1240px]">
+        {error && <Alert variant="error" className="mb-5">{error}</Alert>}
+        <CanvaStudioDashboard
+          events={events}
+          registrations={registrations}
+          checkins={checkins}
+          userName={userName}
+          orgName={orgName}
+          stats={stats}
+          byStatus={byStatus}
+          trend={trend}
+          onRefresh={load}
+          onToggleView={handleToggleView}
+          currentView={viewMode}
+        />
+      </div>
+    )
+  }
+
+  // Render Classic Mode
   return (
     <div className="max-w-[1100px]">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
@@ -148,9 +205,30 @@ export default function OrgDashboardPage() {
             An overview across all of your events.
           </p>
         </div>
-        <Button type="button" variant="outline" onClick={load}>
-          Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          {/* View Toggle */}
+          <div className="flex items-center gap-1 rounded-full border border-border bg-card p-1 shadow-xs">
+            <button
+              type="button"
+              onClick={() => handleToggleView('canva')}
+              className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold text-muted-foreground hover:text-foreground transition-all"
+            >
+              <Sparkles size={13} />
+              Canva Studio
+            </button>
+            <button
+              type="button"
+              onClick={() => handleToggleView('classic')}
+              className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold bg-primary text-primary-foreground shadow-xs transition-all"
+            >
+              <LayoutGrid size={13} />
+              Classic Table
+            </button>
+          </div>
+          <Button type="button" variant="outline" onClick={load}>
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {error && <Alert variant="error" className="mb-5">{error}</Alert>}

@@ -4,23 +4,24 @@
 @config "../tailwind.config.ts";
 
 :root {
-  --color-primary: #1A4439;
-  --color-primary-hover: #0F2B24;
-  --color-primary-soft: #D5EDE4;
-  --color-live: #007550;
-  --color-live-soft: #D5EDE4;
+  --color-primary: #059669;
+  --color-primary-hover: #047857;
+  --color-primary-soft: #ECFDF5;
+  --color-primary-fg: #ffffff;
+  --color-live: #10B981;
+  --color-live-soft: #D1FAE5;
   --color-amber-warning: #f59e0b;
-  --color-error-red: #dc2626;
-  --color-neutral-light: #F3F7F5;
-  --color-neutral-dark: #1f2937;
-  --color-border: #D5E2DC;
-  --color-text-primary: #1A4439;
-  --color-text-secondary: #4F6B62;
+  --color-error-red: #ef4444;
+  --color-neutral-light: #F8FAFC;
+  --color-neutral-dark: #0F172A;
+  --color-border: #E2E8F0;
+  --color-text-primary: #0F172A;
+  --color-text-secondary: #64748B;
   --color-white: #ffffff;
   --color-surface: #ffffff;
-  --color-surface-muted: #F7FAF8;
-  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.06);
-  --shadow-pop: 0 8px 24px rgba(15, 23, 42, 0.12);
+  --color-surface-muted: #F1F5F9;
+  --shadow-card: 0 1px 3px rgba(15, 23, 42, 0.05), 0 1px 2px rgba(15, 23, 42, 0.03);
+  --shadow-pop: 0 10px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
   --app-radius-md: 10px;
   --app-radius-lg: 14px;
 }
@@ -28,21 +29,24 @@
 /* Light is the default regardless of the OS setting; dark is opt-in only
    via ThemeToggle setting data-theme="dark" (and remembering it). */
 :root[data-theme="dark"] {
-  --color-primary: #2F7A62;
-  --color-primary-hover: #3A8D73;
-  --color-primary-soft: #17332C;
-  --color-live: #3FB68A;
-  --color-live-soft: #163C30;
-  --color-neutral-light: #0C1B19;
-  --color-neutral-dark: #f1f5f9;
-  --color-border: #2A4A41;
-  --color-text-primary: #F3F7F5;
-  --color-text-secondary: #A9C2B8;
-  --color-white: #0A1A16;
-  --color-surface: #111827;
-  --color-surface-muted: #1A4439;
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --color-primary: #10B981;
+  --color-primary-hover: #34D399;
+  --color-primary-soft: #064E3B;
+  --color-primary-fg: #022C22;
+  --color-live: #34D399;
+  --color-live-soft: #064E3B;
+  --color-amber-warning: #fbbf24;
+  --color-error-red: #f87171;
+  --color-neutral-light: #0B0F14;
+  --color-neutral-dark: #F8FAFC;
+  --color-border: #1E293B;
+  --color-text-primary: #F8FAFC;
+  --color-text-secondary: #94A3B8;
+  --color-white: #0B0F14;
+  --color-surface: #121820;
+  --color-surface-muted: #1A232D;
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-pop: 0 10px 30px rgba(0, 0, 0, 0.7);
 }
 
 :root {
@@ -132,12 +136,12 @@ body {
   --color-popover: var(--color-surface);
   --color-popover-foreground: var(--color-text-primary);
   --color-primary: var(--color-primary);
-  --color-primary-foreground: #ffffff;
+  --color-primary-foreground: var(--color-primary-fg);
   /* Brighter green for accent text; readable on the dark theme where --color-primary is too dim */
   --color-brand: var(--color-live);
   --color-secondary: var(--color-surface-muted);
   --color-secondary-foreground: var(--color-text-primary);
-  --color-muted: var(--color-neutral-light);
+  --color-muted: var(--color-surface-muted);
   --color-muted-foreground: var(--color-text-secondary);
   --color-accent: var(--color-primary-soft);
   --color-accent-foreground: var(--color-primary);

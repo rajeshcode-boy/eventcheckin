@@ -216,15 +216,15 @@ export default function CanvaStudioDashboard({
       </div>
 
       {/* Signature Canva Hero Banner */}
-      <div className="relative overflow-hidden rounded-3xl bg-linear-to-br from-[#103E33] via-[#165143] to-[#0A2620] p-6 text-white shadow-xl sm:p-10">
+      <div className="relative overflow-hidden rounded-3xl bg-linear-to-br from-slate-900 via-emerald-950 to-slate-900 p-6 text-white shadow-xl sm:p-10">
         {/* Decorative Floating Mesh Glows */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute -top-24 -right-24 size-96 rounded-full bg-emerald-400/20 blur-3xl"
+          className="pointer-events-none absolute -top-24 -right-24 size-96 rounded-full bg-emerald-500/15 blur-3xl"
         />
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute -bottom-24 -left-24 size-80 rounded-full bg-teal-400/15 blur-3xl"
+          className="pointer-events-none absolute -bottom-24 -left-24 size-80 rounded-full bg-teal-500/10 blur-3xl"
         />
 
         <div className="relative z-10 max-w-3xl">

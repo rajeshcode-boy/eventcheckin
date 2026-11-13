@@ -24,7 +24,7 @@ import {
   Award,
   Zap,
 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
@@ -447,14 +447,15 @@ export default function CanvaStudioDashboard({
                       </span>
                     ))}
                   </div>
-                  <Button
-                    size="xs"
-                    variant="outline"
-                    className="rounded-full group-hover:bg-primary group-hover:text-primary-foreground group-hover:border-primary transition-all"
-                    render={<Link href="/events/create" />}
+                  <Link
+                    href="/events/create"
+                    className={cn(
+                      buttonVariants({ variant: 'outline', size: 'xs' }),
+                      'rounded-full group-hover:bg-primary group-hover:text-primary-foreground group-hover:border-primary transition-all'
+                    )}
                   >
                     Use Kit →
-                  </Button>
+                  </Link>
                 </div>
               </div>
             )
@@ -505,9 +506,12 @@ export default function CanvaStudioDashboard({
                 ? `No events match "${searchQuery}". Try a different keyword.`
                 : 'Get started by creating your first event kit.'}
             </p>
-            <Button className="mt-5 rounded-full" render={<Link href="/events/create" />}>
+            <Link
+              href="/events/create"
+              className={cn(buttonVariants({ size: 'default' }), 'mt-5 rounded-full')}
+            >
               + Create an Event
-            </Button>
+            </Link>
           </Card>
         ) : (
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">

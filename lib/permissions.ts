@@ -51,10 +51,10 @@ export interface EventSection {
 }
 
 export const EVENT_SECTIONS: EventSection[] = [
-  { key: 'overview', href: '', label: 'Overview', allowed: canViewEvent },
-  { key: 'guests', href: '/guests', label: 'Guests', allowed: canManageGuests },
+  { key: 'overview', href: '', label: 'Event Overview', allowed: canViewEvent },
+  { key: 'guests', href: '/guests', label: 'Guests & Roster', allowed: canManageGuests },
   { key: 'dashboard', href: '/dashboard', label: 'Live Telemetry', allowed: canViewReports },
-  { key: 'badge-design', href: '/badge-design', label: 'Badge Design', allowed: canManageEvent },
+  { key: 'badge-design', href: '/badge-design', label: 'Badge & Pass Studio', allowed: canManageEvent },
   { key: 'badges', href: '/badges', label: 'Badge Printing', allowed: canManageEvent },
   { key: 'desk', href: '/desk', label: '⚡ Live Gate Station', allowed: canCheckIn },
   { key: 'team', href: '/team', label: 'Team', allowed: canManageTeam },

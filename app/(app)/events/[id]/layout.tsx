@@ -13,11 +13,11 @@ import { canOpenPath, ROLE_LABELS, sectionsForRole, type EventRole } from '@/lib
 const LIFECYCLE_GROUPS = [
   {
     title: 'EVENT DAY',
-    keys: ['desk', 'dashboard'],
+    keys: ['desk'],
   },
   {
     title: 'PREPARE',
-    keys: ['overview', 'guests', 'badge-design', 'badges'],
+    keys: ['overview', 'guests', 'badge-design'],
   },
   {
     title: 'DEBRIEF & SETTINGS',

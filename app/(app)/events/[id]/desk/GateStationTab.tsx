@@ -462,6 +462,15 @@ export default function GateStationTab() {
           </Button>
 
           <Link
+            href={`/events/${eventUuid}/dashboard`}
+            className="flex items-center gap-1.5 rounded-full border border-border bg-muted/50 px-3.5 py-1.5 text-xs font-semibold text-muted-foreground transition-all hover:bg-muted hover:text-foreground"
+            title="Open Live Big-Screen Telemetry Projector"
+          >
+            <Activity size={13} />
+            <span>Live Stream</span>
+          </Link>
+
+          <Link
             href={`/events/${eventUuid}/desk?tab=kiosk`}
             className="flex items-center gap-1.5 rounded-full border border-border bg-muted/50 px-3.5 py-1.5 text-xs font-semibold text-muted-foreground transition-all hover:bg-muted hover:text-foreground"
             title="Launch Fullscreen Attendee Kiosk Stand"

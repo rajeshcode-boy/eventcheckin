@@ -19,10 +19,9 @@ import ImpersonationBanner from '@/components/ImpersonationBanner'
 import { identifyOrganiser, resetAnalytics } from '@/lib/analytics'
 
 const NAV: { href: string; label: string; adminOnly?: boolean }[] = [
-  { href: '/dashboard', label: 'Dashboard' },
+  { href: '/dashboard', label: 'Studio Hub' },
   { href: '/events', label: 'Events' },
   { href: '/organization', label: 'Organization', adminOnly: true },
-  { href: '/profile', label: 'My Profile' },
 ]
 
 export default function AppLayout({

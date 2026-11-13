@@ -8,9 +8,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import KioskPairing from '@/components/KioskPairing'
 import ShareLinkCard from '@/components/desk/ShareLinkCard'
 import { canCheckIn, canManageEvent } from '@/lib/permissions'
+import GateStationTab from './GateStationTab'
 import PickupTab from './PickupTab'
 
-type TabKey = 'pickup' | 'kiosk' | 'self' | 'devices'
+type TabKey = 'gate' | 'pickup' | 'kiosk' | 'self' | 'devices'
 
 // Onsite desk: everything gate and front-desk staff use on event day, in one place.
 function DeskHub() {
@@ -30,9 +31,10 @@ function DeskHub() {
   const tabs: { key: TabKey; label: string }[] = [
     ...(canCheckIn(role)
       ? ([
-          { key: 'pickup', label: 'Pickup desk' },
+          { key: 'gate', label: '⚡ Gate Station' },
+          { key: 'pickup', label: 'Badge pickup' },
           { key: 'kiosk', label: 'Kiosk mode' },
-          { key: 'self', label: 'Self check-in' },
+          { key: 'self', label: 'Guest self check-in' },
         ] as const)
       : []),
     ...(canManageEvent(role) ? ([{ key: 'devices', label: 'Devices' }] as const) : []),
@@ -45,18 +47,22 @@ function DeskHub() {
   if (!active) return <p>Your role does not use the desk.</p>
 
   return (
-    <div className="grid max-w-3xl gap-5">
+    <div className="grid max-w-5xl gap-5">
       <header>
-        <h1 className="text-2xl font-bold tracking-tight">Onsite desk</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Onsite Gate & Desk</h1>
         <p className="text-sm text-muted-foreground">{event?.name ?? ' '}</p>
       </header>
 
       <Tabs value={active} onValueChange={(v) => select(String(v))}>
         <TabsList variant="line" aria-label="Desk tools" className="h-auto w-full flex-wrap justify-start">
           {tabs.map((t) => (
-            <TabsTrigger key={t.key} value={t.key} className="flex-none px-3">{t.label}</TabsTrigger>
+            <TabsTrigger key={t.key} value={t.key} className="flex-none px-3 font-semibold">{t.label}</TabsTrigger>
           ))}
         </TabsList>
+
+        <TabsContent value="gate" className="pt-4">
+          <GateStationTab />
+        </TabsContent>
 
         <TabsContent value="pickup" className="pt-4">
           <PickupTab />

@@ -10,6 +10,21 @@ import { cn } from '@/lib/utils'
 import { fetchEventRole } from '@/lib/eventRole'
 import { canOpenPath, ROLE_LABELS, sectionsForRole, type EventRole } from '@/lib/permissions'
 
+const LIFECYCLE_GROUPS = [
+  {
+    title: 'PREPARE',
+    keys: ['overview', 'guests', 'badge-design', 'badges'],
+  },
+  {
+    title: 'EVENT DAY',
+    keys: ['desk', 'dashboard'],
+  },
+  {
+    title: 'DEBRIEF & SETTINGS',
+    keys: ['report', 'team', 'edit'],
+  },
+]
+
 export default function EventLayout({ children }: { children: React.ReactNode }) {
   const params = useParams()
   const pathname = usePathname()
@@ -39,17 +54,25 @@ export default function EventLayout({ children }: { children: React.ReactNode })
     s.exact ? pathname === s.href : pathname === s.href || pathname.startsWith(s.href + '/')
 
   const panel = 'rounded-xl border border-border bg-card p-5'
-  const linkClass = 'flex min-h-10 items-center justify-between rounded-[10px] px-3 py-2 text-sm font-medium whitespace-nowrap text-muted-foreground hover:bg-secondary hover:text-foreground max-md:border max-md:border-border max-md:bg-card md:whitespace-normal'
+  const linkClass =
+    'flex min-h-10 items-center justify-between rounded-[10px] px-3 py-2 text-sm font-medium whitespace-nowrap text-muted-foreground hover:bg-secondary hover:text-foreground max-md:border max-md:border-border max-md:bg-card md:whitespace-normal transition-colors'
 
   let content: React.ReactNode = children
   if (state === 'loading') content = <p>Loading...</p>
-  else if (state === 'error') content = <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">Could not check your access to this event. Reload to try again.</p>
+  else if (state === 'error')
+    content = (
+      <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+        Could not check your access to this event. Reload to try again.
+      </p>
+    )
   else if (!role) {
     content = (
       <div className={panel}>
         <h1 className="text-xl font-semibold">You do not have access to this event</h1>
         <p className="mt-1.5 text-muted-foreground">Ask an event owner or manager to add you to the team.</p>
-        <Button variant="outline" className="mt-3" render={<Link href="/events" />} nativeButton={false}>Back to events</Button>
+        <Button variant="outline" className="mt-3" render={<Link href="/events" />} nativeButton={false}>
+          Back to events
+        </Button>
       </div>
     )
   } else if (!canOpenPath(role, pathname, base)) {
@@ -66,28 +89,50 @@ export default function EventLayout({ children }: { children: React.ReactNode })
 
   return (
     <EventRoleProvider value={role}>
-      <div className="grid items-start gap-7 max-md:gap-4 md:grid-cols-[200px_minmax(0,1fr)]">
-        <nav aria-label="Event sections" className="flex gap-1.5 overflow-x-auto pb-1 md:sticky md:top-[84px] md:flex-col md:gap-0.5 md:overflow-visible md:pb-0">
-          <p className="hidden px-3 pb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground md:block">Manage</p>
+      <div className="grid items-start gap-7 max-md:gap-4 md:grid-cols-[210px_minmax(0,1fr)]">
+        <nav
+          aria-label="Event sections"
+          className="flex gap-1.5 overflow-x-auto pb-1 md:sticky md:top-[84px] md:flex-col md:gap-0.5 md:overflow-visible md:pb-0"
+        >
           {role && (
             <div className="shrink-0 px-3 pb-2 max-md:flex max-md:items-center max-md:px-0 max-md:pb-0">
               <RoleBadge role={role} />
             </div>
           )}
-          {sections.map((s) => {
-            const active = isActive(s)
+
+          {LIFECYCLE_GROUPS.map((group) => {
+            const groupSections = sections.filter((s) => group.keys.includes(s.key))
+            if (groupSections.length === 0) return null
             return (
-              <Link
-                key={s.key}
-                href={s.href}
-                aria-current={active ? 'page' : undefined}
-                className={cn(linkClass, active && 'bg-accent font-semibold text-accent-foreground hover:bg-accent hover:text-accent-foreground max-md:bg-accent')}
-              >
-                <span>{s.label}</span>
-              </Link>
+              <div key={group.title} className="md:mt-3 md:first:mt-0 flex gap-1.5 md:flex-col md:gap-0.5">
+                <p className="hidden px-3 pb-1 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground/60 md:block">
+                  {group.title}
+                </p>
+                {groupSections.map((s) => {
+                  const active = isActive(s)
+                  return (
+                    <Link
+                      key={s.key}
+                      href={s.href}
+                      aria-current={active ? 'page' : undefined}
+                      className={cn(
+                        linkClass,
+                        active &&
+                          'bg-accent font-semibold text-accent-foreground hover:bg-accent hover:text-accent-foreground max-md:bg-accent'
+                      )}
+                    >
+                      <span>{s.label}</span>
+                    </Link>
+                  )
+                })}
+              </div>
             )
           })}
-          <Link href="/events" className={cn(linkClass, 'md:mt-3 md:rounded-none md:border-t md:border-border md:pt-3.5')}>
+
+          <Link
+            href="/events"
+            className={cn(linkClass, 'md:mt-4 md:rounded-none md:border-t md:border-border md:pt-3.5')}
+          >
             <span>← All events</span>
           </Link>
         </nav>

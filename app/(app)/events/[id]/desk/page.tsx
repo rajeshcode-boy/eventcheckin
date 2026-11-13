@@ -31,16 +31,17 @@ function DeskHub() {
   const tabs: { key: TabKey; label: string }[] = [
     ...(canCheckIn(role)
       ? ([
-          { key: 'gate', label: '⚡ Gate Station' },
-          { key: 'pickup', label: 'Badge pickup' },
-          { key: 'kiosk', label: 'Kiosk mode' },
-          { key: 'self', label: 'Guest self check-in' },
+          { key: 'gate', label: '⚡ Live Gate Station' },
+          { key: 'pickup', label: 'Badge Pickup' },
+          { key: 'kiosk', label: 'Kiosk Stand' },
+          { key: 'self', label: 'Self Check-in' },
         ] as const)
       : []),
     ...(canManageEvent(role) ? ([{ key: 'devices', label: 'Devices' }] as const) : []),
   ]
   const wanted = search.get('tab') as TabKey | null
-  const active = tabs.find((t) => t.key === wanted)?.key ?? tabs[0]?.key
+  // Default directly to 'gate' so the single-screen gate station is always the immediate interface
+  const active = (wanted && tabs.some((t) => t.key === wanted)) ? wanted : 'gate'
 
   const select = (key: string) => router.replace(`${pathname}?tab=${key}`, { scroll: false })
 

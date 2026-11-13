@@ -7,7 +7,7 @@ import { formatTime } from '@/lib/time'
 import { Alert } from '@/components/ui/alert'
 import { cameraAvailable, startScanner } from '@/lib/kiosk/scanner'
 import { parseBadgeCode } from '@/lib/badgeCode'
-import ScannerOverlay from '@/components/ScannerOverlay'
+import ScannerOverlay, { type ScanStatusFeedback } from '@/components/ScannerOverlay'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
@@ -41,6 +41,8 @@ export default function PickupTab() {
   const [recent, setRecent] = useState<RecentRow[]>([])
   const [staffEmail, setStaffEmail] = useState('')
   const [scanning, setScanning] = useState(false)
+  const [scanFeedback, setScanFeedback] = useState<ScanStatusFeedback | null>(null)
+  const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const [canScan, setCanScan] = useState(false)
@@ -72,13 +74,23 @@ export default function PickupTab() {
     return () => { supabase.removeChannel(channel) }
   }, [eventUuid])
 
-  const lookup = async (raw: string) => {
+  const showFeedback = (fb: ScanStatusFeedback, durationMs = 2800) => {
+    if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current)
+    setScanFeedback(fb)
+    feedbackTimerRef.current = setTimeout(() => {
+      setScanFeedback(null)
+    }, durationMs)
+  }
+
+  const lookup = async (raw: string, fromCamera = false) => {
     const parsed = parseBadgeCode(raw)
     if (!parsed) return
     setMessage('')
     if (parsed.kind === 'unknown') {
       setFound(null)
-      setMessage("That QR code isn't an EventCheckin badge. Scan the QR on the guest's pass or badge.")
+      const err = "That QR code isn't an EventCheckin badge."
+      setMessage(err)
+      if (fromCamera) showFeedback({ type: 'error', title: 'Invalid QR Code', subtitle: 'Not an EventCheckin pass' })
       return
     }
     setBusy(true)
@@ -93,8 +105,31 @@ export default function PickupTab() {
     setBusy(false)
     if (error) {
       setMessage("Couldn't look that up. Try again.")
+      if (fromCamera) showFeedback({ type: 'error', title: 'Lookup Error', subtitle: 'Network or database issue' })
       return
     }
+
+    if (!data) {
+      setFound('none')
+      if (fromCamera) {
+        showFeedback({
+          type: 'error',
+          title: 'Not Found in Event',
+          subtitle: 'No registration matches this QR code for this event',
+        }, 3200)
+      }
+    } else {
+      const guest = data as unknown as Found
+      setFound(guest)
+      if (fromCamera) {
+        showFeedback({
+          type: guest.badge_collected_at ? 'warning' : 'success',
+          title: guest.badge_collected_at ? 'Already Handed Over' : 'Guest Verified',
+          subtitle: guest.full_name,
+        }, 2200)
+      }
+    }
+
     // A guest registered for several events has a different pass for each; say which event this one is for
     if (!data && parsed.kind === 'token') {
       const { data: other } = await supabase
@@ -103,9 +138,18 @@ export default function PickupTab() {
         .eq('badge_token', parsed.value)
         .maybeSingle()
       const otherEvent = (other as { events: { name: string } | null } | null)?.events?.name
-      if (otherEvent) setMessage(`This pass is for ${otherEvent}, not this event. Ask the guest for their pass for this event, or look them up by registration ID.`)
+      if (otherEvent) {
+        const msg = `This pass is for ${otherEvent}, not this event. Ask the guest for their pass for this event, or look them up by registration ID.`
+        setMessage(msg)
+        if (fromCamera) {
+          showFeedback({
+            type: 'error',
+            title: 'Wrong Event Pass',
+            subtitle: `This pass belongs to "${otherEvent}"`,
+          }, 3500)
+        }
+      }
     }
-    setFound(data ? (data as unknown as Found) : 'none')
     setCode('')
     setTimeout(() => inputRef.current?.focus(), 0)
   }
@@ -152,11 +196,9 @@ export default function PickupTab() {
     await new Promise((r) => requestAnimationFrame(r))
     if (!videoRef.current) return setScanning(false)
     try {
-      stopRef.current = await startScanner(videoRef.current, (value) => {
-        stopRef.current?.()
-        stopRef.current = null
-        setScanning(false)
-        lookup(value)
+      stopRef.current = await startScanner(videoRef.current, async (value) => {
+        // Quick visual lookup in the scanner space without instantly shutting off the camera on error
+        await lookup(value, true)
       })
     } catch {
       setScanning(false)
@@ -214,14 +256,17 @@ export default function PickupTab() {
         <div className="mb-4">
           <div className="relative overflow-hidden rounded-xl bg-black">
             <video ref={videoRef} muted playsInline aria-label="Camera preview" className="w-full" />
-            <ScannerOverlay hint="Place the QR code on the guest's pass inside the box" />
+            <ScannerOverlay
+              hint="Place the QR code on the guest's pass inside the box"
+              feedback={scanFeedback}
+            />
           </div>
           <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm text-muted-foreground">
               Hold the QR code steady, about a hand&apos;s width from the camera. Turn the phone&apos;s brightness up if it doesn&apos;t read.
             </p>
             <Button type="button" variant="outline" onClick={stopScan}>
-              Cancel
+              Done / Close Camera
             </Button>
           </div>
         </div>

@@ -29,7 +29,7 @@ import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { cameraAvailable, startScanner } from '@/lib/kiosk/scanner'
 import { parseBadgeCode } from '@/lib/badgeCode'
-import ScannerOverlay from '@/components/ScannerOverlay'
+import ScannerOverlay, { type ScanStatusFeedback } from '@/components/ScannerOverlay'
 
 interface AttendeeRow {
   id: string
@@ -66,9 +66,19 @@ export default function GateStationTab() {
   // Live Camera Scanner State
   const [scanning, setScanning] = useState(false)
   const [canScan, setCanScan] = useState(false)
+  const [scanFeedback, setScanFeedback] = useState<ScanStatusFeedback | null>(null)
+  const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const stopScannerRef = useRef<(() => void) | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
+
+  const showFeedback = (fb: ScanStatusFeedback, durationMs = 2800) => {
+    if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current)
+    setScanFeedback(fb)
+    feedbackTimerRef.current = setTimeout(() => {
+      setScanFeedback(null)
+    }, durationMs)
+  }
 
   // Dedicated Locked Door / Volunteer Station Mode State
   const [isStationLocked, setIsStationLocked] = useState(false)
@@ -348,9 +358,16 @@ export default function GateStationTab() {
 
   const handleScannedCode = async (rawCode: string) => {
     const parsed = parseBadgeCode(rawCode)
-    if (!parsed || parsed.kind === 'unknown') return
+    if (!parsed || parsed.kind === 'unknown') {
+      showFeedback({
+        type: 'error',
+        title: 'Invalid QR Code',
+        subtitle: 'Not an EventCheckin attendee pass',
+      })
+      toast.error('Invalid QR code scanned')
+      return
+    }
 
-    stopCamera()
     const target = attendees.find(
       (a) =>
         (parsed.kind === 'token' && a.badge_token === parsed.value) ||
@@ -359,11 +376,26 @@ export default function GateStationTab() {
 
     if (target) {
       if (target.checkins && target.checkins.length > 0) {
+        showFeedback({
+          type: 'warning',
+          title: 'Already Checked In',
+          subtitle: `${target.full_name} (${target.registration_id})`,
+        })
         toast.info(`${target.full_name} is already checked in.`)
       } else {
+        showFeedback({
+          type: 'success',
+          title: 'Check-in Verified!',
+          subtitle: `${target.full_name} • ${target.company || 'Attendee'}`,
+        }, 2200)
         await handleCheckIn(target)
       }
     } else {
+      showFeedback({
+        type: 'error',
+        title: 'Not Found in Event',
+        subtitle: 'Attendee is not registered for this event',
+      }, 3500)
       toast.error('Pass not found in this event roster.')
     }
   }
@@ -449,7 +481,7 @@ export default function GateStationTab() {
             </p>
             <div className="relative mx-auto aspect-video w-full overflow-hidden rounded-2xl bg-zinc-900">
               <video ref={videoRef} playsInline muted className="size-full object-cover" />
-              <ScannerOverlay />
+              <ScannerOverlay feedback={scanFeedback} />
             </div>
             <Button
               variant="secondary"
@@ -457,7 +489,7 @@ export default function GateStationTab() {
               onClick={stopCamera}
               className="mt-3 rounded-full text-xs"
             >
-              Cancel Camera
+              Done / Close Camera
             </Button>
           </div>
         </Card>

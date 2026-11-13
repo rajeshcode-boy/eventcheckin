@@ -203,7 +203,14 @@ export default function BadgesPage() {
             {event.name} • {attendees.length} attendee{attendees.length === 1 ? '' : 's'} • {lastPrint.size} printed
           </p>
         </div>
-        <Button variant="outline" render={<Link href={`/events/${event.id}/badge-design`} />} nativeButton={false}>Edit badge design</Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" render={<Link href={`/events/${event.id}/badge-design`} />} nativeButton={false}>
+            🎨 Visual Studio Designer
+          </Button>
+          <Button variant="outline" render={<Link href={`/events/${event.id}/desk?tab=pickup`} />} nativeButton={false}>
+            Desk Pickup →
+          </Button>
+        </div>
       </div>
 
       {/* Design and page layout */}

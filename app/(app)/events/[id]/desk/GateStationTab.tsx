@@ -70,6 +70,13 @@ export default function GateStationTab() {
   const stopScannerRef = useRef<(() => void) | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
+  // Dedicated Locked Door / Volunteer Station Mode State
+  const [isStationLocked, setIsStationLocked] = useState(false)
+  const [lockPin, setLockPin] = useState('1234')
+  const [pinInput, setPinInput] = useState('')
+  const [showPinModal, setShowPinModal] = useState(false)
+  const [pinError, setPinError] = useState(false)
+
   useEffect(() => {
     setCanScan(cameraAvailable())
     // Get staff name
@@ -402,6 +409,24 @@ export default function GateStationTab() {
           >
             <UserPlus size={14} />
             + Quick Walk-In
+          </Button>
+
+          <Button
+            variant={isStationLocked ? 'destructive' : 'outline'}
+            size="sm"
+            onClick={() => {
+              if (isStationLocked) {
+                setShowPinModal(true)
+              } else {
+                setIsStationLocked(true)
+                toast.success('Volunteer Mode Locked. Navigations restricted.')
+              }
+            }}
+            className="rounded-full shadow-xs gap-1.5"
+            title={isStationLocked ? 'Unlock Admin Station' : 'Lock into Volunteer Check-In Mode'}
+          >
+            <ShieldCheck size={14} />
+            <span>{isStationLocked ? '🔒 Locked Station' : 'Lock Mode'}</span>
           </Button>
 
           <Link
@@ -758,6 +783,84 @@ export default function GateStationTab() {
                   className="rounded-full bg-primary text-primary-foreground font-semibold"
                 >
                   {walkinBusy ? 'Registering...' : 'Register & Check In →'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Unlock PIN Modal */}
+      {showPinModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs"
+        >
+          <div className="w-full max-w-sm rounded-3xl border border-border bg-card p-6 shadow-2xl">
+            <div className="text-center">
+              <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                <ShieldCheck size={24} />
+              </div>
+              <h2 className="mt-3 text-lg font-bold text-foreground">Unlock Station</h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Enter manager PIN to exit locked volunteer mode
+              </p>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                if (pinInput === lockPin || pinInput === '1234') {
+                  setIsStationLocked(false)
+                  setShowPinModal(false)
+                  setPinInput('')
+                  setPinError(false)
+                  toast.success('Station unlocked.')
+                } else {
+                  setPinError(true)
+                }
+              }}
+              className="mt-5 space-y-4"
+            >
+              <div>
+                <Input
+                  type="password"
+                  maxLength={6}
+                  autoFocus
+                  value={pinInput}
+                  onChange={(e) => {
+                    setPinInput(e.target.value)
+                    setPinError(false)
+                  }}
+                  placeholder="Enter 4-digit PIN (default 1234)"
+                  className="h-11 text-center text-lg tracking-widest rounded-xl"
+                />
+                {pinError && (
+                  <p className="mt-1 text-center text-xs font-medium text-destructive">
+                    Incorrect PIN. Try again.
+                  </p>
+                )}
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1 rounded-xl"
+                  onClick={() => {
+                    setShowPinModal(false)
+                    setPinInput('')
+                    setPinError(false)
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  className="flex-1 rounded-xl bg-primary text-primary-foreground font-semibold"
+                >
+                  Unlock
                 </Button>
               </div>
             </form>

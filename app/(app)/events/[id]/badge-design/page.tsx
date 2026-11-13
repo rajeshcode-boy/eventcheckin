@@ -309,7 +309,14 @@ export default function BadgeDesignPage() {
             {event.name} • Drag elements to move them, drag the blue corner to resize, or type exact values in the panel.
           </p>
         </div>
-        <Button variant="outline" render={<Link href={`/events/${event.id}/badges`} />} nativeButton={false}>Go to Badge Printing →</Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" render={<Link href={`/events/${event.id}/badges`} />} nativeButton={false}>
+            🖨️ Batch Print Queue →
+          </Button>
+          <Button variant="outline" render={<Link href={`/events/${event.id}/desk?tab=pickup`} />} nativeButton={false}>
+            Desk Pickup →
+          </Button>
+        </div>
       </div>
 
       {!isAdmin && <Alert variant="warning" className="mb-4">Only owners and managers can save badge designs.</Alert>}

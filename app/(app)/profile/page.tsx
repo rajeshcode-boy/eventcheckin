@@ -9,6 +9,9 @@ import PushNotifications from '@/components/PushNotifications'
 import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Card } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { User, ShieldCheck, Mail, Calendar, Clock, KeyRound, Bell } from 'lucide-react'
 
 interface Profile {
   id: string
@@ -98,60 +101,156 @@ export default function ProfilePage() {
   if (!profile) return error ? <Alert variant="error">{error}</Alert> : <p>Loading profile...</p>
 
   return (
-    <div className="flex max-w-[640px] flex-col gap-6">
-      <div>
-        <h1 className="mb-2 text-[28px] font-bold">My Profile</h1>
-        <p className="text-muted-foreground">Your personal account. Company details are under Organization.</p>
+    <div className="mx-auto flex max-w-4xl flex-col gap-8 pb-12">
+      {/* Header Profile Title & Meta */}
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border/60 pb-5">
+        <div>
+          <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">Account Profile</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Manage your personal settings, login credentials, and notification preferences.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge variant="secondary" className="px-3 py-1 font-semibold capitalize text-xs">
+            <ShieldCheck size={14} className="mr-1 text-primary" />
+            {profile.role} Account
+          </Badge>
+        </div>
       </div>
 
-      <div className="rounded-md border border-border p-4">
-        <ImageUpload
-          mode="saved"
-          label="Profile photo"
-          shape="avatar"
-          rules={AVATAR_RULES}
-          bucket="avatars"
-          folder={profile.id}
-          kind="photo"
-          path={profile.profile_photo_url}
-          onSave={savePhoto}
-          hint="A square photo works best."
-        />
+      <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
+        {/* Left Column: Photo & Notifications */}
+        <div className="space-y-6 md:col-span-1">
+          <Card className="rounded-3xl border border-border bg-card p-6 shadow-xs">
+            <h2 className="mb-4 text-sm font-bold tracking-wide uppercase text-muted-foreground">
+              Profile Photo
+            </h2>
+            <div className="flex flex-col items-center text-center">
+              <ImageUpload
+                mode="saved"
+                label="Profile photo"
+                shape="avatar"
+                rules={AVATAR_RULES}
+                bucket="avatars"
+                folder={profile.id}
+                kind="photo"
+                path={profile.profile_photo_url}
+                onSave={savePhoto}
+                hint="Square JPG or PNG, max 2 MB."
+              />
+            </div>
+          </Card>
+
+          <Card className="rounded-3xl border border-border bg-card p-6 shadow-xs">
+            <div className="flex items-center gap-2 mb-3">
+              <Bell size={18} className="text-primary" />
+              <h2 className="text-sm font-bold tracking-wide uppercase text-muted-foreground">
+                Notifications
+              </h2>
+            </div>
+            <PushNotifications mode="organizer" />
+          </Card>
+
+          {/* Read-Only Account Metadata Card */}
+          <Card className="rounded-3xl border border-border bg-card p-6 shadow-xs">
+            <h2 className="mb-3 text-sm font-bold tracking-wide uppercase text-muted-foreground">
+              Account Overview
+            </h2>
+            <div className="space-y-3 text-xs">
+              <div className="flex items-center justify-between border-b border-border/50 pb-2">
+                <span className="flex items-center gap-1.5 text-muted-foreground">
+                  <Mail size={13} /> Email
+                </span>
+                <span className="font-medium text-foreground truncate max-w-[150px]" title={authEmail || profile.email || ''}>
+                  {authEmail || profile.email}
+                </span>
+              </div>
+              <div className="flex items-center justify-between border-b border-border/50 pb-2">
+                <span className="flex items-center gap-1.5 text-muted-foreground">
+                  <Calendar size={13} /> Created
+                </span>
+                <span className="font-medium text-foreground">{formatDate(profile.created_at)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1.5 text-muted-foreground">
+                  <Clock size={13} /> Last Sign-In
+                </span>
+                <span className="font-medium text-foreground">{formatDate(lastSignIn)}</span>
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        {/* Right Column: Profile Details & Password Forms */}
+        <div className="space-y-6 md:col-span-2">
+          {/* Personal Details Form */}
+          <Card className="rounded-3xl border border-border bg-card p-6 sm:p-8 shadow-xs">
+            <div className="flex items-center gap-2 mb-5">
+              <User size={20} className="text-primary" />
+              <h2 className="text-lg font-bold text-foreground">Personal Information</h2>
+            </div>
+
+            <form onSubmit={save} className="space-y-5">
+              <div>
+                <label htmlFor="p-name" className={labelClass}>
+                  Full Name <span className="text-destructive">*</span>
+                </label>
+                <Input
+                  id="p-name"
+                  className="h-11 rounded-xl text-sm"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  required
+                  maxLength={120}
+                  placeholder="e.g. Jane Doe"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="p-phone" className={labelClass}>Phone Number</label>
+                  <PhoneInput id="p-phone" value={phone} onChange={setPhone} defaultCountryIso="IN" />
+                </div>
+
+                <div>
+                  <label htmlFor="p-designation" className={labelClass}>Designation / Role</label>
+                  <Input
+                    id="p-designation"
+                    className="h-11 rounded-xl text-sm"
+                    value={designation}
+                    onChange={(e) => setDesignation(e.target.value)}
+                    maxLength={120}
+                    placeholder="e.g. Event Director"
+                  />
+                </div>
+              </div>
+
+              {error && <Alert variant="error">{error}</Alert>}
+              {notice && <Alert variant="success">{notice}</Alert>}
+
+              <div className="pt-2">
+                <Button
+                  type="submit"
+                  size="default"
+                  className="rounded-full bg-primary font-semibold text-primary-foreground shadow-xs"
+                  disabled={saving}
+                >
+                  {saving ? 'Saving changes...' : 'Save Profile Details'}
+                </Button>
+              </div>
+            </form>
+          </Card>
+
+          {/* Security & Password Card */}
+          <Card className="rounded-3xl border border-border bg-card p-6 sm:p-8 shadow-xs">
+            <div className="flex items-center gap-2 mb-5">
+              <KeyRound size={20} className="text-primary" />
+              <h2 className="text-lg font-bold text-foreground">Security & Password</h2>
+            </div>
+            <ChangePassword email={authEmail} />
+          </Card>
+        </div>
       </div>
-
-      <PushNotifications mode="organizer" />
-
-      <form onSubmit={save} className="flex flex-col gap-4 rounded-md border border-border p-4">
-        <h2 className="text-lg font-semibold">Details</h2>
-        <div>
-          <label htmlFor="p-name" className={labelClass}>Full name *</label>
-          <Input id="p-name" className="h-10" value={fullName} onChange={(e) => setFullName(e.target.value)} required maxLength={120} />
-        </div>
-        <div>
-          <label htmlFor="p-phone" className={labelClass}>Phone</label>
-          <PhoneInput id="p-phone" value={phone} onChange={setPhone} defaultCountryIso="IN" />
-        </div>
-        <div>
-          <label htmlFor="p-designation" className={labelClass}>Designation</label>
-          <Input id="p-designation" className="h-10" value={designation} onChange={(e) => setDesignation(e.target.value)} maxLength={120} />
-        </div>
-        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
-          <dt className="text-muted-foreground">Email</dt>
-          <dd>{authEmail || profile.email}</dd>
-          <dt className="text-muted-foreground">Role</dt>
-          <dd className="capitalize">{profile.role}</dd>
-          <dt className="text-muted-foreground">Account created</dt>
-          <dd>{formatDate(profile.created_at)}</dd>
-          <dt className="text-muted-foreground">Last sign-in</dt>
-          <dd>{formatDate(lastSignIn)}</dd>
-        </dl>
-        <p className="text-xs text-muted-foreground">Email and role can&apos;t be changed here.</p>
-        {error && <Alert variant="error">{error}</Alert>}
-        {notice && <Alert variant="success">{notice}</Alert>}
-        <Button type="submit" className="self-start" disabled={saving}>{saving ? 'Saving...' : 'Save profile'}</Button>
-      </form>
-
-      <ChangePassword email={authEmail} />
     </div>
   )
 }
@@ -201,23 +300,62 @@ function ChangePassword({ email }: { email: string }) {
   }
 
   return (
-    <form onSubmit={submit} className="flex flex-col gap-4 rounded-md border border-border p-4">
-      <h2 className="text-lg font-semibold">Change password</h2>
+    <form onSubmit={submit} className="space-y-4">
       <div>
-        <label htmlFor="pw-current" className={labelClass}>Current password</label>
-        <Input id="pw-current" type="password" className="h-10" value={current} onChange={(e) => setCurrent(e.target.value)} autoComplete="current-password" required />
+        <label htmlFor="pw-current" className={labelClass}>Current Password</label>
+        <Input
+          id="pw-current"
+          type="password"
+          className="h-11 rounded-xl text-sm"
+          value={current}
+          onChange={(e) => setCurrent(e.target.value)}
+          autoComplete="current-password"
+          required
+          placeholder="Enter current password"
+        />
       </div>
-      <div>
-        <label htmlFor="pw-new" className={labelClass}>New password</label>
-        <Input id="pw-new" type="password" className="h-10" value={next} onChange={(e) => setNext(e.target.value)} autoComplete="new-password" minLength={8} required />
-      </div>
-      <div>
-        <label htmlFor="pw-confirm" className={labelClass}>Confirm new password</label>
-        <Input id="pw-confirm" type="password" className="h-10" value={confirmNext} onChange={(e) => setConfirmNext(e.target.value)} autoComplete="new-password" minLength={8} required />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+          <label htmlFor="pw-new" className={labelClass}>New Password</label>
+          <Input
+            id="pw-new"
+            type="password"
+            className="h-11 rounded-xl text-sm"
+            value={next}
+            onChange={(e) => setNext(e.target.value)}
+            autoComplete="new-password"
+            minLength={8}
+            required
+            placeholder="At least 8 characters"
+          />
+        </div>
+        <div>
+          <label htmlFor="pw-confirm" className={labelClass}>Confirm New Password</label>
+          <Input
+            id="pw-confirm"
+            type="password"
+            className="h-11 rounded-xl text-sm"
+            value={confirmNext}
+            onChange={(e) => setConfirmNext(e.target.value)}
+            autoComplete="new-password"
+            minLength={8}
+            required
+            placeholder="Re-type new password"
+          />
+        </div>
       </div>
       {error && <Alert variant="error">{error}</Alert>}
       {notice && <Alert variant="success">{notice}</Alert>}
-      <Button type="submit" className="self-start" disabled={saving || !email}>{saving ? 'Changing...' : 'Change password'}</Button>
+      <div className="pt-2">
+        <Button
+          type="submit"
+          variant="outline"
+          className="rounded-full font-semibold shadow-xs"
+          disabled={saving || !email}
+        >
+          {saving ? 'Updating password...' : 'Update Password'}
+        </Button>
+      </div>
     </form>
   )
 }

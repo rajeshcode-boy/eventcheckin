@@ -4,22 +4,34 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { Search, X, Copy, Check, CalendarDays } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import {
+  Search,
+  X,
+  Copy,
+  Check,
+  Calendar,
+  CalendarDays,
+  MapPin,
+  Clock,
+  Users,
+  QrCode,
+  IdCard,
+  Radio,
+  Plus,
+  ArrowRight,
+} from 'lucide-react'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Alert } from '@/components/ui/alert'
 import { cn } from '@/lib/utils'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import EventDetailsStrip from '@/components/EventDetailsStrip'
 
 interface Stats {
   registered: number
 }
 
-// Days from today to the event date (negative once it has passed)
 function daysUntil(isoDate: string): number {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -33,32 +45,6 @@ function dayLabel(isoDate: string): string {
   if (d === 1) return 'tomorrow'
   if (d === 0) return 'today'
   return 'ended'
-}
-
-// Countdown in bold ("49 days to go"), then capacity and how many have registered so far
-function EventProgressRow({ event, stats }: { event: Event; stats: Stats | undefined }) {
-  const days = daysUntil(event.event_date)
-  const pct = stats && event.capacity > 0 ? Math.min(100, Math.round((stats.registered / event.capacity) * 100)) : 0
-  return (
-    <div className="mt-2.5 flex flex-wrap items-center gap-4">
-      <div className="text-[13px] text-muted-foreground">
-        {days > 1 ? (
-          <><strong className="text-lg text-foreground">{days}</strong> days to go</>
-        ) : (
-          <strong className="text-[15px] text-foreground">{dayLabel(event.event_date)}</strong>
-        )}
-      </div>
-      {stats && (
-        <div className="max-w-[360px] flex-1 basis-[200px] text-[13px] text-muted-foreground">
-          <span>Registered <strong className="text-foreground">{stats.registered}</strong> of {event.capacity} capacity</span>
-          <div role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted">
-            {/* the width is data, so it stays inline */}
-            <div className="h-full bg-primary" style={{ width: `${pct}%` }} />
-          </div>
-        </div>
-      )}
-    </div>
-  )
 }
 
 interface Event {
@@ -92,7 +78,7 @@ const STATUS_FILTERS = [
   { value: 'archived', label: 'Archived' },
 ]
 
-const PAGE_SIZE = 10
+const PAGE_SIZE = 12
 
 export default function EventsPage() {
   const [events, setEvents] = useState<Event[]>([])
@@ -112,7 +98,9 @@ export default function EventsPage() {
     setError('')
 
     try {
-      const { data: { user } } = await supabase.auth.getUser()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
 
       if (!user) return
 
@@ -137,18 +125,22 @@ export default function EventsPage() {
 
       setEvents(data || [])
 
-      // Registrations so far per event, for the capacity line on each card
       const ids = (data || []).map((e) => e.id)
       if (ids.length > 0) {
-        const { data: regs } = await supabase.from('registrations').select('event_id, registration_status').in('event_id', ids)
+        const { data: regs } = await supabase
+          .from('registrations')
+          .select('event_id, registration_status')
+          .in('event_id', ids)
         const next: Record<string, Stats> = {}
         for (const id of ids) next[id] = { registered: 0 }
         for (const r of regs ?? []) {
-          if (!['cancelled', 'rejected'].includes(r.registration_status) && next[r.event_id]) next[r.event_id]!.registered += 1
+          if (!['cancelled', 'rejected'].includes(r.registration_status) && next[r.event_id]) {
+            next[r.event_id]!.registered += 1
+          }
         }
         setStats(next)
       }
-    } catch (err) {
+    } catch {
       setError("Couldn't load your events. Refresh the page to try again.")
     } finally {
       setLoading(false)
@@ -174,13 +166,15 @@ export default function EventsPage() {
       if (statusFilter === 'archived' ? !e.archived_at : e.archived_at) return false
       if (statusFilter !== 'all' && statusFilter !== 'archived' && e.status !== statusFilter) return false
       if (!q) return true
-      return [e.name, e.location, e.event_id].some((v) => v?.toLowerCase().includes(q))
+      return [e.name, e.location, e.event_id, e.city, e.venue_name].some((v) =>
+        v?.toLowerCase().includes(q)
+      )
     })
   }, [events, query, statusFilter])
 
   const copyId = (eventId: string) => {
     navigator.clipboard.writeText(eventId).then(() => {
-      toast.success('Copied!', { description: eventId })
+      toast.success('Event ID copied to clipboard!', { description: eventId })
     })
   }
 
@@ -192,169 +186,308 @@ export default function EventsPage() {
 
   const visible = filtered.slice(0, shown)
 
-
   return (
-    <div>
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="text-[28px] leading-tight font-bold tracking-[-0.02em]">My events</h1>
-          <p className="mt-1.5 text-sm text-muted-foreground">
-            Manage guests, check-in and badges for each event.
+    <div className="mx-auto max-w-7xl space-y-8 pb-16">
+      {/* Page Header */}
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border/60 pb-5">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">All Events</h1>
+            <Badge variant="secondary" className="px-2.5 py-0.5 text-xs font-semibold">
+              {events.length} Total
+            </Badge>
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Manage your gatherings, attendee check-in gates, and badge studios.
           </p>
         </div>
-        <Button render={<Link href="/events/create" />}>+ New event</Button>
+
+        <Link
+          href="/events/create"
+          className={cn(
+            buttonVariants({ size: 'default' }),
+            'gap-1.5 rounded-full font-semibold shadow-xs'
+          )}
+        >
+          <Plus size={16} />
+          Create Event
+        </Link>
       </div>
 
-      {error && (
-        <Alert variant="error" className="mb-6">
-          {error}
-        </Alert>
-      )}
+      {error && <Alert variant="error">{error}</Alert>}
 
+      {/* Toolbar: Search & Filter Tabs */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        {/* Search input with fixed max-width */}
+        <div className="relative w-full max-w-md">
+          <Search
+            size={16}
+            className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-muted-foreground"
+          />
+          <Input
+            type="search"
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value)
+              setShown(PAGE_SIZE)
+            }}
+            placeholder="Search by name, venue, city, or event ID..."
+            className="h-10 w-full rounded-full border-border bg-card pl-10 pr-9 text-sm shadow-xs"
+          />
+          {query && (
+            <button
+              type="button"
+              onClick={() => setQuery('')}
+              className="absolute top-1/2 right-3 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X size={15} />
+            </button>
+          )}
+        </div>
+
+        {/* Status Filter Pills */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          {STATUS_FILTERS.map((f) => (
+            <button
+              key={f.value}
+              type="button"
+              onClick={() => {
+                setStatusFilter(f.value)
+                setShown(PAGE_SIZE)
+              }}
+              className={cn(
+                'rounded-full px-3.5 py-1.5 text-xs font-semibold capitalize transition-all',
+                statusFilter === f.value
+                  ? 'bg-primary text-primary-foreground shadow-xs'
+                  : 'bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground'
+              )}
+            >
+              {f.label} ({counts[f.value] ?? 0})
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Content Grid */}
       {loading ? (
-        <div aria-busy="true" aria-label="Loading events" className="flex flex-col gap-2.5">
-          {[0, 1, 2].map((i) => (
-            <Skeleton key={i} className="h-[72px] w-full" />
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {[0, 1, 2, 3, 4, 5].map((i) => (
+            <Skeleton key={i} className="h-72 w-full rounded-3xl" />
           ))}
         </div>
       ) : events.length === 0 ? (
-        <Card className="px-6 py-12 text-center">
-          <div aria-hidden="true" className="mx-auto mb-4 flex size-12 items-center justify-center rounded-[14px] bg-accent text-primary">
-            <CalendarDays size={22} />
+        <Card className="rounded-3xl border border-dashed border-border px-6 py-16 text-center">
+          <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-2xl bg-accent text-primary">
+            <CalendarDays size={26} />
           </div>
-          <p className="mb-1.5 text-base font-semibold">No events yet</p>
-          <p className="mx-auto mb-5 max-w-[360px] text-sm leading-normal text-muted-foreground">
-            An event is one gathering you check guests in for. Create one, then add its guests and print badges.
+          <h2 className="text-lg font-bold text-foreground">No events yet</h2>
+          <p className="mx-auto mt-1 max-w-sm text-xs text-muted-foreground">
+            Get started by creating your first gathering. You can import guests, design passes, and launch entrance kiosks.
           </p>
-          <Button render={<Link href="/events/create" />}>+ Create your first event</Button>
+          <Link
+            href="/events/create"
+            className={cn(buttonVariants({ size: 'default' }), 'mt-6 rounded-full')}
+          >
+            + Create Your First Event
+          </Link>
+        </Card>
+      ) : filtered.length === 0 ? (
+        <Card className="rounded-3xl border border-dashed border-border px-6 py-12 text-center">
+          <p className="font-bold text-foreground">No matching events found</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Try adjusting your search query or filter tags.
+          </p>
+          <Button variant="outline" size="sm" onClick={clearFilters} className="mt-4 rounded-full">
+            Reset Filters
+          </Button>
         </Card>
       ) : (
-        <>
-          <div className="mb-4 flex flex-wrap items-center gap-3">
-            <div className="relative flex-1 basis-60">
-              <Search size={16} className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                type="search"
-                value={query}
-                onChange={(e) => { setQuery(e.target.value); setShown(PAGE_SIZE) }}
-                placeholder="Search by name, location or ID"
-                aria-label="Search events"
-                className={cn('h-9 pl-8', query && 'pr-8')}
-              />
-              {query && (
-                <button
-                  type="button"
-                  onClick={() => setQuery('')}
-                  aria-label="Clear search"
-                  className="absolute top-1/2 right-1.5 flex -translate-y-1/2 text-muted-foreground"
-                >
-                  <X size={16} />
-                </button>
-              )}
-            </div>
-            <Tabs value={statusFilter} onValueChange={(v) => { setStatusFilter(v as string); setShown(PAGE_SIZE) }}>
-              <TabsList>
-                {STATUS_FILTERS.map((f) => (
-                  <TabsTrigger key={f.value} value={f.value} className="gap-1.5">
-                    {f.label}
-                    <Badge variant="secondary" className="h-4 px-1.5 text-[11px]">
-                      {counts[f.value] ?? 0}
-                    </Badge>
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
-          </div>
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {visible.map((event) => (
+            <EventCard key={event.id} event={event} stats={stats[event.id]} onCopyId={copyId} />
+          ))}
+        </div>
+      )}
 
-          <p aria-live="polite" className="mb-3 text-[13px] text-muted-foreground">
-            {filtered.length === events.length
-              ? `${events.length} ${events.length === 1 ? 'event' : 'events'}`
-              : `${filtered.length} of ${events.length} events`}
-          </p>
-
-          {filtered.length === 0 ? (
-            <Card className="px-6 py-8 text-center">
-              <p className="mb-1 font-semibold">No events match</p>
-              <p className="mb-4 text-sm text-muted-foreground">
-                Try a different name, location or ID, or show all statuses.
-              </p>
-              <Button variant="outline" onClick={clearFilters}>Clear search and filters</Button>
-            </Card>
-          ) : (
-            <ul className="flex flex-col gap-2">
-              {visible.map((event) => (
-                <EventRow key={event.id} event={event} stats={stats[event.id]} onCopyId={copyId} />
-              ))}
-            </ul>
-          )}
-
-          {shown < filtered.length && (
-            <div className="mt-5 flex flex-col items-center gap-2">
-              <Button variant="outline" onClick={() => setShown((s) => s + PAGE_SIZE)}>
-                Load more
-              </Button>
-              <p className="text-[13px] text-muted-foreground">
-                Showing {visible.length} of {filtered.length}
-              </p>
-            </div>
-          )}
-        </>
+      {shown < filtered.length && (
+        <div className="mt-8 flex flex-col items-center gap-2">
+          <Button
+            variant="outline"
+            className="rounded-full px-6"
+            onClick={() => setShown((s) => s + PAGE_SIZE)}
+          >
+            Load More Events ({filtered.length - shown} remaining)
+          </Button>
+        </div>
       )}
     </div>
   )
 }
 
-const STATUS_BADGE: Record<string, { className: string; label: string; dot?: boolean }> = {
-  upcoming: { className: 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300', label: 'Upcoming' },
-  live: { className: 'bg-[var(--color-live-soft)] text-[var(--color-live)]', label: 'Live', dot: true },
-  closed: { className: 'bg-muted text-muted-foreground', label: 'Closed' },
-}
-
-function EventRow({ event, stats, onCopyId }: { event: Event; stats: Stats | undefined; onCopyId: (id: string) => void }) {
+function EventCard({
+  event,
+  stats,
+  onCopyId,
+}: {
+  event: Event
+  stats: Stats | undefined
+  onCopyId: (id: string) => void
+}) {
   const [copied, setCopied] = useState(false)
-  const badge = STATUS_BADGE[event.status] ?? STATUS_BADGE.closed!
+  const isLive = event.status === 'live'
+  const isUpcoming = event.status === 'upcoming'
+  const days = daysUntil(event.event_date)
+  const registeredCount = stats?.registered ?? 0
+  const capacity = event.capacity || 100
+  const pct = Math.min(100, Math.round((registeredCount / capacity) * 100))
 
   const handleCopy = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
     onCopyId(event.event_id)
     setCopied(true)
-    setTimeout(() => setCopied(false), 1200)
+    setTimeout(() => setCopied(false), 1500)
   }
 
+  const eventDateObj = new Date(event.event_date + 'T00:00:00')
+  const monthName = eventDateObj.toLocaleDateString([], { month: 'short' })
+  const dayNumber = eventDateObj.toLocaleDateString([], { day: 'numeric' })
+
   return (
-    <li>
-      {/* Card isn't polymorphic, so the clickable "whole row" is a styled Link. */}
-      <Link
-        href={`/events/${event.id}/enter`}
-        className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3 hover:border-muted-foreground"
+    <div className="group relative flex flex-col justify-between overflow-hidden rounded-3xl border border-border bg-card shadow-xs transition-all hover:-translate-y-1 hover:border-primary/50 hover:shadow-xl">
+      {/* Visual Header Banner */}
+      <div
+        className={cn(
+          'relative flex h-28 w-full items-start justify-between p-4 text-white overflow-hidden',
+          isLive
+            ? 'bg-linear-to-r from-emerald-600 via-teal-700 to-emerald-900'
+            : isUpcoming
+            ? 'bg-linear-to-r from-slate-700 via-teal-800 to-slate-900'
+            : 'bg-linear-to-r from-zinc-700 to-zinc-900'
+        )}
       >
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-[15px] font-semibold [overflow-wrap:anywhere]">{event.name}</h2>
-            <Badge className={badge.className}>
-              {badge.dot && <span aria-hidden="true" className="size-1.5 rounded-full bg-(--color-live)" />}
-              {badge.label}
-            </Badge>
+        {/* Decorative blur mesh */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-6 -bottom-6 size-24 rounded-full bg-white/10 blur-xl"
+        />
+
+        {/* Status Pill */}
+        <div className="flex items-center gap-1.5 rounded-full bg-black/30 px-3 py-1 text-xs font-semibold backdrop-blur-md">
+          <span
+            className={cn(
+              'size-2 rounded-full',
+              isLive ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
+            )}
+          />
+          <span className="capitalize">{event.status}</span>
+        </div>
+
+        {/* Date Calendar Badge */}
+        <div className="flex flex-col items-center rounded-xl bg-white/20 px-2.5 py-1 text-center backdrop-blur-md">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-white/90">
+            {monthName}
+          </span>
+          <span className="text-base font-extrabold leading-tight text-white">{dayNumber}</span>
+        </div>
+      </div>
+
+      {/* Card Body */}
+      <div className="flex flex-1 flex-col justify-between p-5">
+        <div>
+          <h2 className="text-lg font-bold text-foreground transition-colors group-hover:text-primary line-clamp-1">
+            {event.name}
+          </h2>
+
+          <div className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+            <MapPin size={13} className="shrink-0 text-primary" />
+            <span className="truncate">{event.location || event.city || 'Location TBA'}</span>
           </div>
-          <EventDetailsStrip event={event} compact />
-          <EventProgressRow event={event} stats={stats} />
-          <div className="mt-1.5 flex items-center gap-1">
-            <code className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-[11px] text-foreground [overflow-wrap:anywhere]">
+
+          {/* Time & Countdown Details */}
+          <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+            <span className="flex items-center gap-1">
+              <Clock size={12} />
+              {event.start_time || 'Schedule TBA'}
+            </span>
+            <span className="font-semibold text-foreground">
+              {days > 1 ? `${days} days to go` : dayLabel(event.event_date)}
+            </span>
+          </div>
+
+          {/* Attendance Capacity Progress Meter */}
+          <div className="mt-4 rounded-xl bg-muted/50 p-3">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-medium text-foreground">
+                <Users size={12} className="inline mr-1 text-muted-foreground" />
+                {registeredCount} of {capacity} registered
+              </span>
+              <span className="font-bold text-primary">{pct}%</span>
+            </div>
+            <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full bg-primary rounded-full transition-all duration-500"
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Copyable Event ID */}
+          <div className="mt-3 flex items-center justify-between pt-1">
+            <code className="rounded bg-muted px-2 py-0.5 text-[11px] font-mono text-muted-foreground truncate max-w-[190px]">
               {event.event_id}
             </code>
             <button
               type="button"
               onClick={handleCopy}
-              aria-label={`Copy event ID ${event.event_id}`}
-              className="relative z-10 flex rounded-md p-1 text-muted-foreground"
+              className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              title="Copy Event ID"
             >
-              {copied ? <Check size={13} /> : <Copy size={13} />}
+              {copied ? <Check size={12} className="text-primary" /> : <Copy size={12} />}
+              <span>{copied ? 'Copied' : 'Copy'}</span>
             </button>
           </div>
         </div>
-        <span aria-hidden="true" className="shrink-0 text-lg leading-none text-muted-foreground">›</span>
-      </Link>
-    </li>
+
+        {/* Card Operational Action Buttons */}
+        <div className="mt-5 grid grid-cols-3 gap-2 border-t border-border pt-3">
+          <Link
+            href={`/events/${event.id}/enter`}
+            className="col-span-3 flex items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground shadow-xs transition-transform active:scale-98 hover:bg-primary/90"
+          >
+            <QrCode size={14} />
+            <span>Open Check-in Hub</span>
+            <ArrowRight size={13} className="ml-0.5" />
+          </Link>
+
+          <Link
+            href={`/events/${event.id}/badge-design`}
+            className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-2 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            title="Badge Studio"
+          >
+            <IdCard size={13} />
+            <span>Badges</span>
+          </Link>
+
+          <Link
+            href={`/events/${event.id}/guests`}
+            className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-2 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            title="Manage Guests"
+          >
+            <Users size={13} />
+            <span>Guests</span>
+          </Link>
+
+          <Link
+            href={`/events/${event.id}/dashboard`}
+            className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-2 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            title="Live Stats"
+          >
+            <Radio size={13} />
+            <span>Stats</span>
+          </Link>
+        </div>
+      </div>
+    </div>
   )
 }

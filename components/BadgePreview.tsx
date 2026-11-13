@@ -90,13 +90,32 @@ export default function BadgePreview({ design, data, images, scale, editable, se
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         overflow: 'hidden',
-        boxShadow: '0 2px 12px rgba(0,0,0,0.25)',
-        borderRadius: design.border.radius * scale,
+        boxShadow: '0 20px 40px -15px rgba(0,0,0,0.35), 0 0 0 1px rgba(0,0,0,0.08)',
+        borderRadius: Math.max(8, design.border.radius * scale),
         touchAction: editable ? 'none' : undefined,
         userSelect: 'none',
         flexShrink: 0,
+        transition: 'box-shadow 0.2s ease',
       }}
     >
+      {/* Lanyard punch-hole slot for realistic preview */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          top: 8 * (scale / 4),
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: 32 * (scale / 4),
+          height: 8 * (scale / 4),
+          borderRadius: 9999,
+          backgroundColor: 'rgba(0, 0, 0, 0.15)',
+          boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.3)',
+          border: '1px solid rgba(255,255,255,0.2)',
+          zIndex: 40,
+          pointerEvents: 'none',
+        }}
+      />
       {design.elements.map((el) => (
         <div
           key={el.id}

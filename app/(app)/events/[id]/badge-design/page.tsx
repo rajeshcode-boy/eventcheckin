@@ -429,7 +429,22 @@ export default function BadgeDesignPage() {
         </div>
 
         <div className="order-1 min-h-0 lg:order-2 lg:overflow-y-auto">
-          <div className="flex justify-center overflow-auto rounded-lg bg-muted p-6">
+          {/* Studio Stage with ambient lanyard badge background */}
+          <div className="relative flex flex-col items-center justify-center overflow-auto rounded-3xl border border-border bg-slate-950/5 p-8 dark:bg-black/30 shadow-inner">
+            {/* Lanyard neck ribbon strap */}
+            <div
+              aria-hidden="true"
+              className="pointer-events-none mb-[-6px] h-12 w-16 rounded-t-lg bg-linear-to-b from-primary/30 to-primary/80 opacity-70 shadow-sm"
+              style={{
+                clipPath: 'polygon(15% 0%, 85% 0%, 65% 100%, 35% 100%)',
+              }}
+            />
+            {/* Badge clip holder */}
+            <div
+              aria-hidden="true"
+              className="pointer-events-none mb-[-2px] z-30 h-3 w-8 rounded-sm bg-slate-400 shadow-md dark:bg-slate-600"
+            />
+
             <BadgePreview
               design={design}
               data={previewData}
@@ -441,7 +456,7 @@ export default function BadgeDesignPage() {
               onElementChange={updateElement}
             />
           </div>
-          <div className="mt-3 flex flex-wrap items-center gap-3">
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card p-3 shadow-xs">
             <label className="flex flex-1 basis-60 items-center gap-2 text-sm">
               Preview with
               <NativeSelect className="h-10" value={previewId} onChange={(e) => setPreviewId(e.target.value)}>

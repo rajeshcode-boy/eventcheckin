@@ -9,11 +9,11 @@ type DetectorCtor = (new (o: { formats: string[] }) => Detector) & { getSupporte
 
 export const cameraAvailable = () => typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia
 
-const SCAN_EVERY_MS = 250
-const REPEAT_AFTER_MS = 4000
-// A pass held up to a laptop webcam fills only part of the frame, so decode at up to 1280px.
-// Shrinking to 640px left too few pixels per QR module for jsQR to read it.
-export const MAX_DECODE_WIDTH = 1280
+const SCAN_EVERY_MS = 150
+const REPEAT_AFTER_MS = 2000
+// A pass held up to a laptop webcam fills only part of the frame, so decode at native video resolution up to 1920px.
+// Lower widths degrade pixel fidelity on phone screens held at arm's length or with glare.
+export const MAX_DECODE_WIDTH = 1920
 
 // Some Chrome and Edge builds (e.g. on Windows) expose BarcodeDetector without QR support,
 // and it then finds nothing forever. Only trust it when it says it reads QR codes.
@@ -36,7 +36,14 @@ export type Facing = 'environment' | 'user'
 
 export async function startScanner(video: HTMLVideoElement, onCode: (value: string) => void, facing: Facing = 'environment'): Promise<() => void> {
   if (!cameraAvailable()) throw new Error('camera-unavailable')
-  const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: facing } }, audio: false })
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: {
+      facingMode: { ideal: facing },
+      width: { ideal: 1920 },
+      height: { ideal: 1080 },
+    },
+    audio: false,
+  })
   video.srcObject = stream
   video.muted = true
   video.setAttribute('playsinline', 'true') // iOS plays inline only with this attribute

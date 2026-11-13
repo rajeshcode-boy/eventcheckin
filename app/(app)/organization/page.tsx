@@ -7,7 +7,9 @@ import ImageUpload from '@/components/ImageUpload'
 import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { cn } from '@/lib/utils'
+import { Card } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Building2, Calendar, CalendarDays, ShieldAlert, Sparkles, AlertTriangle } from 'lucide-react'
 
 interface Organization {
   id: string
@@ -16,11 +18,6 @@ interface Organization {
   created_at: string
 }
 
-const TABS = ['General', 'Advanced'] as const
-type Tab = (typeof TABS)[number]
-
-// Organizer company profile: name and logo. Event pages and badges use this
-// logo unless the event has its own.
 export default function OrganizationPage() {
   const [org, setOrg] = useState<Organization | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
@@ -29,7 +26,6 @@ export default function OrganizationPage() {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [saving, setSaving] = useState(false)
-  const [tab, setTab] = useState<Tab>('General')
 
   useEffect(() => {
     const load = async () => {
@@ -73,7 +69,7 @@ export default function OrganizationPage() {
       return
     }
     setOrg({ ...org, name: name.trim() })
-    setNotice('Organization saved.')
+    setNotice('Organization details updated successfully.')
   }
 
   const saveLogo = async (path: string | null) => {
@@ -86,89 +82,150 @@ export default function OrganizationPage() {
 
   if (!org) return error ? <Alert variant="error">{error}</Alert> : <p>Loading organization...</p>
 
-  return (
-    <div className="max-w-[640px]">
-      <h1 className="mb-2 text-[28px] font-bold">Settings</h1>
-      <p className="mb-5 text-muted-foreground">
-        {org.name} • {eventCount} event{eventCount === 1 ? '' : 's'} • since{' '}
-        {new Date(org.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-      </p>
+  const formattedDate = new Date(org.created_at).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })
 
-      <div role="tablist" aria-label="Settings" className="mb-6 flex gap-1 border-b border-border">
-        {TABS.map((t) => (
-          <button
-            key={t}
-            type="button"
-            role="tab"
-            aria-selected={tab === t}
-            onClick={() => setTab(t)}
-            className={cn(
-              'mr-5 border-b-2 bg-transparent px-1 py-2.5 text-sm',
-              tab === t ? 'border-primary font-semibold text-primary' : 'border-transparent font-medium text-muted-foreground'
-            )}
-          >
-            {t}
-          </button>
-        ))}
+  return (
+    <div className="mx-auto flex max-w-4xl flex-col gap-8 pb-12">
+      {/* Header with Title & Meta Badges */}
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border/60 pb-5">
+        <div>
+          <div className="flex items-center gap-2">
+            <Building2 size={22} className="text-primary" />
+            <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">Organization Profile</h1>
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Manage your company details, brand logo assets, and global event preferences.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="secondary" className="px-3 py-1 text-xs font-semibold">
+            <CalendarDays size={13} className="mr-1.5 text-primary" />
+            {eventCount} {eventCount === 1 ? 'Event' : 'Events'} Active
+          </Badge>
+          <Badge variant="outline" className="px-3 py-1 text-xs font-medium text-muted-foreground">
+            Member since {formattedDate}
+          </Badge>
+        </div>
       </div>
 
-      {tab === 'General' && (
-        <div role="tabpanel">
-          {!isAdmin && (
-            <Alert variant="warning" className="mb-4">Only admins can change the organization profile.</Alert>
-          )}
-
-          <form onSubmit={saveName} className="mb-8 flex flex-col gap-3">
-            <label htmlFor="org-name" className="font-medium">Organization name</label>
-            <Input id="org-name" className="h-10" value={name} onChange={(e) => setName(e.target.value)} required maxLength={120} disabled={!isAdmin} />
-            {error && <Alert variant="error">{error}</Alert>}
-            {notice && <Alert variant="success">{notice}</Alert>}
-            <Button type="submit" className="self-start" disabled={!isAdmin || saving || name.trim() === org.name}>
-              {saving ? 'Saving...' : 'Save name'}
-            </Button>
-          </form>
-
-          <div className="rounded-md border border-border p-4">
-            <ImageUpload
-              mode="saved"
-              label="Company logo"
-              shape="logo"
-              rules={LOGO_RULES}
-              bucket="branding"
-              folder={`${org.id}/organization`}
-              kind="logo"
-              path={org.logo_path}
-              onSave={saveLogo}
-              disabled={!isAdmin}
-              hint="Used on your event pages and badges when an event has no logo of its own. A square or wide PNG with a transparent background works best."
-            />
-          </div>
-        </div>
+      {!isAdmin && (
+        <Alert variant="warning">
+          You are viewing this organization as staff. Only organization administrators can modify these details.
+        </Alert>
       )}
 
-      {tab === 'Advanced' && (
-        <div role="tabpanel">
-          <p className="mb-4 text-sm text-muted-foreground">
-            These settings affect your entire organization. Please proceed with caution.
-          </p>
-          <div className="overflow-hidden rounded-[10px] border border-destructive">
-            <div className="border-b border-destructive bg-secondary px-4 py-2.5">
-              <p className="text-sm font-bold text-destructive">Danger Zone</p>
+      <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
+        {/* Left Column: Company Logo & Brand Asset Card */}
+        <div className="space-y-6 md:col-span-1">
+          <Card className="rounded-3xl border border-border bg-card p-6 shadow-xs">
+            <div className="flex items-center gap-2 mb-4">
+              <Sparkles size={16} className="text-primary" />
+              <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                Company Brand Logo
+              </h2>
             </div>
-            <div className="flex flex-wrap items-center justify-between gap-4 p-4">
+            <div className="flex flex-col items-center text-center">
+              <ImageUpload
+                mode="saved"
+                label="Company logo"
+                shape="logo"
+                rules={LOGO_RULES}
+                bucket="branding"
+                folder={`${org.id}/organization`}
+                kind="logo"
+                path={org.logo_path}
+                onSave={saveLogo}
+                disabled={!isAdmin}
+                hint="Used as default header logo across your badges, attendee pass emails, and kiosks."
+              />
+            </div>
+          </Card>
+
+          {/* Quick Info Box */}
+          <Card className="rounded-3xl border border-border bg-card p-6 shadow-xs">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">
+              About Organization Assets
+            </h3>
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              Your organization logo automatically populates new event creations. Individual events can still override with custom event banners and logos.
+            </p>
+          </Card>
+        </div>
+
+        {/* Right Column: Name & Danger Zone */}
+        <div className="space-y-6 md:col-span-2">
+          {/* General Details Form */}
+          <Card className="rounded-3xl border border-border bg-card p-6 sm:p-8 shadow-xs">
+            <h2 className="text-lg font-bold text-foreground mb-1">Company Details</h2>
+            <p className="text-xs text-muted-foreground mb-6">
+              This name is shown to guests and badge holders across all events.
+            </p>
+
+            <form onSubmit={saveName} className="space-y-5">
               <div>
-                <p className="text-sm font-semibold">Delete Organization</p>
-                <p className="mt-0.5 text-[13px] text-muted-foreground">
-                  Permanently delete this organization and all its data. Not available yet — contact support if you need this.
-                </p>
+                <label htmlFor="org-name" className="mb-2 block font-medium text-sm text-foreground">
+                  Organization Name <span className="text-destructive">*</span>
+                </label>
+                <Input
+                  id="org-name"
+                  className="h-11 rounded-xl text-sm"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  maxLength={120}
+                  disabled={!isAdmin}
+                  placeholder="e.g. Acme Conferences Inc."
+                />
               </div>
-              <Button type="button" variant="outline" className="border-destructive text-destructive" disabled>
-                Delete
+
+              {error && <Alert variant="error">{error}</Alert>}
+              {notice && <Alert variant="success">{notice}</Alert>}
+
+              {isAdmin && (
+                <div className="pt-2">
+                  <Button
+                    type="submit"
+                    className="rounded-full bg-primary font-semibold text-primary-foreground shadow-xs"
+                    disabled={saving || name.trim() === org.name}
+                  >
+                    {saving ? 'Saving changes...' : 'Save Changes'}
+                  </Button>
+                </div>
+              )}
+            </form>
+          </Card>
+
+          {/* Danger Zone */}
+          <Card className="rounded-3xl border border-destructive/30 bg-destructive/5 p-6 sm:p-8 shadow-xs">
+            <div className="flex items-center gap-2 mb-2 text-destructive">
+              <AlertTriangle size={20} />
+              <h2 className="text-base font-bold">Danger Zone</h2>
+            </div>
+            <p className="text-xs text-muted-foreground leading-relaxed mb-4">
+              Permanently delete this organization, along with all associated events, badges, check-in history, and attendee rosters.
+            </p>
+            <div className="flex items-center justify-between border-t border-destructive/20 pt-4">
+              <span className="text-xs text-muted-foreground font-medium">
+                Self-service deletion is locked to prevent accidental data loss.
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="rounded-full border-destructive/40 text-destructive opacity-60"
+                disabled
+              >
+                Delete Organization
               </Button>
             </div>
-          </div>
+          </Card>
         </div>
-      )}
+      </div>
     </div>
   )
 }

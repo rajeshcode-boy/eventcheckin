@@ -131,27 +131,22 @@ export default function EventDetailsStrip({ event, compact = false }: { event: E
       </div>
       {event.country && (
         <div className="min-w-0">
-          <p className={heading}>Upcoming public holidays</p>
+          <p className={heading}>Regional holidays</p>
           {holidays.length > 0 ? (
-            <>
-              <div className="mt-1 flex flex-wrap gap-1.5">
-                {holidays.map((h) => (
-                  <span key={h.date + h.name} className={chip}>
-                    {h.name} · {formatHolidayDate(h.date)}
-                  </span>
-                ))}
-              </div>
-              <p className="mt-1.5 text-xs text-muted-foreground">
-                Dates are not official. Confirm with the local authority before you plan around them.
-              </p>
-            </>
+            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+              {holidays.map((h) => (
+                <span key={h.date + h.name} className={chip}>
+                  {h.name} · {formatHolidayDate(h.date)}
+                </span>
+              ))}
+            </div>
           ) : (
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-1 text-xs text-muted-foreground">
               {listNeedsUpdate
-                ? 'No more holidays in our list for this year. The list needs updating for the coming year.'
+                ? 'No more listed holidays for this year.'
                 : covered
-                  ? 'No upcoming public holidays found.'
-                  : 'Holiday information is not available for this country yet.'}
+                  ? 'No conflicting public holidays near this date.'
+                  : 'Holiday info not available.'}
             </p>
           )}
         </div>

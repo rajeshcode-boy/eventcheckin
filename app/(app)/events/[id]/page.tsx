@@ -161,8 +161,13 @@ export default function EventDetailPage() {
             {event.status}
           </span>
           {event.status === 'live' ? (
-            <Button render={<a href={checkInUrl} target="_blank" rel="noopener noreferrer" />} nativeButton={false}>
-              Open check-in
+            <Button
+              className="gap-1.5"
+              render={<a href={checkInUrl} target="_blank" rel="noopener noreferrer" />}
+              nativeButton={false}
+            >
+              <span>Launch Self Check-in</span>
+              <span className="text-xs opacity-75">(Attendee) ↗</span>
             </Button>
           ) : (
             <Button render={<Link href={`/events/${event.id}/guests`} />} nativeButton={false}>
@@ -199,7 +204,13 @@ export default function EventDetailPage() {
 
       <div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-3.5">
         {[
-          { label: 'Registered', value: `${stats.registered}`, sub: event.registration_capacity ? `of ${event.registration_capacity}` : 'no limit' },
+          {
+            label: 'Registered',
+            value: `${stats.registered}`,
+            sub: event.capacity
+              ? `${Math.max(0, event.capacity - stats.registered)} spots remaining`
+              : 'no limit',
+          },
           { label: 'Pending approval', value: `${stats.pending}`, sub: event.approval_mode === 'manual' ? 'approval on' : 'auto-approve' },
           { label: 'Checked in', value: `${stats.checkedIn}`, sub: 'at the entrance' },
           { label: 'Badges collected', value: `${stats.collected}`, sub: `${stats.readyToCollect} ready at the desk` },
@@ -216,35 +227,39 @@ export default function EventDetailPage() {
         <span className="font-semibold">Next step: </span>{nextStep}
       </div>
 
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(300px,1fr))] items-start gap-3.5">
-        <section className={`${card} p-5`} aria-labelledby="checkin-heading">
-          <h2 id="checkin-heading" className="mb-1 text-lg font-semibold">Check-in</h2>
-          <p className="mb-4 text-sm text-muted-foreground">
-            Guests scan this at the entrance and enter their email or phone.
-          </p>
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="rounded-[10px] border border-border bg-white p-3">
-              <QRCodeSVG value={checkInUrl} size={150} marginSize={1} aria-label="Check-in QR code" />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Button type="button" variant="outline" onClick={() => navigator.clipboard.writeText(checkInUrl).then(() => setCopied(true))}>
-                {copied ? 'Copied' : 'Copy check-in link'}
-              </Button>
-              <Button variant="outline" render={<a href={checkInUrl} target="_blank" rel="noopener noreferrer" />} nativeButton={false}>
-                Open check-in page
-              </Button>
-              <Button type="button" variant="outline" onClick={() => downloadQrPng(checkInUrl, `${event.event_id}-check-in`)}>
-                Download QR (PNG)
-              </Button>
-              <Button type="button" variant="outline" onClick={() => downloadQrPdf(checkInUrl, event.name, `${event.event_id}-check-in`)}>
-                Download QR (PDF)
-              </Button>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(300px,1fr))] items-stretch gap-3.5">
+        <section className={`${card} flex flex-col justify-between p-5`} aria-labelledby="checkin-heading">
+          <div>
+            <h2 id="checkin-heading" className="mb-1 text-lg font-semibold">Attendee Check-in QR</h2>
+            <p className="mb-4 text-sm text-muted-foreground">
+              Guests scan this at the venue entrance to check in with their mobile number or email.
+            </p>
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="rounded-[10px] border border-border bg-white p-3 shadow-xs">
+                <QRCodeSVG value={checkInUrl} size={150} marginSize={1} aria-label="Check-in QR code" />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => navigator.clipboard.writeText(checkInUrl).then(() => setCopied(true))}>
+                  {copied ? 'Copied Link' : 'Copy check-in link'}
+                </Button>
+                <Button variant="outline" size="sm" render={<a href={checkInUrl} target="_blank" rel="noopener noreferrer" />} nativeButton={false}>
+                  Open check-in page ↗
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => downloadQrPng(checkInUrl, `${event.event_id}-check-in`)}>
+                  Download QR (PNG)
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => downloadQrPdf(checkInUrl, event.name, `${event.event_id}-check-in`)}>
+                  Download Poster (PDF)
+                </Button>
+              </div>
             </div>
           </div>
-          <code className="mt-3.5 block break-all text-xs text-muted-foreground">{checkInUrl}</code>
+          <code className="mt-4 block break-all rounded bg-muted/60 p-2 font-mono text-[11px] text-muted-foreground">{checkInUrl}</code>
         </section>
 
-        <RegistrationSettings eventUuid={event.id} organizationId={event.organization_id} registrations={registrations} />
+        <div className="flex flex-col">
+          <RegistrationSettings eventUuid={event.id} organizationId={event.organization_id} registrations={registrations} />
+        </div>
       </div>
     </div>
   )

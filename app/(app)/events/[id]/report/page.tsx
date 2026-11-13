@@ -118,6 +118,22 @@ export default function ReportPage() {
     URL.revokeObjectURL(url)
   }
 
+  const downloadNoShows = () => {
+    const header = ['Name', 'Company', 'Status']
+    const rows = summary.noShows.map((r) => [
+      r.full_name ?? '',
+      r.company ?? '',
+      r.registration_status,
+    ])
+    const csv = [header, ...rows].map((row) => row.map(csvCell).join(',')).join('\r\n')
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `${event?.name ?? 'event'}-no-shows.csv`
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
   if (loading) return <p>Loading report...</p>
   if (error || !event) return <Alert variant="error">{error || 'Event not found'}</Alert>
 
@@ -164,7 +180,14 @@ export default function ReportPage() {
       </section>
 
       <section className={card}>
-        <h3 className="mb-2.5 text-base font-semibold">No-shows ({summary.noShows.length})</h3>
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-base font-semibold">No-shows ({summary.noShows.length})</h3>
+          {summary.noShows.length > 0 && (
+            <Button type="button" variant="outline" size="xs" onClick={downloadNoShows}>
+              Export No-Shows (CSV)
+            </Button>
+          )}
+        </div>
         {summary.noShows.length === 0 ? (
           <p className="text-sm text-muted-foreground">Everyone registered has checked in.</p>
         ) : (

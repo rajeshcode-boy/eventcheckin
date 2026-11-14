@@ -173,6 +173,79 @@ After Step 1 passes the test checklist:
 
 ---
 
+## Modern Platform Evolution & Implemented Features (Production Release)
+
+Following the initial Step 1 foundation, the application has evolved into a full-scale, Canva Studio-grade event operations and check-in platform. Below is the complete record of architecture and capabilities currently active in production:
+
+### 1. Canva-Style Event Creation Studio (`/events/create` & `/events/[id]/edit`)
+- **2-Column Split-Screen Studio Layout**:
+  - **Left Form Pane (58% width)**:
+    - **1. Event Essentials**: Title input with live character counter (`0/120`), searchable Country and City autocompletes, and 1-tap **Guest Capacity preset pills** (`100`, `250`, `500`, `1,000`, `2,500`).
+    - **2. Date & Schedule**: Event Date, Start Time, and auto-computed timezone pill (`Detected Timezone: Asia/Kolkata`, `America/New_York`, etc.).
+    - **3. Venue & Location**: Interactive segmented cards (`🏢 In-Person`, `💻 Virtual`, `⏳ To Be Announced`) revealing hotel/venue fields, address, Google Maps link, or virtual platform meeting URL.
+    - **4. Studio Branding**: Dropzones for Event Banner (4:1 ratio) and Event Logo (1:1 ratio) with pixel and file size validation.
+  - **Right Sticky Simulator Pane (42% width)**:
+    - **Real-Time Live Simulator**: Updates instantly as the organizer types name, selects date, changes capacity, or alters venue.
+    - **Physical Attendee Pass Simulator**: Tactile ticket design with perforated cutouts, VIP badge pill, demo attendee details, and live vector **Gate QR Code** (`QRCodeSVG`).
+    - **Public Check-in Portal Preview**: Browser mockup showing the attendee self-registration and check-in portal.
+  - **Mobile Responsive**: 1-tap toggle between `📝 Event Details` and `🎟️ Live Simulator`.
+
+### 2. Unified Live Gate Station (`/events/[id]/desk`)
+- **Consolidated Event Operations Desk**: Merged real-time arrival stream and desk tools into a unified station with segmented toggle (`📋 Attendee Roster` | `⚡ Live Arrival Stream`).
+- **Live Arrival Stream**: Real-time ticker showing attendee check-in timestamps, check-in method (QR Scan vs Manual), VIP tags, and door velocity.
+- **KPI Metrics & Telemetry**: Instant velocity tracking, peak arrival rate (arrivals/min), and total gate throughput.
+- **Roster & Fast Search**: Instant attendee search by name, email, or badge code, with 1-click manual check-in/undo.
+- **Status Controls**: Instant one-click toggle to close or reopen check-in registration.
+- **One-Click Report Exports**: Export check-in logs in CSV, Excel (`.xlsx`), and print-ready PDF formats.
+
+### 3. Organizer Action Center (Notification Hub)
+- **Top Utility Bar Bell**: Replaced passive check-in alert spam with an active, actionable event management center.
+- **Two Focused Tabs**:
+  - **`⚠️ Action Required`**: Pre-flight alerts for upcoming events with missing venues, unassigned start times, or closed registrations, plus pending attendee approval requests with direct action links (`Fix Details`, `Review Approvals`).
+  - **`✨ Workspace Updates`**: Milestones, capacity thresholds (e.g. 80% filled), and team additions.
+- **Live Sync Badge**: Replaced perpetual loading states with real-time Supabase connection indicator (`● Connected to event workspace`).
+
+### 4. Bento Event Overview Dashboard (`/events/[id]`)
+- **3-Zone Bento Architecture**:
+  - **Zone 1 (Header Strip)**: Event title, live lifecycle status chip (`Upcoming`, `Registration Open`, `Closed`), 1-click copy Event ID chip (`NAME-CITY-DDMONYYYY`), and contextual intelligence alerts.
+  - **Zone 2 (Capacity & Arrival Meters)**: Visual progress bar (`X / Y spots filled • Z%`) and live arrival velocity bar.
+  - **Zone 3 (Unified Access & Registration Hub)**: 2-tab switchable panel for Guest Registration Portal and Gate Kiosk link with embedded vector QR codes, copy buttons, and direct launch triggers.
+- **Regional Holidays**: Context-aware public holidays strip filtered specifically for the event's location and month.
+
+### 5. Universal Responsive Breadcrumbs
+- Standardized navigation (`Events › [Event Name] › [Active Section]`) across all event routes:
+  - Overview (`/events/[id]`)
+  - Gate Station (`/events/[id]/desk`)
+  - Guest List (`/events/[id]/attendees`)
+  - Badges (`/events/[id]/badges`)
+  - Team (`/events/[id]/team`)
+  - Settings (`/events/[id]/edit`)
+  - Event Creation (`/events/create`)
+
+### 6. Event Team & Role Permissions (`/events/[id]/team`)
+- **2-Column Team Workspace**: Left column active team list; right column role permissions guide.
+- **Role Permissions**:
+  - `Admin`: Full workspace control, event lifecycle, imports, and exports.
+  - `Staff`: Gate check-in, scanner access, badge printing, and attendee lookup.
+- **On-Site Staff Badges**: Visual indicator distinguishing on-site check-in operators.
+- **Team Invitations**: Invite colleagues by email with role assignment.
+
+### 7. Kiosk Mode & Self-Service Check-in (`/kiosk/[event_id]`)
+- **Self-Service Kiosk**: Full-screen kiosk interface designed for entrance iPads/tablets.
+- **Camera QR Scanner**: Web camera QR scanning using `jsqr` with instant audible confirmation.
+- **Search Fallback**: Fast name/email search for attendees who forgot their pass.
+- **Offline Resilience**: Local caching prevents gate delays during venue Wi-Fi drops.
+
+### 8. Badge Designer & PDF Generator (`/events/[id]/badges`)
+- **Visual Badge Layout**: Configure attendee badges with event logo, custom fields, QR codes, and lanyard punch holes.
+- **Batch PDF Printing**: Generate standard Avery or custom badge PDF sheets via `@react-pdf/renderer` and `pdf-lib`.
+
+### 9. Attendee Imports & Approvals (`/events/[id]/attendees`)
+- **CSV & Excel Import**: Drag-and-drop spreadsheets with intelligent column mapping and duplicate detection.
+- **Registration Approval Mode**: Toggle between Auto-Approve and Manual Approval for VIP/private events.
+
+---
+
 ## Project Structure
 
 ```

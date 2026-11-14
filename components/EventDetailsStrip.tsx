@@ -132,23 +132,27 @@ export default function EventDetailsStrip({ event, compact = false }: { event: E
       {event.country && (
         <div className="min-w-0">
           <p className={heading}>Regional holidays</p>
-          {holidays.length > 0 ? (
-            <div className="mt-1 flex flex-wrap items-center gap-1.5">
-              {holidays.map((h) => (
-                <span key={h.date + h.name} className={chip}>
-                  {h.name} · {formatHolidayDate(h.date)}
-                </span>
-              ))}
-            </div>
-          ) : (
-            <p className="mt-1 text-xs text-muted-foreground">
-              {listNeedsUpdate
-                ? 'No more listed holidays for this year.'
-                : covered
-                  ? 'No conflicting public holidays near this date.'
-                  : 'Holiday info not available.'}
-            </p>
-          )}
+          {(() => {
+            const eventTime = new Date(event.event_date + 'T00:00:00').getTime()
+            const nearbyHolidays = holidays.filter((h) => {
+              const hTime = new Date(h.date + 'T00:00:00').getTime()
+              const diffDays = Math.abs((hTime - eventTime) / (1000 * 60 * 60 * 24))
+              return diffDays <= 7
+            })
+            return nearbyHolidays.length > 0 ? (
+              <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                {nearbyHolidays.map((h) => (
+                  <span key={h.date + h.name} className={chip}>
+                    {h.name} · {formatHolidayDate(h.date)}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-1 text-xs text-muted-foreground">
+                No conflicting public holidays near event date.
+              </p>
+            )
+          })()}
         </div>
       )}
     </section>

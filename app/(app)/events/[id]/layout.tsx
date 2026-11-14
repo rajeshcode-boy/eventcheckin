@@ -113,7 +113,7 @@ export default function EventLayout({ children }: { children: React.ReactNode })
       <div className="grid items-start gap-7 max-md:gap-4 md:grid-cols-[210px_minmax(0,1fr)]">
         <nav
           aria-label="Event sections"
-          className="flex gap-1.5 overflow-x-auto pb-1 md:sticky md:top-[84px] md:flex-col md:gap-0.5 md:overflow-visible md:pb-0"
+          className="flex gap-1.5 overflow-x-auto pb-1 md:sticky md:top-[84px] md:flex-col md:gap-0.5 md:overflow-visible md:pb-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
         >
           {/* Back to All Events at the very top */}
           <Link

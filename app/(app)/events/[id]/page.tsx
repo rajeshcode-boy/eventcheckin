@@ -10,6 +10,9 @@ import { publicImageUrl } from '@/lib/storage'
 import { countryName } from '@/lib/countries'
 import EventDetailsStrip from '@/components/EventDetailsStrip'
 import { downloadQrPng, downloadQrPdf } from '@/lib/qrExport'
+import { fetchEventRole } from '@/lib/eventRole'
+import { canManageEvent, type EventRole } from '@/lib/permissions'
+import { Switch } from '@/components/ui/switch'
 import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -76,6 +79,8 @@ export default function EventDetailPage() {
   const [error, setError] = useState('')
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
   const [hubTab, setHubTab] = useState<'qr' | 'registration'>('qr')
+  const [userRole, setUserRole] = useState<EventRole | null>(null)
+  const [togglingStatus, setTogglingStatus] = useState(false)
   const params = useParams()
   const eventId = params.id as string
 
@@ -85,18 +90,22 @@ export default function EventDetailPage() {
 
   const fetchEvent = async () => {
     try {
-      const { data, error: fetchError } = await supabase
-        .from('events')
-        .select('*, organizations(logo_path)')
-        .eq('id', eventId)
-        .single()
+      const [eventRes, role] = await Promise.all([
+        supabase
+          .from('events')
+          .select('*, organizations(logo_path)')
+          .eq('id', eventId)
+          .single(),
+        fetchEventRole(eventId).catch(() => null),
+      ])
 
-      if (fetchError || !data) {
+      if (eventRes.error || !eventRes.data) {
         setError('Event not found')
         return
       }
 
-      setEvent(data)
+      setEvent(eventRes.data)
+      setUserRole(role)
       const { data: regs } = await supabase
         .from('registrations')
         .select('registration_status, referral_member_id, badge_collected_at, checkins(checked_in_at)')
@@ -176,6 +185,30 @@ export default function EventDetailPage() {
     ? Math.round((stats.checkedIn / stats.registered) * 100)
     : 0
 
+  const canManage = canManageEvent(userRole)
+  const today = new Date()
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+  const isEventDay = event.event_date === todayStr
+  const isDeactivated = event.status === 'closed'
+
+  const handleToggleEventStatus = async (activate: boolean) => {
+    if (!event || !canManage) return
+    setTogglingStatus(true)
+    try {
+      const nextStatus = activate ? (isEventDay ? 'live' : 'upcoming') : 'closed'
+      const { error: updateError } = await supabase
+        .from('events')
+        .update({ status: nextStatus, updated_at: new Date().toISOString() })
+        .eq('id', event.id)
+      if (updateError) throw updateError
+      setEvent((prev) => (prev ? { ...prev, status: nextStatus } : null))
+    } catch (err) {
+      alert('Could not update event status: ' + (err as Error).message)
+    } finally {
+      setTogglingStatus(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* 1. Hero Cover Banner */}
@@ -213,24 +246,52 @@ export default function EventDetailPage() {
                 <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground truncate">
                   {event.name}
                 </h1>
-                <span
-                  className={cn(
-                    'inline-flex items-center gap-1.5 rounded-full px-3 py-0.5 text-xs font-bold capitalize shadow-2xs',
-                    event.status === 'live'
-                      ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                      : event.status === 'closed'
-                      ? 'bg-destructive/10 text-destructive border border-destructive/20'
-                      : 'bg-muted text-muted-foreground border border-border'
-                  )}
-                >
-                  {event.status === 'live' && (
-                    <span className="relative flex size-2">
-                      <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500 opacity-75" />
-                      <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
+                
+                <div className="flex items-center gap-2">
+                  {/* Status Badge */}
+                  <span
+                    className={cn(
+                      'inline-flex items-center gap-1.5 rounded-full px-3 py-0.5 text-xs font-bold capitalize shadow-2xs',
+                      !isDeactivated
+                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                        : 'bg-muted text-muted-foreground border border-border'
+                    )}
+                  >
+                    {!isDeactivated && isEventDay ? (
+                      <span className="relative flex size-2">
+                        <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500 opacity-75" />
+                        <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
+                      </span>
+                    ) : !isDeactivated ? (
+                      <span className="size-2 rounded-full bg-emerald-500" />
+                    ) : (
+                      <span className="size-2 rounded-full bg-muted-foreground/50" />
+                    )}
+                    {isDeactivated ? 'Deactivated' : isEventDay ? 'Live' : 'Active'}
+                  </span>
+
+                  {/* Event Active/Deactivated Toggle (Admin & Manager only) */}
+                  {canManage ? (
+                    <div className="flex items-center gap-2 rounded-full border border-border bg-muted/40 px-2 py-0.5">
+                      <Switch
+                        id="event-active-toggle"
+                        checked={!isDeactivated}
+                        disabled={togglingStatus}
+                        onCheckedChange={handleToggleEventStatus}
+                      />
+                      <label
+                        htmlFor="event-active-toggle"
+                        className="text-xs font-semibold text-foreground cursor-pointer select-none"
+                      >
+                        {!isDeactivated ? 'Active' : 'Deactivated'}
+                      </label>
+                    </div>
+                  ) : (
+                    <span className="text-[11px] text-muted-foreground font-medium">
+                      ({!isDeactivated ? 'Active' : 'Deactivated'} &bull; Staff view)
                     </span>
                   )}
-                  {event.status}
-                </span>
+                </div>
               </div>
 
               <div className="mt-1.5 flex flex-wrap items-center gap-2.5 text-xs sm:text-sm text-muted-foreground">
@@ -675,6 +736,7 @@ export default function EventDetailPage() {
               eventUuid={event.id}
               organizationId={event.organization_id}
               registrations={registrations}
+              canManage={canManage}
             />
           </div>
         )}

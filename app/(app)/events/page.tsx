@@ -334,9 +334,10 @@ function EventCard({
   onCopyId: (id: string) => void
 }) {
   const [copied, setCopied] = useState(false)
-  const isLive = event.status === 'live'
-  const isUpcoming = event.status === 'upcoming'
   const days = daysUntil(event.event_date)
+  const isDeactivated = event.status === 'closed'
+  const isLive = !isDeactivated && days === 0
+  const isActive = !isDeactivated && days !== 0
   const registeredCount = stats?.registered ?? 0
   const capacity = event.capacity || 100
   const pct = Math.min(100, Math.round((registeredCount / capacity) * 100))
@@ -361,7 +362,7 @@ function EventCard({
           'relative flex h-28 w-full items-start justify-between p-4 text-white overflow-hidden',
           isLive
             ? 'bg-linear-to-r from-emerald-600 via-teal-700 to-emerald-900'
-            : isUpcoming
+            : isActive
             ? 'bg-linear-to-r from-slate-700 via-teal-800 to-slate-900'
             : 'bg-linear-to-r from-zinc-700 to-zinc-900'
         )}
@@ -377,10 +378,12 @@ function EventCard({
           <span
             className={cn(
               'size-2 rounded-full',
-              isLive ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
+              isDeactivated ? 'bg-zinc-400' : isLive ? 'bg-emerald-400 animate-pulse' : 'bg-emerald-400'
             )}
           />
-          <span className="capitalize">{event.status}</span>
+          <span className="capitalize">
+            {isDeactivated ? 'Deactivated' : isLive ? 'Live' : 'Active'}
+          </span>
         </div>
 
         {/* Date Calendar Badge */}

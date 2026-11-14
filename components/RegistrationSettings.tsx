@@ -6,6 +6,8 @@ import { useConfirm } from '@/components/ConfirmDialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { NativeSelect } from '@/components/ui/native-select'
+import { Switch } from '@/components/ui/switch'
+import { cn } from '@/lib/utils'
 
 interface EventSettings {
   registration_token: string
@@ -34,7 +36,17 @@ const newCode = () => {
 }
 
 // Registration link controls for the organiser: open or close, approval, capacity, and team links
-export default function RegistrationSettings({ eventUuid, organizationId, registrations }: { eventUuid: string; organizationId: string; registrations: RegistrationRow[] }) {
+export default function RegistrationSettings({
+  eventUuid,
+  organizationId,
+  registrations,
+  canManage = true,
+}: {
+  eventUuid: string
+  organizationId: string
+  registrations: RegistrationRow[]
+  canManage?: boolean
+}) {
   const { confirm, dialog } = useConfirm()
   const [settings, setSettings] = useState<EventSettings | null>(null)
   const [members, setMembers] = useState<TeamMember[]>([])
@@ -146,13 +158,51 @@ export default function RegistrationSettings({ eventUuid, organizationId, regist
       </p>
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <label className="flex items-center gap-2.5 text-sm font-medium">
-          <input type="checkbox" className="accent-primary" checked={settings.registration_open} onChange={(e) => save({ registration_open: e.target.checked }, e.target.checked ? 'Registration is open.' : 'Registration is closed.')} />
-          Registration open
-        </label>
+        <div className="flex items-center gap-3">
+          <Switch
+            id="reg-toggle"
+            checked={settings.registration_open}
+            disabled={!canManage}
+            onCheckedChange={(checked) => {
+              if (!canManage) return
+              save(
+                { registration_open: checked },
+                checked ? 'Registration is open.' : 'Registration is paused.'
+              )
+            }}
+          />
+          <label
+            htmlFor="reg-toggle"
+            className={cn(
+              'flex items-center gap-2 text-sm font-semibold select-none',
+              canManage ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'
+            )}
+          >
+            {settings.registration_open ? (
+              <span className="text-emerald-600 dark:text-emerald-400">
+                Registration Open
+              </span>
+            ) : (
+              <span className="text-muted-foreground">
+                Registration Paused
+              </span>
+            )}
+            {!canManage && (
+              <span className="text-[11px] font-normal text-muted-foreground">
+                (Admin / Manager only)
+              </span>
+            )}
+          </label>
+        </div>
         <div className="flex items-center gap-2">
-          <label htmlFor="approval" className="text-sm">Approval</label>
-          <NativeSelect id="approval" className="h-10 w-auto" value={settings.approval_mode} onChange={(e) => save({ approval_mode: e.target.value as 'auto' | 'manual' }, 'Approval setting saved.')}>
+          <label htmlFor="approval" className="text-sm font-medium">Approval</label>
+          <NativeSelect
+            id="approval"
+            className="h-9 w-auto text-xs"
+            disabled={!canManage}
+            value={settings.approval_mode}
+            onChange={(e) => save({ approval_mode: e.target.value as 'auto' | 'manual' }, 'Approval setting saved.')}
+          >
             <option value="auto">Auto-approve</option>
             <option value="manual">Subject to approval</option>
           </NativeSelect>

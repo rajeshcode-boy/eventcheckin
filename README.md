@@ -192,7 +192,14 @@ Following the initial Step 1 foundation, the application has evolved into a full
 
 ### 2. Unified Live Gate Station (`/events/[id]/desk`)
 - **Consolidated Event Operations Desk**: Merged real-time arrival stream and desk tools into a unified station with segmented toggle (`📋 Attendee Roster` | `⚡ Live Arrival Stream`).
-- **Live Arrival Stream**: Real-time ticker showing attendee check-in timestamps, check-in method (QR Scan vs Manual), VIP tags, and door velocity.
+- **Active Connected Kiosks Indicator**: Live status chip in header showing active connected tablets (`📱 X Kiosk(s) Online (Y paired)` vs `0 Kiosks Connected`) with realtime 20s presence heartbeat and 1-click shortcut to device management.
+- **Multi-Method Check-in Tracking & Attribution**: Every attendee check-in records and displays its exact arrival method across the Roster and Live Arrival Stream:
+  - `📱 Kiosk QR: [Kiosk Label]` or `📱 Kiosk Search: [Kiosk Label]` (entrance kiosk tablets)
+  - `📷 Desk QR Scanner` (camera QR scanner with operator attribution)
+  - `🌐 Self Check-in` (guest smartphone self-arrival)
+  - `✍️ Desk Manual: [Staff Name]` (1-tap desk check-in with staff operator attribution)
+  - `🚶 Walk-in Desk` (on-site walk-in registration)
+- **Live Arrival Stream**: Real-time ticker showing attendee check-in timestamps, check-in method badge, VIP tags, and door velocity.
 - **KPI Metrics & Telemetry**: Instant velocity tracking, peak arrival rate (arrivals/min), and total gate throughput.
 - **Roster & Fast Search**: Instant attendee search by name, email, or badge code, with 1-click manual check-in/undo.
 - **Status Controls**: Instant one-click toggle to close or reopen check-in registration.
@@ -203,13 +210,13 @@ Following the initial Step 1 foundation, the application has evolved into a full
 - **Two Focused Tabs**:
   - **`⚠️ Action Required`**: Pre-flight alerts for upcoming events with missing venues, unassigned start times, or closed registrations, plus pending attendee approval requests with direct action links (`Fix Details`, `Review Approvals`).
   - **`✨ Workspace Updates`**: Milestones, capacity thresholds (e.g. 80% filled), and team additions.
-- **Live Sync Badge**: Replaced perpetual loading states with real-time Supabase connection indicator (`● Connected to event workspace`).
+- **Realtime Synced Status**: Replaced confusing indicators with clear real-time synchronization (`● Realtime Synced`).
 
 ### 4. Bento Event Overview Dashboard (`/events/[id]`)
 - **3-Zone Bento Architecture**:
-  - **Zone 1 (Header Strip)**: Event title, live lifecycle status chip (`Upcoming`, `Registration Open`, `Closed`), 1-click copy Event ID chip (`NAME-CITY-DDMONYYYY`), and contextual intelligence alerts.
+  - **Zone 1 (Header Strip)**: Event title, date-aware lifecycle status badge (strictly shows `● Live` only on the event day itself; shows `● Active` or `○ Deactivated` prior to event day), header event activation toggle switch, 1-click copy Event ID chip (`NAME-CITY-DDMONYYYY`), and contextual intelligence alerts.
   - **Zone 2 (Capacity & Arrival Meters)**: Visual progress bar (`X / Y spots filled • Z%`) and live arrival velocity bar.
-  - **Zone 3 (Unified Access & Registration Hub)**: 2-tab switchable panel for Guest Registration Portal and Gate Kiosk link with embedded vector QR codes, copy buttons, and direct launch triggers.
+  - **Zone 3 (Unified Access & Registration Hub)**: 2-tab switchable panel for Guest Registration Portal and Gate Kiosk link with embedded vector QR codes, modern accessible toggle switch (`Registration Open` / `Registration Paused`) with role-based restrictions (Admin & Manager only), copy buttons, and direct launch triggers.
 - **Regional Holidays**: Context-aware public holidays strip filtered specifically for the event's location and month.
 
 ### 5. Universal Responsive Breadcrumbs

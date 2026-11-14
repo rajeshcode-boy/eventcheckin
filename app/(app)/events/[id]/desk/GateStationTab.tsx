@@ -25,6 +25,9 @@ import {
   Check,
   FileSpreadsheet,
   FileText,
+  Tablet,
+  Globe,
+  Edit3,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -49,7 +52,21 @@ interface AttendeeRow {
   badge_token: string | null
   badge_collected_at: string | null
   created_at: string
-  checkins: { id: string; checked_in_at: string; method: string }[]
+  checkins: {
+    id: string
+    checked_in_at: string
+    method: string
+    checked_in_by?: string | null
+    kiosk_id?: string | null
+  }[]
+}
+
+interface KioskInfo {
+  id: string
+  kiosk_code: string
+  label: string
+  last_seen_at: string | null
+  revoked_at: string | null
 }
 
 interface EventInfo {
@@ -76,6 +93,7 @@ export default function GateStationTab() {
 
   // Attendees & Search
   const [attendees, setAttendees] = useState<AttendeeRow[]>([])
+  const [kiosks, setKiosks] = useState<KioskInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'all' | 'unchecked' | 'checked' | 'walkin'>('all')
@@ -147,7 +165,7 @@ export default function GateStationTab() {
     setLoading(true)
     const { data, error } = await supabase
       .from('registrations')
-      .select('id, registration_id, source, full_name, email, company, designation, badge_token, badge_collected_at, created_at, checkins(id, checked_in_at, method)')
+      .select('id, registration_id, source, full_name, email, company, designation, badge_token, badge_collected_at, created_at, checkins(id, checked_in_at, method, checked_in_by, kiosk_id)')
       .eq('event_id', eventUuid)
       .order('full_name', { ascending: true })
 
@@ -160,8 +178,25 @@ export default function GateStationTab() {
     setLoading(false)
   }
 
+  // Load connected kiosks & active presence
+  const loadKiosks = async () => {
+    const { data } = await supabase
+      .from('kiosks')
+      .select('id, kiosk_code, label, last_seen_at, revoked_at')
+      .eq('event_id', eventUuid)
+      .is('revoked_at', null)
+    if (data) {
+      setKiosks(data as KioskInfo[])
+    }
+  }
+
   useEffect(() => {
     loadAttendees()
+    loadKiosks()
+
+    const kioskInterval = setInterval(() => {
+      loadKiosks()
+    }, 20000)
 
     // Realtime channel for instant check-in sync across multiple tablets
     const checkinChannel = supabase
@@ -182,6 +217,13 @@ export default function GateStationTab() {
       )
       .on(
         'postgres_changes',
+        { event: '*', schema: 'public', table: 'kiosks', filter: `event_id=eq.${eventUuid}` },
+        () => {
+          loadKiosks()
+        }
+      )
+      .on(
+        'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'events', filter: `id=eq.${eventUuid}` },
         (payload) => {
           if (payload.new) {
@@ -192,6 +234,7 @@ export default function GateStationTab() {
       .subscribe()
 
     return () => {
+      clearInterval(kioskInterval)
       supabase.removeChannel(checkinChannel)
     }
   }, [eventUuid])
@@ -222,6 +265,14 @@ export default function GateStationTab() {
   const remainingCount = totalCount - checkedInCount
   const attendanceRate = totalCount > 0 ? Math.round((checkedInCount / totalCount) * 100) : 0
 
+  // Active Connected Kiosks: last seen within past 2 minutes and not revoked
+  const onlineKiosks = useMemo(() => {
+    const now = Date.now()
+    return kiosks.filter(
+      (k) => !k.revoked_at && !!k.last_seen_at && now - new Date(k.last_seen_at).getTime() < 120000
+    )
+  }, [kiosks])
+
   // Real-Time Arrival Stream Feed (Flattened & Ordered by latest arrival)
   const liveFeed = useMemo(() => {
     const items: Array<{
@@ -229,6 +280,8 @@ export default function GateStationTab() {
       registrationId: string
       checked_in_at: string
       method: string
+      checked_in_by?: string | null
+      kiosk_id?: string | null
       fullName: string
       company: string | null
       designation: string | null
@@ -245,6 +298,8 @@ export default function GateStationTab() {
             registrationId: a.registration_id,
             checked_in_at: c.checked_in_at,
             method: c.method,
+            checked_in_by: c.checked_in_by,
+            kiosk_id: c.kiosk_id,
             fullName: a.full_name,
             company: a.company,
             designation: a.designation,
@@ -259,6 +314,91 @@ export default function GateStationTab() {
     items.sort((a, b) => new Date(b.checked_in_at).getTime() - new Date(a.checked_in_at).getTime())
     return items
   }, [attendees])
+
+  // Render Check-in Method Badge helper
+  const renderCheckinMethodBadge = (
+    checkin: { method: string; checked_in_by?: string | null; kiosk_id?: string | null },
+    compact: boolean = false
+  ) => {
+    const isKiosk = !!checkin.kiosk_id || !!checkin.checked_in_by?.startsWith('KSK-') || checkin.method === 'kiosk'
+    const kiosk = isKiosk ? kiosks.find((k) => k.id === checkin.kiosk_id || k.kiosk_code === checkin.checked_in_by) : null
+    const kioskName = kiosk?.label || checkin.checked_in_by || 'Kiosk'
+
+    if (isKiosk) {
+      const isQr = checkin.method === 'qr'
+      return (
+        <span
+          className={cn(
+            'inline-flex items-center gap-1 rounded-full border border-purple-500/30 bg-purple-500/10 px-2 py-0.5 text-[10px] font-semibold text-purple-700 dark:text-purple-300',
+            compact && 'text-[9px] px-1.5 py-0'
+          )}
+          title={`Checked in at kiosk station: ${kioskName}`}
+        >
+          <Tablet size={11} className="text-purple-600 dark:text-purple-400" />
+          <span>{isQr ? `Kiosk QR • ${kioskName}` : `Kiosk Search • ${kioskName}`}</span>
+        </span>
+      )
+    }
+
+    if (checkin.checked_in_by === 'guest') {
+      return (
+        <span
+          className={cn(
+            'inline-flex items-center gap-1 rounded-full border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-[10px] font-semibold text-blue-700 dark:text-blue-300',
+            compact && 'text-[9px] px-1.5 py-0'
+          )}
+          title="Guest self check-in via mobile phone"
+        >
+          <Globe size={11} className="text-blue-600 dark:text-blue-400" />
+          <span>Self Check-in</span>
+        </span>
+      )
+    }
+
+    if (checkin.method === 'walkin') {
+      return (
+        <span
+          className={cn(
+            'inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-300',
+            compact && 'text-[9px] px-1.5 py-0'
+          )}
+          title="Walk-in guest registration & arrival"
+        >
+          <UserPlus size={11} className="text-amber-600 dark:text-amber-400" />
+          <span>Walk-in Desk</span>
+        </span>
+      )
+    }
+
+    if (checkin.method === 'qr') {
+      return (
+        <span
+          className={cn(
+            'inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300',
+            compact && 'text-[9px] px-1.5 py-0'
+          )}
+          title={checkin.checked_in_by ? `Scanned by ${checkin.checked_in_by}` : 'Scanned with desk camera scanner'}
+        >
+          <Camera size={11} className="text-emerald-600 dark:text-emerald-400" />
+          <span>Desk Scanner{checkin.checked_in_by && checkin.checked_in_by !== 'Front Desk' ? ` • ${checkin.checked_in_by}` : ''}</span>
+        </span>
+      )
+    }
+
+    // Default: Desk Manual
+    return (
+      <span
+        className={cn(
+          'inline-flex items-center gap-1 rounded-full border border-slate-500/20 bg-slate-500/10 px-2 py-0.5 text-[10px] font-semibold text-slate-700 dark:text-slate-300',
+          compact && 'text-[9px] px-1.5 py-0'
+        )}
+        title={checkin.checked_in_by ? `Manual check-in by ${checkin.checked_in_by}` : 'Manual 1-tap desk check-in'}
+      >
+        <Edit3 size={11} className="text-slate-600 dark:text-slate-400" />
+        <span>Desk Manual{checkin.checked_in_by && checkin.checked_in_by !== 'Front Desk' ? ` • ${checkin.checked_in_by}` : ''}</span>
+      </span>
+    )
+  }
 
   // Filter & Search
   const filteredAttendees = useMemo(() => {
@@ -280,7 +420,7 @@ export default function GateStationTab() {
   }, [attendees, search, filter])
 
   // 1-Tap Check In
-  const handleCheckIn = async (attendee: AttendeeRow) => {
+  const handleCheckIn = async (attendee: AttendeeRow, method: 'manual' | 'qr' = 'manual') => {
     setBusyId(attendee.id)
     try {
       const { data, error } = await supabase
@@ -288,7 +428,7 @@ export default function GateStationTab() {
         .insert({
           event_id: eventUuid,
           registration_id: attendee.id,
-          method: 'manual',
+          method,
           checked_in_by: staffName,
         })
         .select()
@@ -304,7 +444,14 @@ export default function GateStationTab() {
             item.id === attendee.id
               ? {
                   ...item,
-                  checkins: [{ id: data.id, checked_in_at: new Date().toISOString(), method: 'manual' }],
+                  checkins: [
+                    {
+                      id: data.id,
+                      checked_in_at: new Date().toISOString(),
+                      method,
+                      checked_in_by: staffName,
+                    },
+                  ],
                 }
               : item
           )
@@ -595,7 +742,7 @@ export default function GateStationTab() {
           },
           2200
         )
-        await handleCheckIn(target)
+        await handleCheckIn(target, 'qr')
       }
     } else {
       showFeedback(
@@ -615,7 +762,7 @@ export default function GateStationTab() {
       {/* Station Command Header */}
       <div className="flex flex-wrap items-center justify-between gap-4 rounded-3xl border border-border bg-card p-6 shadow-xs">
         <div>
-          <div className="flex items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2.5">
             <h1 className="text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">
               ⚡ Live Gate Station
             </h1>
@@ -624,8 +771,33 @@ export default function GateStationTab() {
                 <span className="absolute inline-flex size-full animate-ping rounded-full bg-(--color-live) opacity-75" />
                 <span className="relative inline-flex size-2 rounded-full bg-(--color-live)" />
               </span>
-              Live Sync Active
+              Realtime Synced
             </span>
+            <Link
+              href={`/events/${eventUuid}/desk?tab=devices`}
+              className={cn(
+                'flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold transition-all border',
+                onlineKiosks.length > 0
+                  ? 'border-purple-500/30 bg-purple-500/10 text-purple-700 dark:text-purple-300 hover:bg-purple-500/20'
+                  : 'border-border bg-muted/50 text-muted-foreground hover:bg-muted'
+              )}
+              title="View paired kiosk stations & devices"
+            >
+              <Tablet size={12} className={onlineKiosks.length > 0 ? 'text-purple-600 dark:text-purple-400' : 'opacity-60'} />
+              <span>
+                {onlineKiosks.length > 0
+                  ? `${onlineKiosks.length} Kiosk${onlineKiosks.length > 1 ? 's' : ''} Online`
+                  : kiosks.length > 0
+                    ? `0/${kiosks.length} Kiosks Online`
+                    : '0 Kiosks Connected'}
+              </span>
+              {onlineKiosks.length > 0 && (
+                <span className="relative flex size-1.5">
+                  <span className="absolute inline-flex size-full animate-ping rounded-full bg-purple-500 opacity-75" />
+                  <span className="relative inline-flex size-1.5 rounded-full bg-purple-500" />
+                </span>
+              )}
+            </Link>
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
             Staff Operator: <strong className="text-foreground">{staffName}</strong>
@@ -927,23 +1099,9 @@ export default function GateStationTab() {
                         {item.fullName.slice(0, 2).toUpperCase()}
                       </div>
                       <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <span className="font-bold text-foreground text-sm">{item.fullName}</span>
-                          {item.source === 'walkin' && (
-                            <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-400">
-                              Walk-in
-                            </span>
-                          )}
-                          {item.method === 'kiosk' && (
-                            <span className="rounded-full border border-purple-500/40 bg-purple-500/10 px-2 py-0.5 text-[10px] font-bold text-purple-600 dark:text-purple-400">
-                              Kiosk
-                            </span>
-                          )}
-                          {item.method === 'qr' && (
-                            <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
-                              QR Scan
-                            </span>
-                          )}
+                          {renderCheckinMethodBadge(item)}
                         </div>
                         <p className="text-xs text-muted-foreground mt-0.5">
                           {[item.designation, item.company].filter(Boolean).join(' • ') || 'Attendee'}
@@ -1145,19 +1303,20 @@ export default function GateStationTab() {
                             </div>
                           </td>
 
-                          {/* Check-In Status */}
+                          {/* Check-In Status & Method */}
                           <td className="px-5 py-3.5">
-                            {isChecked ? (
-                              <div className="flex flex-col gap-0.5">
-                                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                                  <span className="size-1.5 rounded-full bg-emerald-500" />
-                                  Checked In
-                                </span>
-                                {checkinData?.checked_in_at && (
+                            {isChecked && checkinData ? (
+                              <div className="flex flex-col gap-1 items-start">
+                                <div className="flex items-center gap-2">
+                                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                                    <span className="size-1.5 rounded-full bg-emerald-500" />
+                                    Checked In
+                                  </span>
                                   <span className="text-[11px] text-muted-foreground font-mono">
                                     {formatTime(checkinData.checked_in_at)}
                                   </span>
-                                )}
+                                </div>
+                                {renderCheckinMethodBadge(checkinData)}
                               </div>
                             ) : (
                               <span className="text-xs font-medium text-muted-foreground">

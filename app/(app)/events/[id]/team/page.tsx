@@ -7,14 +7,28 @@ import { useEventRole } from '@/components/EventRoleContext'
 import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { NativeSelect } from '@/components/ui/native-select'
+import { Card } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
-import { canAssignOwner, canManageTeam, EVENT_ROLES, ROLE_DESCRIPTIONS, ROLE_LABELS, type EventRole as Role } from '@/lib/permissions'
+import {
+  canAssignOwner,
+  canManageTeam,
+  EVENT_ROLES,
+  ROLE_DESCRIPTIONS,
+  ROLE_LABELS,
+  type EventRole as Role,
+} from '@/lib/permissions'
+import { Users, UserPlus, Shield, ShieldCheck, MapPin, Trash2, CheckCircle2 } from 'lucide-react'
 
-const ROLES: { value: Role; label: string }[] = EVENT_ROLES.map((value) => ({ value, label: ROLE_LABELS[value] }))
+const ROLES: { value: Role; label: string }[] = EVENT_ROLES.map((value) => ({
+  value,
+  label: ROLE_LABELS[value],
+}))
 
 interface Member {
   id: string
   full_name: string | null
+  email?: string | null
 }
 
 interface Assignment {
@@ -22,10 +36,9 @@ interface Assignment {
   profile_id: string
   role: Role
   on_site: boolean
-  profiles: { full_name: string | null } | null
+  profiles: { full_name: string | null; email?: string | null } | null
 }
 
-// Who works this event, in what role, and who is on site right now
 export default function TeamPage() {
   const params = useParams()
   const eventUuid = params.id as string
@@ -33,7 +46,6 @@ export default function TeamPage() {
   const [me, setMe] = useState<string | null>(null)
   const myRole = useEventRole()
   const isAdmin = canManageTeam(myRole)
-  // Only an owner can hand out the Owner role
   const assignable = ROLES.filter((r) => r.value !== 'owner' || canAssignOwner(myRole))
   const [members, setMembers] = useState<Member[]>([])
   const [assignments, setAssignments] = useState<Assignment[]>([])
@@ -41,14 +53,21 @@ export default function TeamPage() {
   const [newRole, setNewRole] = useState<Role>('staff')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
+  const [busy, setBusy] = useState(false)
 
   const load = useCallback(async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
       if (!user) return
       setMe(user.id)
 
-      const { data: profile } = await supabase.from('profiles').select('organization_id, role').eq('id', user.id).single()
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('organization_id, role')
+        .eq('id', user.id)
+        .single()
       if (!profile) {
         setError('Your profile could not be loaded.')
         return
@@ -56,10 +75,14 @@ export default function TeamPage() {
       setOrgId(profile.organization_id)
 
       const [membersRes, assignRes] = await Promise.all([
-        supabase.from('profiles').select('id, full_name').eq('organization_id', profile.organization_id).order('full_name'),
+        supabase
+          .from('profiles')
+          .select('id, full_name, email')
+          .eq('organization_id', profile.organization_id)
+          .order('full_name'),
         supabase
           .from('event_staff_assignments')
-          .select('id, profile_id, role, on_site, profiles(full_name)')
+          .select('id, profile_id, role, on_site, profiles(full_name, email)')
           .eq('event_id', eventUuid)
           .order('created_at'),
       ])
@@ -85,9 +108,11 @@ export default function TeamPage() {
 
   const addMember = async () => {
     if (!orgId || !newProfile) return
+    setBusy(true)
     const { error: insertError } = await supabase.from('event_staff_assignments').insert([
       { event_id: eventUuid, organization_id: orgId, profile_id: newProfile, role: newRole },
     ])
+    setBusy(false)
     if (insertError) {
       setError(insertError.message)
       return
@@ -97,103 +122,263 @@ export default function TeamPage() {
   }
 
   const changeRole = async (id: string, role: Role) => {
-    const { error: updateError } = await supabase.from('event_staff_assignments').update({ role }).eq('id', id)
+    const { error: updateError } = await supabase
+      .from('event_staff_assignments')
+      .update({ role })
+      .eq('id', id)
     if (updateError) setError(updateError.message)
     else load()
   }
 
   const toggleOnSite = async (a: Assignment) => {
-    const { error: updateError } = await supabase.from('event_staff_assignments').update({ on_site: !a.on_site }).eq('id', a.id)
+    const { error: updateError } = await supabase
+      .from('event_staff_assignments')
+      .update({ on_site: !a.on_site })
+      .eq('id', a.id)
     if (updateError) setError(updateError.message)
     else load()
   }
 
   const remove = async (id: string) => {
-    const { error: deleteError } = await supabase.from('event_staff_assignments').delete().eq('id', id)
+    const { error: deleteError } = await supabase
+      .from('event_staff_assignments')
+      .delete()
+      .eq('id', id)
     if (deleteError) setError(deleteError.message)
     else load()
   }
 
-  if (loading) return <p>Loading team...</p>
-
-  const card = 'rounded-xl border border-border bg-card p-4'
+  if (loading) return <p className="text-sm text-muted-foreground">Loading team roster...</p>
 
   return (
-    <div className="flex flex-col gap-4">
-      <section className={card}>
-        <h2 className="text-lg font-semibold">Team on this event</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {assignments.length} assigned · {onSiteCount} on site now
-        </p>
-        <ul className="mt-2.5 grid gap-1 text-[13px] text-muted-foreground">
-          {assignable.map((r) => <li key={r.value}><b>{r.label}:</b> {ROLE_DESCRIPTIONS[r.value]}</li>)}
-        </ul>
-        {error && <Alert variant="error" className="mt-3">{error}</Alert>}
-      </section>
+    <div className="mx-auto max-w-5xl space-y-8 pb-12">
+      {/* Header */}
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border/60 pb-5">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <Users size={22} className="text-primary" />
+            <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">Event Team & Staff</h1>
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Manage organizer permissions, gate check-in operators, and on-site staff attendance.
+          </p>
+        </div>
 
-      {isAdmin && (
-        <section className={card}>
-          <h3 className="mb-2.5 text-base font-semibold">Add someone</h3>
-          {members.length > 0 && unassigned.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Everyone in your organisation is already on this event.</p>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              <NativeSelect value={newProfile} onChange={(e) => setNewProfile(e.target.value)} className="max-w-65" aria-label="Team member">
-                <option value="">Choose a person</option>
-                {unassigned.map((m) => (
-                  <option key={m.id} value={m.id}>{m.full_name || 'Unnamed member'}</option>
-                ))}
-              </NativeSelect>
-              <NativeSelect value={newRole} onChange={(e) => setNewRole(e.target.value as Role)} className="max-w-50" aria-label="Role">
-                {assignable.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
-              </NativeSelect>
-              <Button type="button" onClick={addMember} disabled={!newProfile}>Add</Button>
-            </div>
-          )}
-        </section>
-      )}
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="secondary" className="px-3 py-1 text-xs font-semibold">
+            {assignments.length} {assignments.length === 1 ? 'Member' : 'Members'} Assigned
+          </Badge>
+          <Badge variant="outline" className="px-3 py-1 text-xs font-semibold text-(--color-live)">
+            <span className="mr-1.5 size-2 rounded-full bg-(--color-live) animate-pulse inline-block" />
+            {onSiteCount} On Site Now
+          </Badge>
+        </div>
+      </div>
 
-      <section className={card}>
-        {assignments.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No one is assigned to this event yet.</p>
-        ) : (
-          <ul className="grid gap-2.5">
-            {assignments.map((a) => {
-              const mine = a.profile_id === me
-              return (
-                <li key={a.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-2.5 last:border-b-0 last:pb-0">
+      {error && <Alert variant="error">{error}</Alert>}
+
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+        {/* Left Column: Add Team Member & Role Guide */}
+        <div className="space-y-6 lg:col-span-1">
+          {isAdmin && (
+            <Card className="rounded-3xl border border-border bg-card p-6 shadow-xs">
+              <div className="flex items-center gap-2 mb-4">
+                <UserPlus size={18} className="text-primary" />
+                <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                  Assign Staff Member
+                </h2>
+              </div>
+
+              {members.length > 0 && unassigned.length === 0 ? (
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  Everyone in your organization is already assigned to this event.
+                </p>
+              ) : (
+                <div className="space-y-4">
                   <div>
-                    <p className="font-semibold">
-                      {a.profiles?.full_name || 'Unnamed member'}
-                      {mine && <span className="font-normal text-muted-foreground"> (you)</span>}
-                    </p>
-                    {isAdmin && (a.role !== 'owner' || canAssignOwner(myRole)) ? (
-                      <NativeSelect value={a.role} onChange={(e) => changeRole(a.id, e.target.value as Role)} className="mt-1 max-w-50" aria-label={`Role for ${a.profiles?.full_name ?? 'member'}`}>
-                        {assignable.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
-                      </NativeSelect>
-                    ) : (
-                      <p className="text-[13px] text-muted-foreground">{ROLES.find((r) => r.value === a.role)?.label}</p>
-                    )}
+                    <label className="mb-1.5 block text-xs font-semibold text-foreground">
+                      Person
+                    </label>
+                    <NativeSelect
+                      value={newProfile}
+                      onChange={(e) => setNewProfile(e.target.value)}
+                      className="h-10 w-full rounded-xl text-sm"
+                      aria-label="Team member"
+                    >
+                      <option value="">Select an organization member...</option>
+                      {unassigned.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.full_name || 'Unnamed member'}
+                        </option>
+                      ))}
+                    </NativeSelect>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className={cn('text-[13px] font-semibold', a.on_site ? 'text-[var(--color-live)]' : 'text-muted-foreground')}>
-                      {a.on_site ? 'On site' : 'Off site'}
-                    </span>
-                    {mine && (
-                      <Button type="button" variant="outline" size="sm" onClick={() => toggleOnSite(a)}>
-                        {a.on_site ? 'Mark off site' : 'Mark on site'}
-                      </Button>
-                    )}
-                    {isAdmin && (
-                      <Button type="button" variant="outline" size="sm" onClick={() => remove(a.id)}>Remove</Button>
-                    )}
+
+                  <div>
+                    <label className="mb-1.5 block text-xs font-semibold text-foreground">
+                      Event Role
+                    </label>
+                    <NativeSelect
+                      value={newRole}
+                      onChange={(e) => setNewRole(e.target.value as Role)}
+                      className="h-10 w-full rounded-xl text-sm"
+                      aria-label="Role"
+                    >
+                      {assignable.map((r) => (
+                        <option key={r.value} value={r.value}>
+                          {r.label}
+                        </option>
+                      ))}
+                    </NativeSelect>
                   </div>
-                </li>
-              )
-            })}
-          </ul>
-        )}
-      </section>
+
+                  <Button
+                    type="button"
+                    onClick={addMember}
+                    disabled={!newProfile || busy}
+                    className="w-full rounded-full font-semibold shadow-xs"
+                  >
+                    {busy ? 'Assigning...' : '+ Assign to Event'}
+                  </Button>
+                </div>
+              )}
+            </Card>
+          )}
+
+          {/* Role Permissions Reference Card */}
+          <Card className="rounded-3xl border border-border bg-card p-6 shadow-xs">
+            <div className="flex items-center gap-2 mb-3">
+              <Shield size={16} className="text-primary" />
+              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Role Permissions
+              </h3>
+            </div>
+            <div className="space-y-3 text-xs">
+              {assignable.map((r) => (
+                <div key={r.value} className="border-b border-border/50 pb-2.5 last:border-b-0 last:pb-0">
+                  <span className="font-bold text-foreground block">{r.label}</span>
+                  <span className="text-muted-foreground leading-relaxed mt-0.5 block">
+                    {ROLE_DESCRIPTIONS[r.value]}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+
+        {/* Right Column: Active Staff Roster List */}
+        <div className="lg:col-span-2">
+          <Card className="rounded-3xl border border-border bg-card p-6 sm:p-8 shadow-xs">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-lg font-bold text-foreground">Assigned Personnel</h2>
+                <p className="text-xs text-muted-foreground">
+                  Active staff members with access to this gathering.
+                </p>
+              </div>
+            </div>
+
+            {assignments.length === 0 ? (
+              <div className="py-12 text-center text-sm text-muted-foreground">
+                <Users size={36} className="mx-auto mb-3 opacity-30" />
+                <p className="font-semibold text-foreground">No staff assigned yet</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Assign team members from your organization to help run the check-in gates.
+                </p>
+              </div>
+            ) : (
+              <div className="divide-y divide-border/60">
+                {assignments.map((a) => {
+                  const mine = a.profile_id === me
+                  const roleObj = ROLES.find((r) => r.value === a.role)
+                  return (
+                    <div
+                      key={a.id}
+                      className="flex flex-wrap items-center justify-between gap-4 py-4 first:pt-0 last:pb-0"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="font-bold text-foreground text-sm sm:text-base truncate">
+                            {a.profiles?.full_name || 'Unnamed member'}
+                          </p>
+                          {mine && (
+                            <Badge variant="secondary" className="text-[10px] py-0 px-2 font-medium">
+                              You
+                            </Badge>
+                          )}
+                          <Badge
+                            variant={a.on_site ? 'default' : 'outline'}
+                            className={cn(
+                              'text-[10px] py-0 px-2 font-medium',
+                              a.on_site
+                                ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
+                                : 'text-muted-foreground'
+                            )}
+                          >
+                            <MapPin size={10} className="mr-1 inline" />
+                            {a.on_site ? 'On site' : 'Off site'}
+                          </Badge>
+                        </div>
+
+                        {/* Role selection or display */}
+                        <div className="mt-1.5 flex items-center gap-2">
+                          {isAdmin && (a.role !== 'owner' || canAssignOwner(myRole)) ? (
+                            <NativeSelect
+                              value={a.role}
+                              onChange={(e) => changeRole(a.id, e.target.value as Role)}
+                              className="h-8 max-w-[180px] rounded-lg text-xs"
+                              aria-label={`Role for ${a.profiles?.full_name ?? 'member'}`}
+                            >
+                              {assignable.map((r) => (
+                                <option key={r.value} value={r.value}>
+                                  {r.label}
+                                </option>
+                              ))}
+                            </NativeSelect>
+                          ) : (
+                            <span className="text-xs font-medium text-muted-foreground">
+                              {roleObj?.label}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Action buttons */}
+                      <div className="flex items-center gap-2">
+                        {mine && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="rounded-full text-xs font-semibold gap-1.5"
+                            onClick={() => toggleOnSite(a)}
+                          >
+                            <CheckCircle2 size={13} className={a.on_site ? 'text-primary' : 'text-muted-foreground'} />
+                            <span>{a.on_site ? 'Mark Off-Site' : 'Check-In On-Site'}</span>
+                          </Button>
+                        )}
+
+                        {isAdmin && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => remove(a.id)}
+                            className="rounded-full text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                            title="Remove staff assignment"
+                          >
+                            <Trash2 size={14} />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </Card>
+        </div>
+      </div>
     </div>
   )
 }

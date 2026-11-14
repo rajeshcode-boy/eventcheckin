@@ -147,9 +147,6 @@ export default function EventPassSimulator({
                     {displayTitle}
                   </span>
                 </div>
-                <div className="relative z-10 rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-medium backdrop-blur-md">
-                  Capacity: {capacity || 500}
-                </div>
                 {/* Subtle geometric pattern overlay */}
                 <div className="absolute inset-0 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px] opacity-15" />
               </div>

@@ -479,12 +479,12 @@ function EventCard({
           </Link>
 
           <Link
-            href={`/events/${event.id}/dashboard`}
+            href={`/events/${event.id}/desk`}
             className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-2 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            title="Live Stats"
+            title="Live Gate Station"
           >
             <Radio size={13} />
-            <span>Stats</span>
+            <span>Gate</span>
           </Link>
         </div>
       </div>

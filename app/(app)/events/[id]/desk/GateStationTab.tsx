@@ -21,6 +21,10 @@ import {
   Clock,
   ShieldCheck,
   Maximize2,
+  Download,
+  Check,
+  FileSpreadsheet,
+  FileText,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -30,10 +34,14 @@ import { cn } from '@/lib/utils'
 import { cameraAvailable, startScanner } from '@/lib/kiosk/scanner'
 import { parseBadgeCode } from '@/lib/badgeCode'
 import ScannerOverlay, { type ScanStatusFeedback } from '@/components/ScannerOverlay'
+import { formatTime, formatDateTime } from '@/lib/time'
+import { toCsv } from '@/lib/guests'
+import { REPORT_HEADERS, ReportCheckin, ReportRegistration, ReportRow, buildReport, rowToCells } from '@/lib/report'
 
 interface AttendeeRow {
   id: string
   registration_id: string
+  source?: string
   full_name: string
   email: string | null
   company: string | null
@@ -44,14 +52,33 @@ interface AttendeeRow {
   checkins: { id: string; checked_in_at: string; method: string }[]
 }
 
+interface EventInfo {
+  id: string
+  event_id: string
+  name: string
+  location: string
+  status: 'upcoming' | 'live' | 'closed'
+}
+
 export default function GateStationTab() {
   const params = useParams()
   const eventUuid = params.id as string
 
+  // Navigation View Toggle: Option A (Segmented Toggle)
+  const [stationView, setStationView] = useState<'roster' | 'stream'>('roster')
+
+  // Event & Status State
+  const [event, setEvent] = useState<EventInfo | null>(null)
+  const [statusBusy, setStatusBusy] = useState(false)
+  const [showCloseModal, setShowCloseModal] = useState(false)
+  const [lastUpdated, setLastUpdated] = useState<string | null>(null)
+  const [exportBusy, setExportBusy] = useState<'xlsx' | 'csv' | 'pdf' | null>(null)
+
+  // Attendees & Search
   const [attendees, setAttendees] = useState<AttendeeRow[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [filter, setFilter] = useState<'all' | 'unchecked' | 'checked'>('all')
+  const [filter, setFilter] = useState<'all' | 'unchecked' | 'checked' | 'walkin'>('all')
   const [staffName, setStaffName] = useState('Front Desk')
   const [busyId, setBusyId] = useState<string | null>(null)
 
@@ -82,11 +109,12 @@ export default function GateStationTab() {
 
   // Dedicated Locked Door / Volunteer Station Mode State
   const [isStationLocked, setIsStationLocked] = useState(false)
-  const [lockPin, setLockPin] = useState('1234')
+  const [lockPin] = useState('1234')
   const [pinInput, setPinInput] = useState('')
   const [showPinModal, setShowPinModal] = useState(false)
   const [pinError, setPinError] = useState(false)
 
+  // Load Initial Event & Operator Info
   useEffect(() => {
     setCanScan(cameraAvailable())
     // Get staff name
@@ -102,14 +130,24 @@ export default function GateStationTab() {
           })
       }
     })
-  }, [])
+
+    // Load event status & details
+    supabase
+      .from('events')
+      .select('id, event_id, name, location, status')
+      .eq('id', eventUuid)
+      .single()
+      .then(({ data }) => {
+        if (data) setEvent(data as unknown as EventInfo)
+      })
+  }, [eventUuid])
 
   // Load attendees & subscribe to realtime check-ins
   const loadAttendees = async () => {
     setLoading(true)
     const { data, error } = await supabase
       .from('registrations')
-      .select('id, registration_id, full_name, email, company, designation, badge_token, badge_collected_at, created_at, checkins(id, checked_in_at, method)')
+      .select('id, registration_id, source, full_name, email, company, designation, badge_token, badge_collected_at, created_at, checkins(id, checked_in_at, method)')
       .eq('event_id', eventUuid)
       .order('full_name', { ascending: true })
 
@@ -117,6 +155,7 @@ export default function GateStationTab() {
       toast.error('Could not load attendees. Please refresh.')
     } else {
       setAttendees((data ?? []) as unknown as AttendeeRow[])
+      setLastUpdated(new Date().toISOString())
     }
     setLoading(false)
   }
@@ -125,7 +164,7 @@ export default function GateStationTab() {
     loadAttendees()
 
     // Realtime channel for instant check-in sync across multiple tablets
-    const channel = supabase
+    const checkinChannel = supabase
       .channel(`gate-station-${eventUuid}`)
       .on(
         'postgres_changes',
@@ -134,10 +173,26 @@ export default function GateStationTab() {
           loadAttendees()
         }
       )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'registrations', filter: `event_id=eq.${eventUuid}` },
+        () => {
+          loadAttendees()
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'events', filter: `id=eq.${eventUuid}` },
+        (payload) => {
+          if (payload.new) {
+            setEvent(payload.new as unknown as EventInfo)
+          }
+        }
+      )
       .subscribe()
 
     return () => {
-      supabase.removeChannel(channel)
+      supabase.removeChannel(checkinChannel)
     }
   }, [eventUuid])
 
@@ -156,14 +211,54 @@ export default function GateStationTab() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
 
-  // Stats
+  // Stats Calculations
   const totalCount = attendees.length
+  const preRegistered = useMemo(() => attendees.filter((a) => a.source !== 'walkin'), [attendees])
+  const walkinsCount = useMemo(() => attendees.filter((a) => a.source === 'walkin').length, [attendees])
   const checkedInCount = useMemo(
     () => attendees.filter((a) => a.checkins && a.checkins.length > 0).length,
     [attendees]
   )
   const remainingCount = totalCount - checkedInCount
   const attendanceRate = totalCount > 0 ? Math.round((checkedInCount / totalCount) * 100) : 0
+
+  // Real-Time Arrival Stream Feed (Flattened & Ordered by latest arrival)
+  const liveFeed = useMemo(() => {
+    const items: Array<{
+      id: string
+      registrationId: string
+      checked_in_at: string
+      method: string
+      fullName: string
+      company: string | null
+      designation: string | null
+      source?: string
+      badgeCollected: boolean
+      attendee: AttendeeRow
+    }> = []
+
+    for (const a of attendees) {
+      if (a.checkins && a.checkins.length > 0) {
+        for (const c of a.checkins) {
+          items.push({
+            id: c.id,
+            registrationId: a.registration_id,
+            checked_in_at: c.checked_in_at,
+            method: c.method,
+            fullName: a.full_name,
+            company: a.company,
+            designation: a.designation,
+            source: a.source,
+            badgeCollected: !!a.badge_collected_at,
+            attendee: a,
+          })
+        }
+      }
+    }
+
+    items.sort((a, b) => new Date(b.checked_in_at).getTime() - new Date(a.checked_in_at).getTime())
+    return items
+  }, [attendees])
 
   // Filter & Search
   const filteredAttendees = useMemo(() => {
@@ -172,6 +267,7 @@ export default function GateStationTab() {
       const isChecked = a.checkins && a.checkins.length > 0
       if (filter === 'unchecked' && isChecked) return false
       if (filter === 'checked' && !isChecked) return false
+      if (filter === 'walkin' && a.source !== 'walkin') return false
 
       if (!q) return true
       return (
@@ -262,7 +358,7 @@ export default function GateStationTab() {
       if (error) {
         toast.error('Could not record badge collection.')
       } else {
-        toast.success(`Badge collected for ${attendee.full_name}`)
+        toast.success(`Badge handed out to ${attendee.full_name}`)
         setAttendees((prev) =>
           prev.map((item) =>
             item.id === attendee.id ? { ...item, badge_collected_at: now } : item
@@ -271,6 +367,117 @@ export default function GateStationTab() {
       }
     } finally {
       setBusyId(null)
+    }
+  }
+
+  // Close / Reopen Check-in Handlers
+  const handleReopenCheckin = async () => {
+    setStatusBusy(true)
+    const { error } = await supabase
+      .from('events')
+      .update({ status: 'live', updated_at: new Date().toISOString() })
+      .eq('id', eventUuid)
+    setStatusBusy(false)
+    if (error) {
+      toast.error('Could not reopen check-in. Only event managers can change status.')
+    } else {
+      setEvent((prev) => (prev ? { ...prev, status: 'live' } : null))
+      toast.success('Check-in is reopened! Gates are active.')
+    }
+  }
+
+  const confirmCloseCheckin = async () => {
+    setStatusBusy(true)
+    const { error } = await supabase
+      .from('events')
+      .update({ status: 'closed', updated_at: new Date().toISOString() })
+      .eq('id', eventUuid)
+    setStatusBusy(false)
+    setShowCloseModal(false)
+    if (error) {
+      toast.error('Could not close check-in. Only event managers can change status.')
+    } else {
+      setEvent((prev) => (prev ? { ...prev, status: 'closed' } : null))
+      toast.success('Check-in closed. Remaining guests marked as no-shows.')
+    }
+  }
+
+  // Export Report Handlers (CSV, Excel, PDF)
+  const handleExportReport = async (format: 'xlsx' | 'csv' | 'pdf') => {
+    if (!event) return
+    setExportBusy(format)
+    try {
+      const [regRes, checkinRes] = await Promise.all([
+        supabase
+          .from('registrations')
+          .select('id, registration_id, source, full_name, first_name, last_name, email, company_email, phone, designation, company')
+          .eq('event_id', eventUuid),
+        supabase.from('checkins').select('registration_id, checked_in_at').eq('event_id', eventUuid),
+      ])
+      if (regRes.error || checkinRes.error) throw new Error('load')
+
+      const closed = event.status === 'closed'
+      const report = buildReport((regRes.data ?? []) as ReportRegistration[], (checkinRes.data ?? []) as ReportCheckin[], closed)
+      const absentTitle = closed ? 'No-shows' : 'Not yet arrived'
+      const generated = `Generated ${formatDateTime(new Date().toISOString())}`
+      const baseName = `${event.event_id}-report`
+
+      if (format === 'csv') {
+        const csv = toCsv([
+          [event.name, event.location, generated],
+          ...report.summary,
+          [],
+          REPORT_HEADERS,
+          ...report.rows.map(rowToCells),
+        ])
+        downloadBlob(new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' }), `${baseName}.csv`)
+      } else if (format === 'xlsx') {
+        const XLSX = await import('xlsx')
+        const wb = XLSX.utils.book_new()
+        const sheet = (rows: ReportRow[]) => {
+          const ws = XLSX.utils.aoa_to_sheet([REPORT_HEADERS, ...rows.map(rowToCells)])
+          ws['!cols'] = REPORT_HEADERS.map((h) => ({ wch: Math.max(12, h.length + 2) }))
+          return ws
+        }
+        const summary = XLSX.utils.aoa_to_sheet([[event.name], [event.location], [generated], [], ...report.summary])
+        summary['!cols'] = [{ wch: 28 }, { wch: 20 }]
+        XLSX.utils.book_append_sheet(wb, summary, 'Summary')
+        XLSX.utils.book_append_sheet(wb, sheet(report.rows), 'All attendees')
+        XLSX.utils.book_append_sheet(wb, sheet(report.attended), 'Attended')
+        XLSX.utils.book_append_sheet(wb, sheet(report.walkins), 'Walk-ins')
+        XLSX.utils.book_append_sheet(wb, sheet(report.absent), absentTitle)
+        XLSX.writeFile(wb, `${baseName}.xlsx`)
+      } else {
+        const { buildReportPdf } = await import('@/lib/pdf')
+        const headers = ['Reg ID', 'Name', 'Company', 'Designation', 'Email', 'Phone', 'Check-in time']
+        const widths = [7, 16, 15, 14, 22, 12, 14]
+        const cells = (rows: ReportRow[]) =>
+          rows.map((r) => [
+            r.registrationId,
+            [r.firstName, r.lastName].filter(Boolean).join(' '),
+            r.company,
+            r.designation,
+            r.corporateEmail || r.personalEmail,
+            r.phone,
+            r.checkInTime,
+          ])
+        const bytes = await buildReportPdf(
+          `${event.name} — Attendance report`,
+          `${event.event_id} • ${event.location} • ${generated}`,
+          report.summary,
+          [
+            { title: 'Attended (pre-registered)', headers, widths, rows: cells(report.attended) },
+            { title: 'Walk-ins', headers, widths, rows: cells(report.walkins) },
+            { title: absentTitle, headers, widths, rows: cells(report.absent) },
+          ]
+        )
+        downloadBlob(new Blob([bytes as BlobPart], { type: 'application/pdf' }), `${baseName}.pdf`)
+      }
+      toast.success(`Exported ${format.toUpperCase()} attendance report!`)
+    } catch {
+      toast.error('Could not generate export report.')
+    } finally {
+      setExportBusy(null)
     }
   }
 
@@ -284,14 +491,12 @@ export default function GateStationTab() {
 
     setWalkinBusy(true)
     try {
-      // 1. Generate unique 6-char registration ID
       const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
       let regId = ''
       for (let i = 0; i < 6; i++) {
         regId += chars.charAt(Math.floor(Math.random() * chars.length))
       }
 
-      // 2. Insert into registrations
       const { data: newReg, error: regError } = await supabase
         .from('registrations')
         .insert({
@@ -313,7 +518,6 @@ export default function GateStationTab() {
         return
       }
 
-      // 3. Automatically check them in immediately
       await supabase.from('checkins').insert({
         event_id: eventUuid,
         registration_id: newReg.id,
@@ -383,53 +587,239 @@ export default function GateStationTab() {
         })
         toast.info(`${target.full_name} is already checked in.`)
       } else {
-        showFeedback({
-          type: 'success',
-          title: 'Check-in Verified!',
-          subtitle: `${target.full_name} • ${target.company || 'Attendee'}`,
-        }, 2200)
+        showFeedback(
+          {
+            type: 'success',
+            title: 'Check-in Verified!',
+            subtitle: `${target.full_name} • ${target.company || 'Attendee'}`,
+          },
+          2200
+        )
         await handleCheckIn(target)
       }
     } else {
-      showFeedback({
-        type: 'error',
-        title: 'Not Found in Event',
-        subtitle: 'Attendee is not registered for this event',
-      }, 3500)
+      showFeedback(
+        {
+          type: 'error',
+          title: 'Not Found in Event',
+          subtitle: 'Attendee is not registered for this event',
+        },
+        3500
+      )
       toast.error('Pass not found in this event roster.')
     }
   }
 
   return (
     <div className="space-y-6">
-      {/* Station Header & Live Telemetry Meter */}
+      {/* Station Command Header */}
       <div className="flex flex-wrap items-center justify-between gap-4 rounded-3xl border border-border bg-card p-6 shadow-xs">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="flex size-2.5 rounded-full bg-(--color-live) animate-pulse" />
-            <span className="text-xs font-bold uppercase tracking-wider text-(--color-live)">
-              Gate Command Center • Live Sync
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">
+              ⚡ Live Gate Station
+            </h1>
+            <span className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-(--color-live)">
+              <span className="relative flex size-2">
+                <span className="absolute inline-flex size-full animate-ping rounded-full bg-(--color-live) opacity-75" />
+                <span className="relative inline-flex size-2 rounded-full bg-(--color-live)" />
+              </span>
+              Live Sync Active
             </span>
           </div>
-          <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">
-            Check-In Station
-          </h1>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            Staff Operator: <strong className="text-foreground">{staffName}</strong> • Press{' '}
-            <kbd className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-foreground">/</kbd> to search
+          <p className="mt-1 text-xs text-muted-foreground">
+            Staff Operator: <strong className="text-foreground">{staffName}</strong>
+            {lastUpdated && ` • Synced ${formatTime(lastUpdated)}`}
+            {' • '}Press <kbd className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-foreground">/</kbd> to search
           </p>
         </div>
 
-        {/* Action Controls */}
-        <div className="flex flex-wrap items-center gap-2.5">
-          {canScan && (
+        {/* Global Operational Actions (Close/Reopen, Export, Refresh) */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Close or Reopen Check-in */}
+          {event?.status === 'closed' ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleReopenCheckin}
+              disabled={statusBusy}
+              className="rounded-full border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 text-xs gap-1.5"
+            >
+              <RotateCcw size={13} />
+              <span>Reopen Check-in</span>
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowCloseModal(true)}
+              disabled={statusBusy}
+              className="rounded-full border-destructive/40 text-destructive hover:bg-destructive/10 text-xs gap-1.5"
+            >
+              <span>Close Check-in</span>
+            </Button>
+          )}
+
+          {/* Export Report Action Group */}
+          <div className="flex items-center gap-1 rounded-full border border-border bg-muted/40 p-0.5">
+            <span className="px-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+              Export
+            </span>
+            <button
+              type="button"
+              disabled={exportBusy !== null}
+              onClick={() => handleExportReport('csv')}
+              className="rounded-full px-2.5 py-1 text-xs font-medium hover:bg-card hover:text-foreground text-muted-foreground transition-all shadow-xs"
+              title="Export CSV Report"
+            >
+              {exportBusy === 'csv' ? '...' : 'CSV'}
+            </button>
+            <button
+              type="button"
+              disabled={exportBusy !== null}
+              onClick={() => handleExportReport('xlsx')}
+              className="rounded-full px-2.5 py-1 text-xs font-medium hover:bg-card hover:text-foreground text-muted-foreground transition-all shadow-xs"
+              title="Export Excel Report"
+            >
+              {exportBusy === 'xlsx' ? '...' : 'Excel'}
+            </button>
+            <button
+              type="button"
+              disabled={exportBusy !== null}
+              onClick={() => handleExportReport('pdf')}
+              className="rounded-full px-2.5 py-1 text-xs font-medium hover:bg-card hover:text-foreground text-muted-foreground transition-all shadow-xs"
+              title="Export PDF Report"
+            >
+              {exportBusy === 'pdf' ? '...' : 'PDF'}
+            </button>
+          </div>
+
+          {/* Quick Refresh */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => loadAttendees()}
+            className="rounded-full size-8 p-0 text-muted-foreground hover:text-foreground"
+            title="Force refresh data"
+          >
+            <RotateCcw size={14} />
+          </Button>
+        </div>
+      </div>
+
+      {/* Closed Banner Warning */}
+      {event?.status === 'closed' && (
+        <div className="flex items-center gap-3 rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-xs font-medium text-destructive">
+          <AlertCircle size={18} className="shrink-0" />
+          <div className="flex-1">
+            <strong className="font-bold">Check-in is currently closed.</strong> Remaining uncollected guests are marked as no-shows. Click &quot;Reopen Check-in&quot; above to resume gate arrivals.
+          </div>
+        </div>
+      )}
+
+      {/* Realtime Attendance KPI Grid */}
+      <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-4">
+        <div className="rounded-2xl border border-border bg-card p-4 shadow-xs">
+          <p className="text-xs font-semibold text-muted-foreground uppercase">Total Roster</p>
+          <div className="mt-1 flex items-baseline gap-1.5">
+            <span className="text-2xl font-extrabold text-foreground">{totalCount}</span>
+            <span className="text-xs text-muted-foreground">({preRegistered.length} pre-reg)</span>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-border bg-card p-4 shadow-xs">
+          <p className="text-xs font-semibold text-muted-foreground uppercase">Checked In</p>
+          <div className="mt-1 flex items-baseline gap-1.5">
+            <span className="text-2xl font-extrabold text-(--color-live)">{checkedInCount}</span>
+            <span className="text-xs text-muted-foreground">{attendanceRate}% arrived</span>
+          </div>
+          <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+            <div
+              className="h-full bg-(--color-live) rounded-full transition-all duration-500"
+              style={{ width: `${attendanceRate}%` }}
+            />
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-border bg-card p-4 shadow-xs">
+          <p className="text-xs font-semibold text-muted-foreground uppercase">Walk-ins</p>
+          <div className="mt-1 flex items-baseline gap-1.5">
+            <span className="text-2xl font-extrabold text-amber-500">{walkinsCount}</span>
+            <span className="text-xs text-muted-foreground">on-site</span>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-border bg-card p-4 shadow-xs">
+          <p className="text-xs font-semibold text-muted-foreground uppercase">
+            {event?.status === 'closed' ? 'No-Shows' : 'Remaining'}
+          </p>
+          <div className="mt-1 flex items-baseline gap-1.5">
+            <span
+              className={cn(
+                'text-2xl font-extrabold',
+                event?.status === 'closed' ? 'text-destructive' : 'text-muted-foreground'
+              )}
+            >
+              {remainingCount}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              {event?.status === 'closed' ? 'absent' : 'pending'}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Option A: Segmented View Navigation & Tool Ribbon */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        {/* Segmented View Switcher */}
+        <div className="flex items-center gap-1 rounded-full border border-border bg-muted/40 p-1 shadow-xs">
+          <button
+            type="button"
+            onClick={() => setStationView('roster')}
+            className={cn(
+              'flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold transition-all',
+              stationView === 'roster'
+                ? 'bg-card text-foreground shadow-xs font-bold'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            <Users size={14} />
+            <span>Attendee Roster</span>
+            <span className="rounded-full bg-muted px-2 py-0.2 text-[10px] font-mono">
+              {filteredAttendees.length}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setStationView('stream')}
+            className={cn(
+              'flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold transition-all',
+              stationView === 'stream'
+                ? 'bg-card text-foreground shadow-xs font-bold'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            <span className="relative flex size-2">
+              <span className="absolute inline-flex size-full animate-ping rounded-full bg-(--color-live) opacity-75" />
+              <span className="relative inline-flex size-2 rounded-full bg-(--color-live)" />
+            </span>
+            <span>Live Arrival Stream</span>
+            <span className="rounded-full bg-emerald-500/15 px-2 py-0.2 text-[10px] font-mono font-bold text-emerald-600 dark:text-emerald-400">
+              {liveFeed.length}
+            </span>
+          </button>
+        </div>
+
+        {/* Action Controls for Gate */}
+        <div className="flex flex-wrap items-center gap-2">
+          {canScan && stationView === 'roster' && (
             <Button
               variant={scanning ? 'destructive' : 'outline'}
               size="sm"
               onClick={scanning ? stopCamera : startCamera}
-              className="rounded-full shadow-xs gap-1.5"
+              className="rounded-full shadow-xs gap-1.5 text-xs"
             >
-              <Camera size={14} />
+              <Camera size={13} />
               {scanning ? 'Stop Camera' : 'Camera Scanner'}
             </Button>
           )}
@@ -437,9 +827,9 @@ export default function GateStationTab() {
           <Button
             size="sm"
             onClick={() => setShowWalkinModal(true)}
-            className="rounded-full bg-primary text-primary-foreground shadow-xs gap-1.5"
+            className="rounded-full bg-primary text-primary-foreground shadow-xs gap-1.5 text-xs"
           >
-            <UserPlus size={14} />
+            <UserPlus size={13} />
             + Quick Walk-In
           </Button>
 
@@ -447,28 +837,18 @@ export default function GateStationTab() {
             variant={isStationLocked ? 'destructive' : 'outline'}
             size="sm"
             onClick={() => {
-              if (isStationLocked) {
-                setShowPinModal(true)
-              } else {
+              if (isStationLocked) setShowPinModal(true)
+              else {
                 setIsStationLocked(true)
                 toast.success('Volunteer Mode Locked. Navigations restricted.')
               }
             }}
-            className="rounded-full shadow-xs gap-1.5"
+            className="rounded-full shadow-xs gap-1.5 text-xs"
             title={isStationLocked ? 'Unlock Admin Station' : 'Lock into Volunteer Check-In Mode'}
           >
-            <ShieldCheck size={14} />
-            <span>{isStationLocked ? '🔒 Locked Station' : 'Lock Mode'}</span>
+            <ShieldCheck size={13} />
+            <span>{isStationLocked ? '🔒 Locked' : 'Lock Mode'}</span>
           </Button>
-
-          <Link
-            href={`/events/${eventUuid}/dashboard`}
-            className="flex items-center gap-1.5 rounded-full border border-border bg-muted/50 px-3.5 py-1.5 text-xs font-semibold text-muted-foreground transition-all hover:bg-muted hover:text-foreground"
-            title="Open Live Big-Screen Telemetry Projector"
-          >
-            <Activity size={13} />
-            <span>Live Stream</span>
-          </Link>
 
           <Link
             href={`/events/${eventUuid}/desk?tab=kiosk`}
@@ -476,7 +856,7 @@ export default function GateStationTab() {
             title="Launch Fullscreen Attendee Kiosk Stand"
           >
             <Maximize2 size={13} />
-            <span>Kiosk Mode</span>
+            <span>Kiosk</span>
           </Link>
         </div>
       </div>
@@ -504,250 +884,357 @@ export default function GateStationTab() {
         </Card>
       )}
 
-      {/* Realtime Attendance KPI Grid */}
-      <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-4">
-        <div className="rounded-2xl border border-border bg-card p-4 shadow-xs">
-          <p className="text-xs font-semibold text-muted-foreground uppercase">Total Roster</p>
-          <div className="mt-1 flex items-baseline gap-1.5">
-            <span className="text-2xl font-extrabold text-foreground">{totalCount}</span>
-            <span className="text-xs text-muted-foreground">registered</span>
+      {/* VIEW 1: LIVE ARRIVAL STREAM */}
+      {stationView === 'stream' && (
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card p-4 shadow-xs">
+            <div className="flex items-center gap-2.5">
+              <span className="relative flex size-2.5">
+                <span className="absolute inline-flex size-full animate-ping rounded-full bg-(--color-live) opacity-75" />
+                <span className="relative inline-flex size-2.5 rounded-full bg-(--color-live)" />
+              </span>
+              <div>
+                <h3 className="text-sm font-bold text-foreground">Real-Time Arrival Stream</h3>
+                <p className="text-xs text-muted-foreground">
+                  Live chronological feed of attendee arrivals across gate scanners, self-checkin, and kiosk
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <span className="text-xl font-extrabold text-(--color-live)">{liveFeed.length}</span>
+              <span className="text-xs text-muted-foreground ml-1.5">arrivals streamed</span>
+            </div>
           </div>
-        </div>
 
-        <div className="rounded-2xl border border-border bg-card p-4 shadow-xs">
-          <p className="text-xs font-semibold text-muted-foreground uppercase">Checked In</p>
-          <div className="mt-1 flex items-baseline gap-1.5">
-            <span className="text-2xl font-extrabold text-(--color-live)">{checkedInCount}</span>
-            <span className="text-xs text-muted-foreground">arrived</span>
-          </div>
-        </div>
+          {liveFeed.length === 0 ? (
+            <div className="rounded-3xl border border-dashed border-border bg-card/50 p-12 text-center text-muted-foreground">
+              <Activity className="mx-auto size-10 opacity-40 mb-3 animate-pulse text-(--color-live)" />
+              <h4 className="text-base font-bold text-foreground">Waiting for first arrival...</h4>
+              <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
+                No check-ins recorded yet. When guests check in via camera scanner, attendee roster, or kiosk, they will appear here in real time.
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-xs">
+              <ul className="divide-y divide-border">
+                {liveFeed.map((item) => (
+                  <li
+                    key={item.id}
+                    className="flex flex-wrap items-center justify-between gap-4 p-4 transition-colors hover:bg-muted/30 sm:px-6"
+                  >
+                    <div className="flex items-center gap-3.5 min-w-[200px]">
+                      <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary font-bold text-sm">
+                        {item.fullName.slice(0, 2).toUpperCase()}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-foreground text-sm">{item.fullName}</span>
+                          {item.source === 'walkin' && (
+                            <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                              Walk-in
+                            </span>
+                          )}
+                          {item.method === 'kiosk' && (
+                            <span className="rounded-full border border-purple-500/40 bg-purple-500/10 px-2 py-0.5 text-[10px] font-bold text-purple-600 dark:text-purple-400">
+                              Kiosk
+                            </span>
+                          )}
+                          {item.method === 'qr' && (
+                            <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                              QR Scan
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {[item.designation, item.company].filter(Boolean).join(' • ') || 'Attendee'}
+                          {' • '}<span className="font-mono text-[11px]">{item.registrationId}</span>
+                        </p>
+                      </div>
+                    </div>
 
-        <div className="rounded-2xl border border-border bg-card p-4 shadow-xs">
-          <p className="text-xs font-semibold text-muted-foreground uppercase">Remaining</p>
-          <div className="mt-1 flex items-baseline gap-1.5">
-            <span className="text-2xl font-extrabold text-amber-500">{remainingCount}</span>
-            <span className="text-xs text-muted-foreground">uncollected</span>
-          </div>
+                    <div className="flex items-center gap-3">
+                      <span className="flex items-center gap-1.5 text-xs text-muted-foreground font-mono">
+                        <Clock size={12} className="opacity-60" />
+                        {formatTime(item.checked_in_at)}
+                      </span>
+                      {item.badgeCollected ? (
+                        <span className="text-xs font-semibold text-emerald-600 flex items-center gap-1">
+                          <Check size={13} />
+                          Pass Handed
+                        </span>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="xs"
+                          onClick={() => handleCollectBadge(item.attendee)}
+                          className="rounded-full text-xs gap-1 hover:bg-primary/10 hover:text-primary transition-colors"
+                          title="Mark Badge Handed Out"
+                        >
+                          <Printer size={12} />
+                          <span>Hand Out Pass</span>
+                        </Button>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
+      )}
 
-        <div className="rounded-2xl border border-border bg-card p-4 shadow-xs">
-          <p className="text-xs font-semibold text-muted-foreground uppercase">Attendance Rate</p>
-          <div className="mt-1 flex items-center justify-between">
-            <span className="text-2xl font-extrabold text-foreground">{attendanceRate}%</span>
-            <div className="h-2 w-16 overflow-hidden rounded-full bg-muted">
-              <div
-                className="h-full bg-(--color-live) rounded-full transition-all duration-500"
-                style={{ width: `${attendanceRate}%` }}
+      {/* VIEW 2: ATTENDEE ROSTER & SEARCH */}
+      {stationView === 'roster' && (
+        <div className="space-y-4">
+          {/* Omni-Search & Filter Ribbon */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="relative flex-1 min-w-[280px]">
+              <Search
+                size={16}
+                className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-muted-foreground"
               />
+              <Input
+                ref={searchInputRef}
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Type name, company, email, or 6-char code..."
+                className="h-10 pl-9 pr-8 rounded-full border-border bg-card shadow-xs text-sm"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch('')}
+                  className="absolute top-1/2 right-3 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X size={15} />
+                </button>
+              )}
+            </div>
+
+            {/* Attendance Filters */}
+            <div className="flex items-center gap-1.5 rounded-full border border-border bg-card p-1 shadow-xs">
+              <button
+                type="button"
+                onClick={() => setFilter('all')}
+                className={cn(
+                  'rounded-full px-3 py-1 text-xs font-semibold transition-all',
+                  filter === 'all'
+                    ? 'bg-primary text-primary-foreground shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                All ({totalCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilter('unchecked')}
+                className={cn(
+                  'rounded-full px-3 py-1 text-xs font-semibold transition-all',
+                  filter === 'unchecked'
+                    ? 'bg-primary text-primary-foreground shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                Not Arrived ({remainingCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilter('checked')}
+                className={cn(
+                  'rounded-full px-3 py-1 text-xs font-semibold transition-all',
+                  filter === 'checked'
+                    ? 'bg-primary text-primary-foreground shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                Checked In ({checkedInCount})
+              </button>
+              {walkinsCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setFilter('walkin')}
+                  className={cn(
+                    'rounded-full px-3 py-1 text-xs font-semibold transition-all',
+                    filter === 'walkin'
+                      ? 'bg-primary text-primary-foreground shadow-xs'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  Walk-ins ({walkinsCount})
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Attendee Data Table */}
+          <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-xs">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-muted/30 text-xs font-semibold text-muted-foreground uppercase">
+                    <th className="px-5 py-3">Attendee</th>
+                    <th className="px-5 py-3">Status</th>
+                    <th className="px-5 py-3">Pass / Badge</th>
+                    <th className="px-5 py-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {loading ? (
+                    <tr>
+                      <td colSpan={4} className="py-12 text-center text-muted-foreground">
+                        Loading attendee roster...
+                      </td>
+                    </tr>
+                  ) : filteredAttendees.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="py-12 text-center text-muted-foreground">
+                        {search ? (
+                          <>
+                            No attendees matching &ldquo;<span className="font-semibold text-foreground">{search}</span>&rdquo;.
+                          </>
+                        ) : (
+                          'No attendees in this category.'
+                        )}
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredAttendees.map((attendee) => {
+                      const isChecked = attendee.checkins && attendee.checkins.length > 0
+                      const checkinData = isChecked ? attendee.checkins[0] : null
+                      const isBusy = busyId === attendee.id
+
+                      return (
+                        <tr
+                          key={attendee.id}
+                          className={cn(
+                            'transition-colors hover:bg-muted/40',
+                            isChecked && 'bg-emerald-500/[0.02]'
+                          )}
+                        >
+                          {/* Attendee Name, Company & ID */}
+                          <td className="px-5 py-3.5">
+                            <div className="flex items-center gap-3">
+                              <div
+                                className={cn(
+                                  'flex size-9 shrink-0 items-center justify-center rounded-xl text-xs font-bold transition-all',
+                                  isChecked
+                                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                                    : 'bg-muted text-muted-foreground'
+                                )}
+                              >
+                                {isChecked ? <CheckCircle2 size={16} /> : attendee.full_name.slice(0, 2).toUpperCase()}
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-foreground">
+                                    {attendee.full_name}
+                                  </span>
+                                  {attendee.source === 'walkin' && (
+                                    <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.2 text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                                      Walk-in
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                  <span>{[attendee.designation, attendee.company].filter(Boolean).join(' • ') || 'Attendee'}</span>
+                                  <span>&bull;</span>
+                                  <span className="font-mono text-[11px]">{attendee.registration_id}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Check-In Status */}
+                          <td className="px-5 py-3.5">
+                            {isChecked ? (
+                              <div className="flex flex-col gap-0.5">
+                                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                                  <span className="size-1.5 rounded-full bg-emerald-500" />
+                                  Checked In
+                                </span>
+                                {checkinData?.checked_in_at && (
+                                  <span className="text-[11px] text-muted-foreground font-mono">
+                                    {formatTime(checkinData.checked_in_at)}
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-xs font-medium text-muted-foreground">
+                                Not arrived
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Badge Status */}
+                          <td className="px-5 py-3.5">
+                            {attendee.badge_collected_at ? (
+                              <span className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                                <ShieldCheck size={13} className="text-emerald-600" />
+                                Collected
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleCollectBadge(attendee)}
+                                disabled={isBusy}
+                                className="text-xs text-primary font-medium hover:underline flex items-center gap-1"
+                              >
+                                <Printer size={13} />
+                                Mark Handed Out
+                              </button>
+                            )}
+                          </td>
+
+                          {/* 1-Tap Action Button */}
+                          <td className="px-5 py-3.5 text-right">
+                            <div className="inline-flex items-center gap-2">
+                              {isChecked ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleUndoCheckIn(attendee)}
+                                  disabled={isBusy}
+                                  title="Undo check-in"
+                                  className="text-xs text-muted-foreground hover:text-destructive flex items-center gap-1 px-2 py-1 rounded"
+                                >
+                                  <RotateCcw size={12} />
+                                  <span className="hidden sm:inline">Undo</span>
+                                </button>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleCheckIn(attendee)}
+                                  disabled={isBusy}
+                                  className="rounded-full bg-primary text-primary-foreground text-xs font-semibold shadow-xs hover:scale-102 transition-transform"
+                                >
+                                  {isBusy ? 'Checking...' : 'Check In →'}
+                                </Button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Omni-Search & Filter Ribbon */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="relative flex-1 min-w-[280px]">
-          <Search
-            size={16}
-            className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-muted-foreground"
-          />
-          <Input
-            ref={searchInputRef}
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Type name, company, email, or 6-char code..."
-            className="h-10 pl-9 pr-8 rounded-full border-border bg-card shadow-xs text-sm"
-          />
-          {search && (
-            <button
-              type="button"
-              onClick={() => setSearch('')}
-              className="absolute top-1/2 right-3 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            >
-              <X size={15} />
-            </button>
-          )}
-        </div>
-
-        {/* Attendance Filters */}
-        <div className="flex items-center gap-1.5 rounded-full border border-border bg-card p-1 shadow-xs">
-          <button
-            type="button"
-            onClick={() => setFilter('all')}
-            className={cn(
-              'rounded-full px-3 py-1 text-xs font-semibold transition-all',
-              filter === 'all'
-                ? 'bg-primary text-primary-foreground shadow-xs'
-                : 'text-muted-foreground hover:text-foreground'
-            )}
-          >
-            All ({totalCount})
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilter('unchecked')}
-            className={cn(
-              'rounded-full px-3 py-1 text-xs font-semibold transition-all',
-              filter === 'unchecked'
-                ? 'bg-primary text-primary-foreground shadow-xs'
-                : 'text-muted-foreground hover:text-foreground'
-            )}
-          >
-            Not Arrived ({remainingCount})
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilter('checked')}
-            className={cn(
-              'rounded-full px-3 py-1 text-xs font-semibold transition-all',
-              filter === 'checked'
-                ? 'bg-primary text-primary-foreground shadow-xs'
-                : 'text-muted-foreground hover:text-foreground'
-            )}
-          >
-            Checked In ({checkedInCount})
-          </button>
-        </div>
-      </div>
-
-      {/* High-Speed Roster Table */}
-      <Card className="overflow-hidden rounded-3xl border border-border bg-card shadow-xs">
-        {loading ? (
-          <div className="p-12 text-center text-sm text-muted-foreground">
-            Loading attendees roster...
-          </div>
-        ) : filteredAttendees.length === 0 ? (
-          <div className="p-12 text-center">
-            <Users size={32} className="mx-auto mb-3 text-muted-foreground/50" />
-            <p className="font-semibold text-foreground">No attendees found</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {search ? `No guests match "${search}"` : 'Your guest list is empty.'}
-            </p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-border bg-muted/40 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                <tr>
-                  <th className="px-5 py-3">Attendee</th>
-                  <th className="px-4 py-3">Code</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Badge</th>
-                  <th className="px-5 py-3 text-right">Gate Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {filteredAttendees.map((attendee) => {
-                  const checkin = attendee.checkins?.[0]
-                  const isChecked = !!checkin
-                  const isBusy = busyId === attendee.id
-                  const badgeCollected = !!attendee.badge_collected_at
-
-                  return (
-                    <tr
-                      key={attendee.id}
-                      className={cn(
-                        'transition-colors hover:bg-muted/30',
-                        isChecked && 'bg-emerald-500/5 dark:bg-emerald-500/10'
-                      )}
-                    >
-                      {/* Name & Company */}
-                      <td className="px-5 py-3.5">
-                        <div className="font-bold text-foreground">{attendee.full_name}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {attendee.company || attendee.designation || attendee.email || '—'}
-                        </div>
-                      </td>
-
-                      {/* Code */}
-                      <td className="px-4 py-3.5 font-mono text-xs font-semibold text-muted-foreground">
-                        {attendee.registration_id}
-                      </td>
-
-                      {/* Status */}
-                      <td className="px-4 py-3.5">
-                        {isChecked ? (
-                          <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
-                            <CheckCircle2 size={13} />
-                            <span>
-                              {new Date(checkin.checked_in_at).toLocaleTimeString([], {
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              })}
-                            </span>
-                          </div>
-                        ) : (
-                          <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
-                            Not Arrived
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Badge Status */}
-                      <td className="px-4 py-3.5">
-                        {badgeCollected ? (
-                          <span className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-                            <ShieldCheck size={13} className="text-emerald-600" />
-                            Collected
-                          </span>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => handleCollectBadge(attendee)}
-                            disabled={isBusy}
-                            className="text-xs text-primary font-medium hover:underline flex items-center gap-1"
-                          >
-                            <Printer size={13} />
-                            Mark Handed Out
-                          </button>
-                        )}
-                      </td>
-
-                      {/* 1-Tap Action Button */}
-                      <td className="px-5 py-3.5 text-right">
-                        <div className="inline-flex items-center gap-2">
-                          {isChecked ? (
-                            <button
-                              type="button"
-                              onClick={() => handleUndoCheckIn(attendee)}
-                              disabled={isBusy}
-                              title="Undo check-in"
-                              className="text-xs text-muted-foreground hover:text-destructive flex items-center gap-1 px-2 py-1 rounded"
-                            >
-                              <RotateCcw size={12} />
-                              <span className="hidden sm:inline">Undo</span>
-                            </button>
-                          ) : (
-                            <Button
-                              size="sm"
-                              onClick={() => handleCheckIn(attendee)}
-                              disabled={isBusy}
-                              className="h-8 rounded-full bg-primary px-3.5 text-xs font-bold text-primary-foreground shadow-xs hover:bg-primary/90 transition-transform active:scale-95"
-                            >
-                              <CheckCircle2 size={13} className="mr-1" />
-                              Check In
-                            </Button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
-
-      {/* Quick Walk-In Dialog Modal */}
+      {/* Quick Walk-In Modal */}
       {showWalkinModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-md overflow-hidden rounded-3xl border border-border bg-card p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <UserPlus size={18} className="text-primary" />
-                <h3 className="text-lg font-bold text-foreground">Quick Walk-In Registration</h3>
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs"
+        >
+          <div className="w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-border/40 pb-3">
+              <div>
+                <h2 className="text-lg font-bold text-foreground">+ Quick Walk-In Registration</h2>
+                <p className="text-xs text-muted-foreground">Register and check-in attendee immediately</p>
               </div>
               <button
                 type="button"
@@ -757,9 +1244,6 @@ export default function GateStationTab() {
                 <X size={18} />
               </button>
             </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Register a walk-in attendee on the spot. They will be automatically checked in.
-            </p>
 
             <form onSubmit={handleCreateWalkin} className="mt-4 space-y-3.5">
               <div>
@@ -768,20 +1252,10 @@ export default function GateStationTab() {
                 </label>
                 <Input
                   required
+                  autoFocus
                   value={walkinName}
                   onChange={(e) => setWalkinName(e.target.value)}
-                  placeholder="e.g. John Doe"
-                  className="mt-1 h-9 rounded-xl text-sm"
-                  autoFocus
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-foreground">Company / Organization</label>
-                <Input
-                  value={walkinCompany}
-                  onChange={(e) => setWalkinCompany(e.target.value)}
-                  placeholder="e.g. Acme Corp"
+                  placeholder="e.g. Maya Sharma"
                   className="mt-1 h-9 rounded-xl text-sm"
                 />
               </div>
@@ -792,7 +1266,17 @@ export default function GateStationTab() {
                   type="email"
                   value={walkinEmail}
                   onChange={(e) => setWalkinEmail(e.target.value)}
-                  placeholder="john@example.com"
+                  placeholder="e.g. maya@acme.com"
+                  className="mt-1 h-9 rounded-xl text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-foreground">Company / Organization (Optional)</label>
+                <Input
+                  value={walkinCompany}
+                  onChange={(e) => setWalkinCompany(e.target.value)}
+                  placeholder="e.g. Acme Corp"
                   className="mt-1 h-9 rounded-xl text-sm"
                 />
               </div>
@@ -827,6 +1311,48 @@ export default function GateStationTab() {
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Close Check-in Confirmation Modal */}
+      {showCloseModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs"
+        >
+          <div className="w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-2xl">
+            <div className="flex items-center gap-3 text-destructive mb-3">
+              <AlertCircle size={24} />
+              <h2 className="text-lg font-bold text-foreground">Close Check-in for this event?</h2>
+            </div>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              <strong className="text-foreground font-semibold">{remainingCount}</strong> registered guest(s) who haven&apos;t arrived will be marked as <strong className="text-destructive font-semibold">no-shows</strong>.
+              New check-ins will be paused until you reopen.
+            </p>
+            <div className="mt-6 flex justify-end gap-2.5">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={statusBusy}
+                onClick={() => setShowCloseModal(false)}
+                className="rounded-full"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                disabled={statusBusy}
+                onClick={confirmCloseCheckin}
+                className="rounded-full font-semibold"
+              >
+                {statusBusy ? 'Closing...' : 'Close Check-in'}
+              </Button>
+            </div>
           </div>
         </div>
       )}
@@ -910,4 +1436,13 @@ export default function GateStationTab() {
       )}
     </div>
   )
+}
+
+function downloadBlob(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = fileName
+  a.click()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
 }

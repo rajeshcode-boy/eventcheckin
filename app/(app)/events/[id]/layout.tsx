@@ -3,9 +3,17 @@
 import { useEffect, useState } from 'react'
 import { useParams, usePathname } from 'next/navigation'
 import Link from 'next/link'
+import { supabase } from '@/lib/supabase'
 import { EventRoleProvider } from '@/components/EventRoleContext'
 import { RoleBadge } from '@/components/RoleBadge'
 import { Button } from '@/components/ui/button'
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb'
 import { cn } from '@/lib/utils'
 import { fetchEventRole } from '@/lib/eventRole'
 import { canOpenPath, ROLE_LABELS, sectionsForRole, type EventRole } from '@/lib/permissions'
@@ -31,6 +39,7 @@ export default function EventLayout({ children }: { children: React.ReactNode })
   const eventId = params.id as string
   const base = `/events/${eventId}`
   const [role, setRole] = useState<EventRole | null>(null)
+  const [eventName, setEventName] = useState<string>('')
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading')
 
   useEffect(() => {
@@ -43,6 +52,18 @@ export default function EventLayout({ children }: { children: React.ReactNode })
         setState('ready')
       })
       .catch(() => !cancelled && setState('error'))
+
+    supabase
+      .from('events')
+      .select('name')
+      .eq('id', eventId)
+      .single()
+      .then(({ data, error }) => {
+        if (!cancelled && !error && data?.name) {
+          setEventName(data.name)
+        }
+      })
+
     return () => {
       cancelled = true
     }
@@ -144,7 +165,48 @@ export default function EventLayout({ children }: { children: React.ReactNode })
           })}
         </nav>
 
-        <div className="min-w-0">{content}</div>
+        <div className="min-w-0">
+          {state === 'ready' && role && (
+            <div className="mb-4 flex items-center justify-between">
+              <Breadcrumb>
+                <BreadcrumbList>
+                  <BreadcrumbItem>
+                    <Link href="/events" className="font-medium hover:text-foreground transition-colors">
+                      Events
+                    </Link>
+                  </BreadcrumbItem>
+                  <BreadcrumbSeparator />
+                  <BreadcrumbItem>
+                    {pathname === base ? (
+                      <BreadcrumbPage className="max-w-[220px] truncate font-semibold sm:max-w-[340px]">
+                        {eventName || 'Event'}
+                      </BreadcrumbPage>
+                    ) : (
+                      <Link
+                        href={base}
+                        className="max-w-[220px] truncate font-medium hover:text-foreground transition-colors sm:max-w-[340px]"
+                      >
+                        {eventName || 'Event'}
+                      </Link>
+                    )}
+                  </BreadcrumbItem>
+                  {pathname !== base && (() => {
+                    const active = sections.find((s) => isActive(s))
+                    return active && active.key !== 'overview' ? (
+                      <>
+                        <BreadcrumbSeparator />
+                        <BreadcrumbItem>
+                          <BreadcrumbPage className="font-semibold">{active.label}</BreadcrumbPage>
+                        </BreadcrumbItem>
+                      </>
+                    ) : null
+                  })()}
+                </BreadcrumbList>
+              </Breadcrumb>
+            </div>
+          )}
+          {content}
+        </div>
       </div>
     </EventRoleProvider>
   )

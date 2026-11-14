@@ -744,7 +744,7 @@ export default function EventForm({ event }: { event?: EventRecord }) {
         {/* RIGHT COLUMN: Live Studio Simulator (Sticky on Desktop) */}
         <div
           className={cn(
-            'lg:col-span-5',
+            'lg:col-span-5 lg:sticky lg:top-6 lg:self-start',
             mobileTab === 'form' && 'hidden lg:block'
           )}
         >

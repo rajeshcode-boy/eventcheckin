@@ -34,7 +34,7 @@ describe('permission matrix', () => {
 describe('event sections by role', () => {
   const keys = (r: EventRole | null) => sectionsForRole(r).map((s) => s.key)
   it('owner and manager see every tab', () => {
-    expect(keys('owner')).toHaveLength(9)
+    expect(keys('owner')).toHaveLength(11)
     expect(keys('manager')).toEqual(keys('owner'))
   })
   it('acquisition sees guests but not team or settings', () => {

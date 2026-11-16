@@ -251,6 +251,16 @@ Following the initial Step 1 foundation, the application has evolved into a full
 - **CSV & Excel Import**: Drag-and-drop spreadsheets with intelligent column mapping and duplicate detection.
 - **Registration Approval Mode**: Toggle between Auto-Approve and Manual Approval for VIP/private events.
 
+### 10. Speaker Management & Program Sessions (`/events/[id]/speakers`)
+- **Speaker Roster & Bios**: Dedicated directory for keynote and session speakers with headshots, company affiliations, and bios.
+- **Session Topics & Stage Schedule**: Assign talk titles, session types (`Keynote`, `Panel`, `Breakout`, `Workshop`, `Fireside Chat`, `Lightning Talk`), session timing, and stage/room locations.
+- **Automated Door Passes**: 1-click option to automatically issue and link an attendee QR pass to the guest list.
+
+### 11. Sponsor & Partner Hub with Custom Tiers (`/events/[id]/sponsors`)
+- **Full Organizer Custom Tier Naming**: Organizers can create and name any sponsor tier (e.g. *Title Partner*, *Lead Innovation Partner*, *Badge Lanyard Sponsor*, *Powered By*, *Community Partner*), assisted by quick suggestion chips.
+- **Tier-Grouped Directory**: Visual sponsor cards grouped by their custom tiers with logos, website links, and contact details.
+- **Booth Allocations & Staff Pass Quotas**: Track exhibition booth numbers (`Booth B-12`) and manage complimentary staff pass quotas per partner.
+
 ---
 
 ## Project Structure

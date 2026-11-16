@@ -25,7 +25,7 @@ const LIFECYCLE_GROUPS = [
   },
   {
     title: 'PREPARE',
-    keys: ['overview', 'guests', 'badge-design'],
+    keys: ['overview', 'guests', 'speakers', 'sponsors', 'badge-design'],
   },
   {
     title: 'DEBRIEF & SETTINGS',

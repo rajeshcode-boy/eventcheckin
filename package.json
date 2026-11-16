@@ -45,11 +45,13 @@
     "@testing-library/jest-dom": "^6.1.5",
     "@testing-library/react": "^16.1.0",
     "@types/node": "^20.0.0",
+    "@types/pg": "^8.23.1",
     "@types/qrcode": "^1.5.5",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@types/web-push": "^3.6.4",
     "autoprefixer": "^10.4.16",
+    "pg": "^8.23.1",
     "postcss": "^8.4.31",
     "vitest": "^3.2.4"
   }

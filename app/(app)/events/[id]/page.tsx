@@ -37,6 +37,8 @@ import {
   FileText,
   ArrowRight,
   Sparkles,
+  Mic,
+  Briefcase,
 } from 'lucide-react'
 
 interface Event {
@@ -610,6 +612,55 @@ export default function EventDetailPage() {
 
       {/* 5. Venue & Schedule Details Strip */}
       <EventDetailsStrip event={event} />
+
+      {/* 5.5 Program & Partners Quick Launch Cards */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Link
+          href={`/events/${event.id}/speakers`}
+          className="group flex items-center justify-between rounded-2xl border border-border bg-card p-4 shadow-xs transition-all hover:border-purple-500/40 hover:shadow-sm"
+        >
+          <div className="flex items-center gap-3.5">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 group-hover:scale-105 transition-transform">
+              <Mic size={20} />
+            </span>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-foreground">🎤 Speakers & Sessions</h3>
+                <span className="rounded-full bg-purple-500/10 px-2 py-0.2 text-[10px] font-bold text-purple-600 dark:text-purple-400">
+                  Roster
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Keynotes, talk topics, stages, and speaker door passes
+              </p>
+            </div>
+          </div>
+          <ArrowRight size={16} className="text-muted-foreground group-hover:text-foreground group-hover:translate-x-0.5 transition-all" />
+        </Link>
+
+        <Link
+          href={`/events/${event.id}/sponsors`}
+          className="group flex items-center justify-between rounded-2xl border border-border bg-card p-4 shadow-xs transition-all hover:border-blue-500/40 hover:shadow-sm"
+        >
+          <div className="flex items-center gap-3.5">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 group-hover:scale-105 transition-transform">
+              <Briefcase size={20} />
+            </span>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-foreground">💼 Sponsors & Partners</h3>
+                <span className="rounded-full bg-blue-500/10 px-2 py-0.2 text-[10px] font-bold text-blue-600 dark:text-blue-400">
+                  Custom Tiers
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Custom sponsor tiers, booth allocations, and staff passes
+              </p>
+            </div>
+          </div>
+          <ArrowRight size={16} className="text-muted-foreground group-hover:text-foreground group-hover:translate-x-0.5 transition-all" />
+        </Link>
+      </div>
 
       {/* 6. Unified Share, Invite & Entrance Hub (Bento Row 3) */}
       <div className="rounded-3xl border border-border bg-card p-6 shadow-xs space-y-6">

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -18,6 +18,9 @@ import {
   Users,
   CheckCircle2,
   AlertCircle,
+  Upload,
+  User,
+  Camera,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -25,6 +28,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { supabase } from '@/lib/supabase'
 import { fetchSpeakers, saveSpeaker, deleteSpeaker, type Speaker } from '@/lib/speakers'
 
 const SESSION_TYPES = [
@@ -75,6 +79,63 @@ export default function SpeakersPage() {
   const [stageRoom, setStageRoom] = useState('')
   const [sessionTime, setSessionTime] = useState('')
   const [createPass, setCreatePass] = useState(true)
+
+  // Photo direct upload state
+  const [photoMode, setPhotoMode] = useState<'upload' | 'url'>('upload')
+  const [uploadingPhoto, setUploadingUploadingPhoto] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const handlePhotoFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please choose a valid image file (PNG, JPG, WebP).')
+      return
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Speaker photo must be under 5MB.')
+      return
+    }
+
+    setUploadingUploadingPhoto(true)
+    try {
+      const ext = file.name.split('.').pop() || 'png'
+      const fileName = `speaker_${Date.now()}_${Math.random().toString(36).slice(2, 7)}.${ext}`
+      const filePath = `speakers/${eventId}/${fileName}`
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, { upsert: true })
+
+      if (!uploadError && uploadData) {
+        const { data: publicUrlData } = supabase.storage.from('avatars').getPublicUrl(filePath)
+        if (publicUrlData?.publicUrl) {
+          setPhotoUrl(publicUrlData.publicUrl)
+          toast.success('Photo uploaded!')
+          setUploadingUploadingPhoto(false)
+          return
+        }
+      }
+
+      // Base64 fallback
+      const reader = new FileReader()
+      reader.onload = () => {
+        setPhotoUrl(reader.result as string)
+        toast.success('Photo preview ready.')
+        setUploadingUploadingPhoto(false)
+      }
+      reader.onerror = () => {
+        toast.error('Could not read image file.')
+        setUploadingUploadingPhoto(false)
+      }
+      reader.readAsDataURL(file)
+    } catch {
+      toast.error('Error uploading photo.')
+      setUploadingUploadingPhoto(false)
+    }
+  }
 
   const loadData = async () => {
     setLoading(true)
@@ -578,14 +639,91 @@ export default function SpeakersPage() {
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-foreground">Photo URL (Optional)</label>
-                <Input
-                  value={photoUrl}
-                  onChange={(e) => setPhotoUrl(e.target.value)}
-                  placeholder="https://... headshot image URL"
-                  className="text-xs h-9 rounded-xl font-mono"
-                />
+              {/* Headshot Photo Direct Upload with Live Preview */}
+              <div className="space-y-2 rounded-2xl border border-border bg-muted/20 p-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-foreground">Speaker Headshot Photo</label>
+                  <div className="flex items-center gap-1 text-[11px]">
+                    <button
+                      type="button"
+                      onClick={() => setPhotoMode('upload')}
+                      className={cn(
+                        'px-2 py-0.5 rounded-full font-medium transition-colors',
+                        photoMode === 'upload' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+                      )}
+                    >
+                      Upload File
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPhotoMode('url')}
+                      className={cn(
+                        'px-2 py-0.5 rounded-full font-medium transition-colors',
+                        photoMode === 'url' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+                      )}
+                    >
+                      Paste URL
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="size-14 shrink-0 overflow-hidden rounded-full border border-border bg-muted shadow-2xs flex items-center justify-center">
+                    {photoUrl ? (
+                      <img src={photoUrl} alt="Speaker preview" className="size-full object-cover" />
+                    ) : (
+                      <User className="size-6 text-muted-foreground/40" />
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    {photoMode === 'upload' ? (
+                      <div>
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/*"
+                          onChange={handlePhotoFileChange}
+                          className="hidden"
+                        />
+                        <div className="flex items-center gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={uploadingPhoto}
+                            onClick={() => fileInputRef.current?.click()}
+                            className="rounded-xl text-xs gap-1.5 h-8"
+                          >
+                            <Upload size={12} />
+                            <span>{uploadingPhoto ? 'Processing...' : 'Choose Device File'}</span>
+                          </Button>
+                          {photoUrl && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setPhotoUrl('')}
+                              className="h-8 text-xs text-destructive hover:bg-destructive/10"
+                            >
+                              Remove
+                            </Button>
+                          )}
+                        </div>
+                        <p className="mt-1 text-[10px] text-muted-foreground">
+                          Square headshot recommended (PNG, JPG, WebP up to 5MB).
+                        </p>
+                      </div>
+                    ) : (
+                      <Input
+                        value={photoUrl}
+                        onChange={(e) => setPhotoUrl(e.target.value)}
+                        placeholder="https://... headshot image URL"
+                        className="text-xs h-8 rounded-xl font-mono"
+                      />
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* Create Pass Option */}

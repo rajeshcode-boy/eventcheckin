@@ -28,6 +28,7 @@ import {
   Tablet,
   Globe,
   Edit3,
+  Briefcase,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -40,6 +41,14 @@ import ScannerOverlay, { type ScanStatusFeedback } from '@/components/ScannerOve
 import { formatTime, formatDateTime } from '@/lib/time'
 import { toCsv } from '@/lib/guests'
 import { REPORT_HEADERS, ReportCheckin, ReportRegistration, ReportRow, buildReport, rowToCells } from '@/lib/report'
+import {
+  fetchSponsors,
+  fetchSponsorReps,
+  checkInSponsorRep,
+  undoSponsorRepCheckIn,
+  type Sponsor,
+  type SponsorRep,
+} from '@/lib/sponsors'
 
 interface AttendeeRow {
   id: string
@@ -82,7 +91,11 @@ export default function GateStationTab() {
   const eventUuid = params.id as string
 
   // Navigation View Toggle: Option A (Segmented Toggle)
-  const [stationView, setStationView] = useState<'roster' | 'stream'>('roster')
+  const [stationView, setStationView] = useState<'roster' | 'stream' | 'sponsors'>('roster')
+
+  // Sponsor Delegations State (Strictly Segregated from Attendees)
+  const [sponsors, setSponsors] = useState<Sponsor[]>([])
+  const [sponsorReps, setSponsorReps] = useState<SponsorRep[]>([])
 
   // Event & Status State
   const [event, setEvent] = useState<EventInfo | null>(null)
@@ -190,9 +203,24 @@ export default function GateStationTab() {
     }
   }
 
+  // Load sponsor companies and booth representative passes
+  const loadSponsorsAndReps = async () => {
+    try {
+      const [spns, reps] = await Promise.all([
+        fetchSponsors(eventUuid),
+        fetchSponsorReps(eventUuid),
+      ])
+      setSponsors(spns)
+      setSponsorReps(reps)
+    } catch {
+      // Ignore
+    }
+  }
+
   useEffect(() => {
     loadAttendees()
     loadKiosks()
+    loadSponsorsAndReps()
 
     const kioskInterval = setInterval(() => {
       loadKiosks()
@@ -418,6 +446,55 @@ export default function GateStationTab() {
       )
     })
   }, [attendees, search, filter])
+
+  // Filtered Sponsor Reps (Strictly Segregated from Attendee Roster)
+  const filteredSponsorReps = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return sponsorReps.filter((r) => {
+      const sp = sponsors.find((s) => s.id === r.sponsor_id)
+      if (!q) return true
+      return (
+        r.full_name?.toLowerCase().includes(q) ||
+        r.role_title?.toLowerCase().includes(q) ||
+        r.pass_code?.toLowerCase().includes(q) ||
+        r.email?.toLowerCase().includes(q) ||
+        sp?.name?.toLowerCase().includes(q) ||
+        sp?.tier?.toLowerCase().includes(q) ||
+        sp?.booth_number?.toLowerCase().includes(q)
+      )
+    })
+  }, [sponsorReps, sponsors, search])
+
+  const handleSponsorRepGateCheckIn = async (rep: SponsorRep) => {
+    setBusyId(rep.id)
+    try {
+      const updated = await checkInSponsorRep(rep.id, eventUuid, staffName, 'manual')
+      if (updated) {
+        setSponsorReps((prev) => prev.map((r) => (r.id === updated.id ? updated : r)))
+        const sp = sponsors.find((s) => s.id === rep.sponsor_id)
+        toast.success(`✓ Checked in ${rep.full_name} (${sp?.name || 'Sponsor'})`)
+      }
+    } catch {
+      toast.error('Check-in failed.')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const handleSponsorRepUndoCheckIn = async (rep: SponsorRep) => {
+    setBusyId(rep.id)
+    try {
+      const updated = await undoSponsorRepCheckIn(rep.id, eventUuid)
+      if (updated) {
+        setSponsorReps((prev) => prev.map((r) => (r.id === updated.id ? updated : r)))
+        toast.info(`Undid check-in for ${rep.full_name}`)
+      }
+    } catch {
+      toast.error('Could not undo check-in.')
+    } finally {
+      setBusyId(null)
+    }
+  }
 
   // 1-Tap Check In
   const handleCheckIn = async (attendee: AttendeeRow, method: 'manual' | 'qr' = 'manual') => {
@@ -744,17 +821,53 @@ export default function GateStationTab() {
         )
         await handleCheckIn(target, 'qr')
       }
-    } else {
-      showFeedback(
-        {
-          type: 'error',
-          title: 'Not Found in Event',
-          subtitle: 'Attendee is not registered for this event',
-        },
-        3500
-      )
-      toast.error('Pass not found in this event roster.')
+      return
     }
+
+    // Check if the scanned pass belongs to a Sponsor Booth Representative
+    const targetSponsorRep = sponsorReps.find(
+      (r) =>
+        r.badge_token === parsed.value ||
+        (parsed.kind === 'reg' && r.pass_code.toLowerCase() === parsed.value.toLowerCase()) ||
+        rawCode.trim().toLowerCase() === r.pass_code.toLowerCase()
+    )
+
+    if (targetSponsorRep) {
+      const parentSponsor = sponsors.find((s) => s.id === targetSponsorRep.sponsor_id)
+      if (targetSponsorRep.checked_in_at) {
+        showFeedback({
+          type: 'warning',
+          title: 'Already Checked In',
+          subtitle: `${targetSponsorRep.full_name} (${parentSponsor?.name || 'Sponsor'} • ${targetSponsorRep.role_title})`,
+        })
+        toast.info(`${targetSponsorRep.full_name} (${parentSponsor?.name}) is already checked in.`)
+      } else {
+        showFeedback(
+          {
+            type: 'success',
+            title: `💼 ${parentSponsor?.tier || 'Sponsor'} Arrival!`,
+            subtitle: `${targetSponsorRep.full_name} • ${parentSponsor?.name || 'Sponsor'} (Booth #${parentSponsor?.booth_number || 'TBA'})`,
+          },
+          3000
+        )
+        const updated = await checkInSponsorRep(targetSponsorRep.id, eventUuid, staffName, 'qr')
+        if (updated) {
+          setSponsorReps((prev) => prev.map((r) => (r.id === updated.id ? updated : r)))
+          toast.success(`⚡ ${parentSponsor?.tier || 'Sponsor'} Arrival: Checked in ${targetSponsorRep.full_name} (${parentSponsor?.name})!`)
+        }
+      }
+      return
+    }
+
+    showFeedback(
+      {
+        type: 'error',
+        title: 'Not Found in Event',
+        subtitle: 'Attendee or sponsor rep not registered for this event',
+      },
+      3500
+    )
+    toast.error('Pass not found in this event roster.')
   }
 
   return (
@@ -978,6 +1091,22 @@ export default function GateStationTab() {
             <span>Live Arrival Stream</span>
             <span className="rounded-full bg-emerald-500/15 px-2 py-0.2 text-[10px] font-mono font-bold text-emerald-600 dark:text-emerald-400">
               {liveFeed.length}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setStationView('sponsors')}
+            className={cn(
+              'flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold transition-all',
+              stationView === 'sponsors'
+                ? 'bg-card text-foreground shadow-xs font-bold'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            <Briefcase size={14} className="text-purple-600 dark:text-purple-400" />
+            <span>Sponsor Teams</span>
+            <span className="rounded-full bg-purple-500/15 px-2 py-0.2 text-[10px] font-mono font-bold text-purple-700 dark:text-purple-300">
+              {sponsorReps.length}
             </span>
           </button>
         </div>
@@ -1382,6 +1511,149 @@ export default function GateStationTab() {
         </div>
       )}
 
+      {/* 3. Station View C: Sponsor Delegations & Booth Teams */}
+      {stationView === 'sponsors' && (
+        <div className="space-y-4">
+          {/* Privacy Protection Banner */}
+          <div className="flex items-center gap-2.5 rounded-2xl border border-purple-500/20 bg-purple-500/5 px-4 py-3 text-xs text-muted-foreground">
+            <ShieldCheck size={16} className="shrink-0 text-purple-600 dark:text-purple-400" />
+            <p>
+              <strong className="text-foreground">Sponsor Booth Roster:</strong> Track arrivals for exhibitor staff and sponsor representatives. These contacts are strictly segregated and are excluded from general attendee downloads.
+            </p>
+          </div>
+
+          {/* Search bar specifically for sponsors */}
+          <div className="relative">
+            <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by representative name, sponsor company, booth, or pass code..."
+              className="pl-9 pr-8 rounded-full border-border bg-card text-xs h-9"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+
+          {filteredSponsorReps.length === 0 ? (
+            <div className="rounded-3xl border border-dashed border-border bg-card/50 p-12 text-center text-muted-foreground">
+              <Briefcase className="mx-auto size-10 opacity-30 text-purple-600 mb-2" />
+              <h3 className="text-base font-bold text-foreground">
+                {search ? 'No sponsor representatives match your search' : 'No sponsor representatives registered'}
+              </h3>
+              <p className="mt-1 text-xs max-w-md mx-auto">
+                {search
+                  ? 'Try searching with a different name or booth number.'
+                  : 'Add sponsor companies and issue booth representative passes under the 💼 Sponsors tab.'}
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-xs">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="border-b border-border bg-muted/30 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                    <tr>
+                      <th className="px-5 py-3">Pass Code</th>
+                      <th className="px-5 py-3">Representative</th>
+                      <th className="px-5 py-3">Sponsor & Tier</th>
+                      <th className="px-5 py-3">Booth #</th>
+                      <th className="px-5 py-3">Arrival Status</th>
+                      <th className="px-5 py-3 text-right">Gate Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {filteredSponsorReps.map((rep) => {
+                      const sp = sponsors.find((s) => s.id === rep.sponsor_id)
+                      const isArrived = !!rep.checked_in_at
+                      const isBusy = busyId === rep.id
+
+                      return (
+                        <tr
+                          key={rep.id}
+                          className={cn(
+                            'transition-colors hover:bg-muted/30',
+                            isArrived && 'bg-emerald-500/5'
+                          )}
+                        >
+                          <td className="px-5 py-3.5 font-mono font-bold text-foreground">
+                            <span className="rounded-lg bg-muted px-2 py-1">{rep.pass_code}</span>
+                          </td>
+                          <td className="px-5 py-3.5">
+                            <p className="font-bold text-foreground text-sm">{rep.full_name}</p>
+                            <p className="text-[11px] text-muted-foreground">{rep.role_title}</p>
+                          </td>
+                          <td className="px-5 py-3.5">
+                            <p className="font-semibold text-foreground">{sp?.name || 'Sponsor'}</p>
+                            <span className="inline-block mt-0.5 rounded-full bg-blue-500/10 px-2 py-0.2 text-[10px] font-semibold text-blue-700 dark:text-blue-300">
+                              {sp?.tier || 'Partner'}
+                            </span>
+                          </td>
+                          <td className="px-5 py-3.5 font-medium text-foreground">
+                            {sp?.booth_number ? (
+                              <span className="rounded-full bg-muted/60 px-2.5 py-0.5 text-[11px]">
+                                {sp.booth_number}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground text-[11px]">TBA</span>
+                            )}
+                          </td>
+                          <td className="px-5 py-3.5">
+                            {isArrived ? (
+                              <div className="space-y-0.5">
+                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                                  <CheckCircle2 size={12} />
+                                  <span>Checked In</span>
+                                </span>
+                                <p className="text-[10px] text-muted-foreground">
+                                  {new Date(rep.checked_in_at!).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                                  {rep.checked_in_by ? ` • ${rep.checked_in_by}` : ''}
+                                </p>
+                              </div>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 text-[11px] text-muted-foreground">
+                                <span>○ Not Arrived Yet</span>
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-5 py-3.5 text-right">
+                            {isArrived ? (
+                              <button
+                                type="button"
+                                onClick={() => handleSponsorRepUndoCheckIn(rep)}
+                                disabled={isBusy}
+                                className="text-xs text-muted-foreground hover:text-destructive inline-flex items-center gap-1 px-2 py-1 rounded cursor-pointer"
+                              >
+                                <RotateCcw size={12} />
+                                <span>Undo</span>
+                              </button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                onClick={() => handleSponsorRepGateCheckIn(rep)}
+                                disabled={isBusy}
+                                className="rounded-full bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold shadow-xs"
+                              >
+                                {isBusy ? 'Checking...' : 'Check In Rep →'}
+                              </Button>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Quick Walk-In Modal */}
       {showWalkinModal && (
         <div
@@ -1513,6 +1785,149 @@ export default function GateStationTab() {
               </Button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* 3. Station View C: Sponsor Delegations & Booth Teams */}
+      {stationView === 'sponsors' && (
+        <div className="space-y-4">
+          {/* Privacy Protection Banner */}
+          <div className="flex items-center gap-2.5 rounded-2xl border border-purple-500/20 bg-purple-500/5 px-4 py-3 text-xs text-muted-foreground">
+            <ShieldCheck size={16} className="shrink-0 text-purple-600 dark:text-purple-400" />
+            <p>
+              <strong className="text-foreground">Sponsor Booth Roster:</strong> Track arrivals for exhibitor staff and sponsor representatives. These contacts are strictly segregated and are excluded from general attendee downloads.
+            </p>
+          </div>
+
+          {/* Search bar specifically for sponsors */}
+          <div className="relative">
+            <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by representative name, sponsor company, booth, or pass code..."
+              className="pl-9 pr-8 rounded-full border-border bg-card text-xs h-9"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+
+          {filteredSponsorReps.length === 0 ? (
+            <div className="rounded-3xl border border-dashed border-border bg-card/50 p-12 text-center text-muted-foreground">
+              <Briefcase className="mx-auto size-10 opacity-30 text-purple-600 mb-2" />
+              <h3 className="text-base font-bold text-foreground">
+                {search ? 'No sponsor representatives match your search' : 'No sponsor representatives registered'}
+              </h3>
+              <p className="mt-1 text-xs max-w-md mx-auto">
+                {search
+                  ? 'Try searching with a different name or booth number.'
+                  : 'Add sponsor companies and issue booth representative passes under the 💼 Sponsors tab.'}
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-xs">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="border-b border-border bg-muted/30 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                    <tr>
+                      <th className="px-5 py-3">Pass Code</th>
+                      <th className="px-5 py-3">Representative</th>
+                      <th className="px-5 py-3">Sponsor & Tier</th>
+                      <th className="px-5 py-3">Booth #</th>
+                      <th className="px-5 py-3">Arrival Status</th>
+                      <th className="px-5 py-3 text-right">Gate Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {filteredSponsorReps.map((rep) => {
+                      const sp = sponsors.find((s) => s.id === rep.sponsor_id)
+                      const isArrived = !!rep.checked_in_at
+                      const isBusy = busyId === rep.id
+
+                      return (
+                        <tr
+                          key={rep.id}
+                          className={cn(
+                            'transition-colors hover:bg-muted/30',
+                            isArrived && 'bg-emerald-500/5'
+                          )}
+                        >
+                          <td className="px-5 py-3.5 font-mono font-bold text-foreground">
+                            <span className="rounded-lg bg-muted px-2 py-1">{rep.pass_code}</span>
+                          </td>
+                          <td className="px-5 py-3.5">
+                            <p className="font-bold text-foreground text-sm">{rep.full_name}</p>
+                            <p className="text-[11px] text-muted-foreground">{rep.role_title}</p>
+                          </td>
+                          <td className="px-5 py-3.5">
+                            <p className="font-semibold text-foreground">{sp?.name || 'Sponsor'}</p>
+                            <span className="inline-block mt-0.5 rounded-full bg-blue-500/10 px-2 py-0.2 text-[10px] font-semibold text-blue-700 dark:text-blue-300">
+                              {sp?.tier || 'Partner'}
+                            </span>
+                          </td>
+                          <td className="px-5 py-3.5 font-medium text-foreground">
+                            {sp?.booth_number ? (
+                              <span className="rounded-full bg-muted/60 px-2.5 py-0.5 text-[11px]">
+                                {sp.booth_number}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground text-[11px]">TBA</span>
+                            )}
+                          </td>
+                          <td className="px-5 py-3.5">
+                            {isArrived ? (
+                              <div className="space-y-0.5">
+                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                                  <CheckCircle2 size={12} />
+                                  <span>Checked In</span>
+                                </span>
+                                <p className="text-[10px] text-muted-foreground">
+                                  {new Date(rep.checked_in_at!).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                                  {rep.checked_in_by ? ` • ${rep.checked_in_by}` : ''}
+                                </p>
+                              </div>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 text-[11px] text-muted-foreground">
+                                <span>○ Not Arrived Yet</span>
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-5 py-3.5 text-right">
+                            {isArrived ? (
+                              <button
+                                type="button"
+                                onClick={() => handleSponsorRepUndoCheckIn(rep)}
+                                disabled={isBusy}
+                                className="text-xs text-muted-foreground hover:text-destructive inline-flex items-center gap-1 px-2 py-1 rounded cursor-pointer"
+                              >
+                                <RotateCcw size={12} />
+                                <span>Undo</span>
+                              </button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                onClick={() => handleSponsorRepGateCheckIn(rep)}
+                                disabled={isBusy}
+                                className="rounded-full bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold shadow-xs"
+                              >
+                                {isBusy ? 'Checking...' : 'Check In Rep →'}
+                              </Button>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

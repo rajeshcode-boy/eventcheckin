@@ -122,16 +122,23 @@ Guest pages (check-in, registration, pass, badge, kiosk) are never tracked by Po
 - `/events` – List organizer's events (home page)
 - `/events/create` – Create new event
 
+- `/events/[id]/speakers` – Speaker lineup, talk topics, session stages/times, and photo upload
+- `/events/[id]/sponsors` – Sponsor hub with custom tier naming, booth allocation, staff pass quotas, and rep roster
+- `/events/[id]/desk` – Live Gate Station with real-time arrivals, kiosk monitoring, and sponsor booth teams view
+
 ### Database Tables
 
 - `organizations` – Organizer companies
 - `profiles` – Users linked to Supabase Auth
 - `events` – Events with auto-generated IDs
-- `registrations` – Guest list (empty for now)
-- `checkins` – Check-in records (empty for now)
-- `badge_prints` – Badge print history (empty for now)
+- `registrations` – Guest list
+- `checkins` – Check-in records
+- `badge_prints` – Badge print history
 - `import_jobs` – CSV/Excel import tracking
 - `admin_actions` – Audit log
+- `event_speakers` – Speaker profiles, keynotes, panel sessions, stages, and badges
+- `event_sponsors` – Sponsor companies, custom tiers, booth allocations, and pass quotas
+- `event_sponsor_reps` – Sponsor booth staff passes, live gate attendance, and contact privacy isolation
 
 ### Security
 

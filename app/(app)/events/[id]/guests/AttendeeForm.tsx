@@ -24,6 +24,7 @@ import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { NativeSelect } from '@/components/ui/native-select'
+import { CustomSelect } from '@/components/ui/custom-select'
 
 interface Props {
   eventUuid: string
@@ -220,10 +221,12 @@ export default function AttendeeForm({ eventUuid, eventCountry, existing, attend
         </div>
         <div>
           <label htmlFor="att-industry" className={labelClass}>Industry</label>
-          <NativeSelect id="att-industry" className="h-10" value={industryChoice} onChange={(e) => setIndustryChoice(e.target.value)}>
-            <option value="">— Not set —</option>
-            {INDUSTRIES.map((i) => <option key={i} value={i}>{i}</option>)}
-          </NativeSelect>
+          <CustomSelect
+            id="att-industry"
+            value={industryChoice}
+            onChange={(v) => setIndustryChoice(v)}
+            options={[{ value: '', label: '— Not set —' }, ...INDUSTRIES.map((i) => ({ value: i, label: i }))]}
+          />
           {industryChoice === 'Other' && (
             <Input
               aria-label="Other industry"
@@ -237,15 +240,41 @@ export default function AttendeeForm({ eventUuid, eventCountry, existing, attend
         </div>
         <div>
           <label htmlFor="att-status" className={labelClass}>Registration status</label>
-          <NativeSelect id="att-status" className="h-10" value={status} onChange={(e) => setStatus(e.target.value)}>
-            {REGISTRATION_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-          </NativeSelect>
+          <CustomSelect
+            id="att-status"
+            value={status}
+            onChange={(v) => setStatus(v)}
+            options={REGISTRATION_STATUSES.map((s) => ({
+              value: s.value,
+              label: s.label,
+              dot:
+                s.value === 'approved' || s.value === 'registered'
+                  ? 'bg-emerald-500'
+                  : s.value === 'pending'
+                  ? 'bg-amber-500'
+                  : s.value === 'rejected'
+                  ? 'bg-rose-500'
+                  : 'bg-slate-400',
+            }))}
+          />
         </div>
         <div>
           <label htmlFor="att-confirmation" className={labelClass}>Attendance confirmation</label>
-          <NativeSelect id="att-confirmation" className="h-10" value={confirmation} onChange={(e) => setConfirmation(e.target.value)}>
-            {ATTENDANCE_CONFIRMATIONS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-          </NativeSelect>
+          <CustomSelect
+            id="att-confirmation"
+            value={confirmation}
+            onChange={(v) => setConfirmation(v)}
+            options={ATTENDANCE_CONFIRMATIONS.map((s) => ({
+              value: s.value,
+              label: s.label,
+              dot:
+                s.value === 'confirmed'
+                  ? 'bg-emerald-500'
+                  : s.value === 'maybe'
+                  ? 'bg-amber-500'
+                  : 'bg-slate-400',
+            }))}
+          />
         </div>
       </div>
       {error && <Alert variant="error" className="mb-4">{error}</Alert>}

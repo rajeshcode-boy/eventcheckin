@@ -6,6 +6,7 @@ import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { NativeSelect } from '@/components/ui/native-select'
+import { CustomSelect } from '@/components/ui/custom-select'
 import { cn } from '@/lib/utils'
 import {
   DuplicateConflict,
@@ -243,19 +244,22 @@ export default function ImportPanel({
                       {rows.find((r) => r[i]?.trim())?.[i] ?? ''}
                     </td>
                     <td className={cell}>
-                      <NativeSelect
+                      <CustomSelect
                         value={mapping[i]}
-                        onChange={(e) => setColumnField(i, e.target.value as GuestField | '')}
-                        className="h-10 min-w-[200px]"
+                        onChange={(v) => setColumnField(i, v as GuestField | '')}
+                        options={[
+                          { value: '', label: '— Ignore column —' },
+                          ...GUEST_FIELDS.map((f) => ({
+                            value: f.key,
+                            label: f.label,
+                            dot:
+                              f.key === 'full_name' || f.key === 'first_name' || f.key === 'email'
+                                ? 'bg-primary'
+                                : undefined,
+                          })),
+                        ]}
                         aria-label={`Field for column ${h}`}
-                      >
-                        <option value="">— Ignore —</option>
-                        {GUEST_FIELDS.map((f) => (
-                          <option key={f.key} value={f.key}>
-                            {f.label}
-                          </option>
-                        ))}
-                      </NativeSelect>
+                      />
                     </td>
                   </tr>
                 ))}

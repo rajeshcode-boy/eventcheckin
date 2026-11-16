@@ -6,6 +6,7 @@ import { useConfirm } from '@/components/ConfirmDialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { NativeSelect } from '@/components/ui/native-select'
+import { CustomSelect } from '@/components/ui/custom-select'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 
@@ -195,17 +196,19 @@ export default function RegistrationSettings({
           </label>
         </div>
         <div className="flex items-center gap-2">
-          <label htmlFor="approval" className="text-sm font-medium">Approval</label>
-          <NativeSelect
-            id="approval"
-            className="h-9 w-auto text-xs"
-            disabled={!canManage}
-            value={settings.approval_mode}
-            onChange={(e) => save({ approval_mode: e.target.value as 'auto' | 'manual' }, 'Approval setting saved.')}
-          >
-            <option value="auto">Auto-approve</option>
-            <option value="manual">Subject to approval</option>
-          </NativeSelect>
+          <label htmlFor="approval" className="text-xs font-semibold text-muted-foreground">Approval Mode</label>
+          <div className="w-[180px]">
+            <CustomSelect
+              id="approval"
+              disabled={!canManage}
+              value={settings.approval_mode}
+              onChange={(v) => save({ approval_mode: v as 'auto' | 'manual' }, 'Approval setting saved.')}
+              options={[
+                { value: 'auto', label: 'Auto-approve', dot: 'bg-emerald-500', description: 'Instantly issue passes' },
+                { value: 'manual', label: 'Subject to approval', dot: 'bg-amber-500', description: 'Requires manual review' },
+              ]}
+            />
+          </div>
         </div>
       </div>
 

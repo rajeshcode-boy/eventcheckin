@@ -7,6 +7,7 @@ import { useEventRole } from '@/components/EventRoleContext'
 import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { NativeSelect } from '@/components/ui/native-select'
+import { CustomSelect } from '@/components/ui/custom-select'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
@@ -199,37 +200,42 @@ export default function TeamPage() {
                     <label className="mb-1.5 block text-xs font-semibold text-foreground">
                       Person
                     </label>
-                    <NativeSelect
+                    <CustomSelect
                       value={newProfile}
-                      onChange={(e) => setNewProfile(e.target.value)}
-                      className="h-10 w-full rounded-xl text-sm"
+                      onChange={(v) => setNewProfile(v)}
+                      placeholder="Select an organization member..."
+                      options={[
+                        { value: '', label: 'Select an organization member...' },
+                        ...unassigned.map((m) => ({
+                          value: m.id,
+                          label: m.full_name || 'Unnamed member',
+                        })),
+                      ]}
                       aria-label="Team member"
-                    >
-                      <option value="">Select an organization member...</option>
-                      {unassigned.map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {m.full_name || 'Unnamed member'}
-                        </option>
-                      ))}
-                    </NativeSelect>
+                    />
                   </div>
 
                   <div>
                     <label className="mb-1.5 block text-xs font-semibold text-foreground">
                       Event Role
                     </label>
-                    <NativeSelect
+                    <CustomSelect
                       value={newRole}
-                      onChange={(e) => setNewRole(e.target.value as Role)}
-                      className="h-10 w-full rounded-xl text-sm"
+                      onChange={(v) => setNewRole(v as Role)}
+                      options={assignable.map((r) => ({
+                        value: r.value,
+                        label: r.label,
+                        dot:
+                          r.value === 'owner'
+                            ? 'bg-purple-500'
+                            : r.value === 'manager'
+                            ? 'bg-emerald-500'
+                            : r.value === 'staff'
+                            ? 'bg-blue-500'
+                            : 'bg-amber-500',
+                      }))}
                       aria-label="Role"
-                    >
-                      {assignable.map((r) => (
-                        <option key={r.value} value={r.value}>
-                          {r.label}
-                        </option>
-                      ))}
-                    </NativeSelect>
+                    />
                   </div>
 
                   <Button
@@ -323,18 +329,26 @@ export default function TeamPage() {
                         {/* Role selection or display */}
                         <div className="mt-1.5 flex items-center gap-2">
                           {isAdmin && (a.role !== 'owner' || canAssignOwner(myRole)) ? (
-                            <NativeSelect
-                              value={a.role}
-                              onChange={(e) => changeRole(a.id, e.target.value as Role)}
-                              className="h-8 max-w-[180px] rounded-lg text-xs"
-                              aria-label={`Role for ${a.profiles?.full_name ?? 'member'}`}
-                            >
-                              {assignable.map((r) => (
-                                <option key={r.value} value={r.value}>
-                                  {r.label}
-                                </option>
-                              ))}
-                            </NativeSelect>
+                            <div className="w-[180px]">
+                              <CustomSelect
+                                value={a.role}
+                                onChange={(v) => changeRole(a.id, v as Role)}
+                                triggerClassName="h-8 rounded-xl text-xs py-1 px-2.5"
+                                options={assignable.map((r) => ({
+                                  value: r.value,
+                                  label: r.label,
+                                  dot:
+                                    r.value === 'owner'
+                                      ? 'bg-purple-500'
+                                      : r.value === 'manager'
+                                      ? 'bg-emerald-500'
+                                      : r.value === 'staff'
+                                      ? 'bg-blue-500'
+                                      : 'bg-amber-500',
+                                }))}
+                                aria-label={`Role for ${a.profiles?.full_name ?? 'member'}`}
+                              />
+                            </div>
                           ) : (
                             <span className="text-xs font-medium text-muted-foreground">
                               {roleObj?.label}

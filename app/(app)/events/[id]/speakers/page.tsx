@@ -26,6 +26,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
+import { CustomSelect } from '@/components/ui/custom-select'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
@@ -595,17 +596,26 @@ export default function SpeakersPage() {
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-foreground">Session Type</label>
-                  <select
+                  <CustomSelect
                     value={sessionType}
-                    onChange={(e) => setSessionType(e.target.value)}
-                    className="w-full rounded-xl border border-border bg-card px-2.5 py-1.5 text-xs text-foreground shadow-2xs focus:outline-none focus:ring-1 focus:ring-primary h-9"
-                  >
-                    {SESSION_TYPES.map((t) => (
-                      <option key={t} value={t}>
-                        {t}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(v) => setSessionType(v)}
+                    options={SESSION_TYPES.map((t) => ({
+                      value: t,
+                      label: t,
+                      dot:
+                        t === 'Keynote'
+                          ? 'bg-purple-500'
+                          : t === 'Panel'
+                          ? 'bg-blue-500'
+                          : t === 'Breakout'
+                          ? 'bg-emerald-500'
+                          : t === 'Workshop'
+                          ? 'bg-amber-500'
+                          : t === 'Fireside Chat'
+                          ? 'bg-rose-500'
+                          : 'bg-indigo-500',
+                    }))}
+                  />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-foreground">Stage / Room</label>

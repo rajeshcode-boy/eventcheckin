@@ -19,6 +19,7 @@ import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { NativeSelect } from '@/components/ui/native-select'
+import { CustomSelect } from '@/components/ui/custom-select'
 import { cn } from '@/lib/utils'
 
 interface EventInfo {
@@ -325,18 +326,22 @@ export default function BadgeDesignPage() {
       <div className={cn(section, 'mb-4 flex-row flex-wrap items-end')}>
         <div className="flex-1 basis-[200px]">
           <label className={label} htmlFor="design-select">Design</label>
-          <NativeSelect
+          <CustomSelect
             id="design-select"
-            className="h-10"
             value={currentId ?? ''}
-            onChange={async (e) => {
-              const d = designs.find((x) => x.id === e.target.value)
+            onChange={async (val) => {
+              const d = designs.find((x) => x.id === val)
               if (d && (!dirty || (await confirm({ title: 'Discard unsaved changes?', confirmLabel: 'Discard', destructive: true })))) openDesign(d)
             }}
-          >
-            {!currentId && <option value="">{name} (not saved yet)</option>}
-            {designs.map((d) => <option key={d.id} value={d.id}>{d.name}{d.is_default ? ' — used for printing' : ''}</option>)}
-          </NativeSelect>
+            options={[
+              ...(!currentId ? [{ value: '', label: `${name} (not saved yet)` }] : []),
+              ...designs.map((d) => ({
+                value: d.id,
+                label: `${d.name}${d.is_default ? ' — used for printing' : ''}`,
+                dot: d.is_default ? 'bg-primary' : undefined,
+              })),
+            ]}
+          />
         </div>
         <div className="flex-1 basis-[200px]">
           <label className={label} htmlFor="design-name">Name</label>
@@ -457,13 +462,23 @@ export default function BadgeDesignPage() {
             />
           </div>
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card p-3 shadow-xs">
-            <label className="flex flex-1 basis-60 items-center gap-2 text-sm">
-              Preview with
-              <NativeSelect className="h-10" value={previewId} onChange={(e) => setPreviewId(e.target.value)}>
-                <option value="">Sample attendee</option>
-                {attendees.map((a) => <option key={a.id} value={a.id}>{a.full_name} ({a.registration_id})</option>)}
-              </NativeSelect>
-            </label>
+            <div className="flex flex-1 basis-60 items-center gap-2 text-sm">
+              <span className="text-xs text-muted-foreground whitespace-nowrap">Preview with:</span>
+              <div className="flex-1 min-w-[200px]">
+                <CustomSelect
+                  value={previewId}
+                  onChange={(v) => setPreviewId(v)}
+                  placeholder="Sample attendee"
+                  options={[
+                    { value: '', label: 'Sample attendee' },
+                    ...attendees.map((a) => ({
+                      value: a.id,
+                      label: `${a.full_name} (${a.registration_id})`,
+                    })),
+                  ]}
+                />
+              </div>
+            </div>
             <label className="flex items-center gap-2 text-sm">
               Zoom
               <input type="range" min={0.5} max={2} step={0.1} value={zoom} onChange={(e) => setZoom(Number(e.target.value))} />
@@ -540,11 +555,16 @@ function UploadButton({ text, rules, folder, kind, onUploaded, onError }: { text
 function AddField({ onAdd }: { onAdd: (field: TextElement['field']) => void }) {
   const [field, setField] = useState<TextElement['field']>('full_name')
   return (
-    <div className="flex gap-2">
-      <NativeSelect className="h-10" value={field} onChange={(e) => setField(e.target.value as TextElement['field'])} aria-label="Attendee field">
-        {BADGE_FIELDS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
-      </NativeSelect>
-      <Button variant="outline" size="sm" className="whitespace-nowrap" onClick={() => onAdd(field)}>+ Add field</Button>
+    <div className="flex items-center gap-2">
+      <div className="min-w-[160px]">
+        <CustomSelect
+          value={field}
+          onChange={(v) => setField(v as TextElement['field'])}
+          options={BADGE_FIELDS.map((f) => ({ value: f.value, label: f.label }))}
+          aria-label="Attendee field"
+        />
+      </div>
+      <Button variant="outline" size="sm" className="whitespace-nowrap h-10" onClick={() => onAdd(field)}>+ Add field</Button>
     </div>
   )
 }
@@ -557,19 +577,19 @@ function CanvasSettings({ design, change }: { design: BadgeDesign; change: (d: B
     <div className={section}>
       <h2 className="text-base font-semibold">Canvas size</h2>
       <div>
-        <label className={label} htmlFor="size-preset">Size</label>
-        <NativeSelect
+        <label className={label} htmlFor="size-preset">Size Preset</label>
+        <CustomSelect
           id="size-preset"
-          className="h-10"
           value={presetIndex}
-          onChange={(e) => {
-            const p = SIZE_PRESETS[Number(e.target.value)]
+          onChange={(val) => {
+            const p = SIZE_PRESETS[Number(val)]
             if (p) change(resizeDesign(design, p.w, p.h))
           }}
-        >
-          {presetIndex === -1 && <option value={-1}>Custom</option>}
-          {SIZE_PRESETS.map((p, i) => <option key={p.label} value={i}>{p.label}</option>)}
-        </NativeSelect>
+          options={[
+            ...(presetIndex === -1 ? [{ value: -1, label: 'Custom' }] : []),
+            ...SIZE_PRESETS.map((p, i) => ({ value: i, label: p.label })),
+          ]}
+        />
       </div>
       <div className="grid grid-cols-2 gap-2">
         <div>
@@ -669,18 +689,28 @@ function ElementProperties({ el, design, onChange, folder, onError }: { el: Badg
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className={label} htmlFor="el-source">Content</label>
-              <NativeSelect id="el-source" className="h-10" value={el.source === 'static' ? '__static' : el.field} onChange={(e) => set(e.target.value === '__static' ? { source: 'static' } : { source: 'field', field: e.target.value as TextElement['field'] })}>
-                {BADGE_FIELDS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
-                <option value="__static">Static text</option>
-              </NativeSelect>
+              <CustomSelect
+                id="el-source"
+                value={el.source === 'static' ? '__static' : el.field}
+                onChange={(val) => set(val === '__static' ? { source: 'static' } : { source: 'field', field: val as TextElement['field'] })}
+                options={[
+                  ...BADGE_FIELDS.map((f) => ({ value: f.value, label: f.label })),
+                  { value: '__static', label: 'Static text' },
+                ]}
+              />
             </div>
             <div>
               <label className={label} htmlFor="el-font">Font</label>
-              <NativeSelect id="el-font" className="h-10" value={el.font} onChange={(e) => set({ font: e.target.value as TextElement['font'] })}>
-                <option value="helvetica">Helvetica (sans)</option>
-                <option value="times">Times (serif)</option>
-                <option value="courier">Courier (mono)</option>
-              </NativeSelect>
+              <CustomSelect
+                id="el-font"
+                value={el.font}
+                onChange={(val) => set({ font: val as TextElement['font'] })}
+                options={[
+                  { value: 'helvetica', label: 'Helvetica (sans)', fontFamily: 'ui-sans-serif, system-ui, sans-serif' },
+                  { value: 'times', label: 'Times (serif)', fontFamily: 'ui-serif, Georgia, serif' },
+                  { value: 'courier', label: 'Courier (mono)', fontFamily: 'ui-monospace, monospace' },
+                ]}
+              />
             </div>
           </div>
           {el.source === 'static' && (

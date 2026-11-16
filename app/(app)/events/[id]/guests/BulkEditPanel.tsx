@@ -12,6 +12,7 @@ import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { NativeSelect } from '@/components/ui/native-select'
+import { CustomSelect } from '@/components/ui/custom-select'
 
 const KEEP = '__keep__'
 const labelClass = 'mb-2 block font-medium'
@@ -71,16 +72,36 @@ export default function BulkEditPanel({ ids, onDone, onCancel }: { ids: string[]
     onDone(`Updated ${ids.length} attendee(s).`)
   }
 
-  const keepSelect = (id: string, label: string, value: string, set: (v: string) => void, options: { value: string; label: string }[], allowEmpty?: string) => (
-    <div>
-      <label htmlFor={id} className={labelClass}>{label}</label>
-      <NativeSelect id={id} className="h-10" value={value} onChange={(e) => set(e.target.value)}>
-        <option value={KEEP}>— Keep current —</option>
-        {allowEmpty && <option value="">{allowEmpty}</option>}
-        {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-      </NativeSelect>
-    </div>
-  )
+  const keepSelect = (id: string, label: string, value: string, set: (v: string) => void, options: { value: string; label: string }[], allowEmpty?: string) => {
+    const customOptions = [
+      { value: KEEP, label: '— Keep current —' },
+      ...(allowEmpty ? [{ value: '', label: allowEmpty }] : []),
+      ...options.map((o) => ({
+        value: o.value,
+        label: o.label,
+        dot:
+          o.value === 'approved' || o.value === 'registered' || o.value === 'confirmed'
+            ? 'bg-emerald-500'
+            : o.value === 'pending' || o.value === 'maybe'
+            ? 'bg-amber-500'
+            : o.value === 'rejected' || o.value === 'cancelled'
+            ? 'bg-rose-500'
+            : undefined,
+      })),
+    ]
+
+    return (
+      <div>
+        <label htmlFor={id} className={labelClass}>{label}</label>
+        <CustomSelect
+          id={id}
+          value={value}
+          onChange={(v) => set(v)}
+          options={customOptions}
+        />
+      </div>
+    )
+  }
 
   return (
     <form onSubmit={save} className={panelClass}>

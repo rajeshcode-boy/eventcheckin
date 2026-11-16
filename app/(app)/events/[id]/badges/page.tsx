@@ -15,6 +15,7 @@ import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { NativeSelect } from '@/components/ui/native-select'
+import { CustomSelect } from '@/components/ui/custom-select'
 import { cn } from '@/lib/utils'
 
 interface EventInfo {
@@ -214,29 +215,46 @@ export default function BadgesPage() {
       </div>
 
       {/* Design and page layout */}
-      <div className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3 rounded-md border border-border p-3">
-        <label className="grid gap-1 text-sm">
-          Design
-          <NativeSelect className="h-10" value={designId} onChange={(e) => setDesignId(e.target.value)}>
-            {designs.length === 0 && <option value="">Default template</option>}
-            {designs.map((d) => <option key={d.id} value={d.id}>{d.name}{d.is_default ? ' (default)' : ''}</option>)}
-          </NativeSelect>
-        </label>
-        <label className="grid gap-1 text-sm">
-          Page layout
-          <NativeSelect className="h-10" value={layout.mode} onChange={(e) => setLayout({ ...layout, mode: e.target.value as PrintLayout['mode'] })}>
-            <option value="single">One badge per page (badge printers)</option>
-            <option value="sheet">Several per sheet (office printers)</option>
-          </NativeSelect>
-        </label>
+      <div className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3 rounded-2xl border border-border p-4 bg-card shadow-xs">
+        <div className="grid gap-1 text-sm">
+          <span className="text-xs font-semibold text-foreground">Badge Design</span>
+          <CustomSelect
+            value={designId}
+            onChange={(val) => setDesignId(val)}
+            options={[
+              ...(designs.length === 0 ? [{ value: '', label: 'Default template' }] : []),
+              ...designs.map((d) => ({
+                value: d.id,
+                label: `${d.name}${d.is_default ? ' (default)' : ''}`,
+                dot: d.is_default ? 'bg-primary' : undefined,
+              })),
+            ]}
+          />
+        </div>
+        <div className="grid gap-1 text-sm">
+          <span className="text-xs font-semibold text-foreground">Page Layout</span>
+          <CustomSelect
+            value={layout.mode}
+            onChange={(val) => setLayout({ ...layout, mode: val as PrintLayout['mode'] })}
+            options={[
+              { value: 'single', label: 'One badge per page (badge printers)' },
+              { value: 'sheet', label: 'Several per sheet (office printers)' },
+            ]}
+          />
+        </div>
         {layout.mode === 'sheet' && (
           <>
-            <label className="grid gap-1 text-sm">
-              Paper
-              <NativeSelect className="h-10" value={layout.paper} onChange={(e) => setLayout({ ...layout, paper: e.target.value as Paper })}>
-                {(Object.keys(PAPER_SIZES) as Paper[]).map((p) => <option key={p} value={p}>{PAPER_SIZES[p].label}</option>)}
-              </NativeSelect>
-            </label>
+            <div className="grid gap-1 text-sm">
+              <span className="text-xs font-semibold text-foreground">Paper Size</span>
+              <CustomSelect
+                value={layout.paper}
+                onChange={(val) => setLayout({ ...layout, paper: val as Paper })}
+                options={(Object.keys(PAPER_SIZES) as Paper[]).map((p) => ({
+                  value: p,
+                  label: PAPER_SIZES[p].label,
+                }))}
+              />
+            </div>
             <div className="flex flex-col justify-end gap-1.5 text-sm">
               <label className="flex items-center gap-2">
                 <input type="checkbox" checked={layout.guides} onChange={(e) => setLayout({ ...layout, guides: e.target.checked })} /> Cut guides

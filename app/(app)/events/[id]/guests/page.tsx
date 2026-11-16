@@ -24,6 +24,7 @@ import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { NativeSelect } from '@/components/ui/native-select'
+import { CustomSelect } from '@/components/ui/custom-select'
 import { cn } from '@/lib/utils'
 
 interface EventInfo {
@@ -60,6 +61,17 @@ const STATUS_TONES: Record<string, string> = {
   confirmed: TONE.good,
   maybe: TONE.warn,
   not_confirmed: TONE.quiet,
+}
+
+const STATUS_DOTS: Record<string, string> = {
+  registered: 'bg-blue-500',
+  approved: 'bg-emerald-500',
+  pending: 'bg-amber-500',
+  rejected: 'bg-rose-500',
+  cancelled: 'bg-slate-400',
+  confirmed: 'bg-emerald-500',
+  maybe: 'bg-amber-500',
+  not_confirmed: 'bg-slate-400',
 }
 
 const formatDate = (iso?: string) =>
@@ -336,12 +348,19 @@ export default function GuestsPage() {
           placeholder="Search name, email, phone, company or reg ID"
           aria-label="Search attendees"
         />
-        <NativeSelect value={sort} onChange={(e) => setSort(e.target.value as SortKey)} className="h-10 flex-1 basis-[180px]" aria-label="Sort attendees">
-          <option value="created_desc">Newest registrations first</option>
-          <option value="created_asc">Oldest registrations first</option>
-          <option value="name_asc">Name A–Z</option>
-          <option value="name_desc">Name Z–A</option>
-        </NativeSelect>
+        <div className="flex-1 min-w-[200px] max-w-[260px]">
+          <CustomSelect
+            value={sort}
+            onChange={(v) => setSort(v as SortKey)}
+            options={[
+              { value: 'created_desc', label: 'Newest registrations first' },
+              { value: 'created_asc', label: 'Oldest registrations first' },
+              { value: 'name_asc', label: 'Name A–Z' },
+              { value: 'name_desc', label: 'Name Z–A' },
+            ]}
+            aria-label="Sort attendees"
+          />
+        </div>
       </div>
       {/* The two most-used filters stay visible; the rest sit behind "More filters" */}
       {(() => {
@@ -492,12 +511,17 @@ export default function GuestsPage() {
 
           {/* Pagination */}
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-            <label className="flex items-center gap-2 text-sm">
-              Rows per page
-              <NativeSelect value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))} className="h-10 w-[90px]">
-                {PAGE_SIZES.map((n) => <option key={n} value={n}>{n}</option>)}
-              </NativeSelect>
-            </label>
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-xs text-muted-foreground">Rows per page:</span>
+              <div className="w-[110px]">
+                <CustomSelect
+                  value={pageSize}
+                  onChange={(v) => setPageSize(Number(v))}
+                  options={PAGE_SIZES.map((n) => ({ value: n, label: `${n} / page` }))}
+                  aria-label="Rows per page"
+                />
+              </div>
+            </div>
             <div className="flex items-center gap-2">
               <Button variant="outline" onClick={() => setPage(currentPage - 1)} disabled={currentPage <= 1}>Previous</Button>
               <span className="text-sm">Page {currentPage} of {pageCount}</span>
@@ -526,12 +550,36 @@ export default function GuestsPage() {
   )
 }
 
-function FilterSelect({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: { value: string; label: string }[] }) {
+function FilterSelect({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+  options: { value: string; label: string }[]
+}) {
+  const customOptions = [
+    { value: '', label: `${label}: all` },
+    ...options.map((o) => ({
+      value: o.value,
+      label: o.label,
+      dot: STATUS_DOTS[o.value],
+    })),
+  ]
+
   return (
-    <NativeSelect value={value} onChange={(e) => onChange(e.target.value)} className="h-10 flex-1 basis-[160px]" aria-label={`Filter by ${label.toLowerCase()}`}>
-      <option value="">{label}: all</option>
-      {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-    </NativeSelect>
+    <div className="flex-1 min-w-[170px] max-w-[240px]">
+      <CustomSelect
+        value={value}
+        onChange={onChange}
+        options={customOptions}
+        placeholder={`${label}: all`}
+        aria-label={`Filter by ${label.toLowerCase()}`}
+      />
+    </div>
   )
 }
 

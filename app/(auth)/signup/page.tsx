@@ -1,16 +1,16 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
+import { Building2, UserCheck } from 'lucide-react'
 
 const MIN_PASSWORD_LENGTH = 8
-
 const fieldLabel = 'mb-1.5 block text-sm font-medium'
 
 // 0-4: how many of these the password meets (length, lowercase+uppercase, a digit, a symbol)
@@ -42,17 +42,38 @@ function EyeIcon({ open }: { open: boolean }) {
   )
 }
 
-export default function SignupPage() {
-  const [email, setEmail] = useState('')
+function SignupForm() {
+  const searchParams = useSearchParams()
+  const invitedOrgId = searchParams.get('org') || ''
+  const invitedRole = searchParams.get('role') || 'staff'
+  const invitedEmail = searchParams.get('email') || ''
+
+  const [email, setEmail] = useState(invitedEmail)
   const [password, setPassword] = useState('')
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [orgName, setOrgName] = useState('')
+  const [invitedOrgName, setInvitedOrgName] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
   const [agreedToTerms, setAgreedToTerms] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
+
+  useEffect(() => {
+    if (invitedEmail) setEmail(invitedEmail)
+  }, [invitedEmail])
+
+  useEffect(() => {
+    if (!invitedOrgId) return
+    const fetchOrg = async () => {
+      const { data } = await supabase.from('organizations').select('name').eq('id', invitedOrgId).single()
+      if (data?.name) {
+        setInvitedOrgName(data.name)
+      }
+    }
+    fetchOrg()
+  }, [invitedOrgId])
 
   const passwordLongEnough = password.length >= MIN_PASSWORD_LENGTH
   const strength = STRENGTH[passwordScore(password)] ?? STRENGTH[0]
@@ -70,12 +91,20 @@ export default function SignupPage() {
 
     try {
       const fullName = `${firstName.trim()} ${lastName.trim()}`
+      const metaData: Record<string, string> = { full_name: fullName }
+
+      if (invitedOrgId) {
+        metaData.invited_org_id = invitedOrgId
+        metaData.invited_role = invitedRole === 'admin' ? 'admin' : 'staff'
+      } else {
+        metaData.org_name = orgName
+      }
 
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          data: { full_name: fullName, org_name: orgName },
+          data: metaData,
         },
       })
 
@@ -106,33 +135,50 @@ export default function SignupPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-6">
-      <div className="w-full max-w-[400px]">
+      <div className="w-full max-w-[420px]">
         {/* Brand: same mark as the app header and login page */}
         <div className="mb-6 flex flex-col items-center gap-3 text-center">
           <span aria-hidden="true" className="inline-flex size-11 items-center justify-center rounded-xl bg-primary text-xl font-bold text-primary-foreground">✓</span>
           <span className="text-lg font-bold tracking-tight">EventCheckin</span>
         </div>
 
-        <div className="rounded-xl border border-border bg-card px-6 py-7">
-          <h1 className="mb-5 text-center text-[22px] font-bold tracking-tight">
-            Sign up
+        <div className="rounded-2xl border border-border bg-card px-6 py-7 shadow-xs">
+          <h1 className="mb-2 text-center text-[22px] font-bold tracking-tight">
+            {invitedOrgId ? 'Join Team' : 'Sign up'}
           </h1>
 
-          <form onSubmit={handleSignup} className="flex flex-col gap-4">
-            <div>
-              <label htmlFor="orgName" className={fieldLabel}>
-                Organization name <span aria-hidden="true" className="text-destructive">*</span>
-              </label>
-              <Input
-                id="orgName"
-                type="text"
-                value={orgName}
-                onChange={(e) => setOrgName(e.target.value)}
-                className="h-11 text-base"
-                placeholder="My organization"
-                required
-              />
+          {invitedOrgId && (
+            <div className="mb-5 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-200 flex items-center gap-2">
+              <UserCheck className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+              <span>
+                You are joining <strong>{invitedOrgName || 'the organization'}</strong> as <strong>{invitedRole === 'admin' ? 'Organization Admin' : 'Staff Member'}</strong>.
+              </span>
             </div>
+          )}
+
+          {!invitedOrgId && (
+            <p className="mb-5 text-center text-xs text-muted-foreground">
+              Create an organization account to start hosting events.
+            </p>
+          )}
+
+          <form onSubmit={handleSignup} className="flex flex-col gap-4">
+            {!invitedOrgId && (
+              <div>
+                <label htmlFor="orgName" className={fieldLabel}>
+                  Organization name <span aria-hidden="true" className="text-destructive">*</span>
+                </label>
+                <Input
+                  id="orgName"
+                  type="text"
+                  value={orgName}
+                  onChange={(e) => setOrgName(e.target.value)}
+                  className="h-11 text-base rounded-xl"
+                  placeholder="My organization"
+                  required
+                />
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -144,7 +190,7 @@ export default function SignupPage() {
                   type="text"
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
-                  className="h-11 text-base"
+                  className="h-11 text-base rounded-xl"
                   placeholder="First"
                   autoComplete="given-name"
                   required
@@ -160,7 +206,7 @@ export default function SignupPage() {
                   type="text"
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
-                  className="h-11 text-base"
+                  className="h-11 text-base rounded-xl"
                   placeholder="Last"
                   autoComplete="family-name"
                   required
@@ -177,7 +223,7 @@ export default function SignupPage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="h-11 text-base"
+                className="h-11 text-base rounded-xl"
                 placeholder="you@example.com"
                 autoComplete="email"
                 required
@@ -194,7 +240,7 @@ export default function SignupPage() {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="h-11 pr-11 text-base"
+                  className="h-11 pr-11 text-base rounded-xl"
                   placeholder="Enter a password"
                   autoComplete="new-password"
                   minLength={MIN_PASSWORD_LENGTH}
@@ -218,7 +264,6 @@ export default function SignupPage() {
                     <span className={cn('font-semibold', strength.text)}>{strength.label}</span>
                   </div>
                   <div className="h-1 overflow-hidden rounded-full bg-border">
-                    {/* the width is data, so it stays inline */}
                     <div className={cn('h-full transition-[width,background-color] duration-150', strength.bar)} style={{ width: `${(passwordScore(password) / 4) * 100}%` }} />
                   </div>
                 </div>
@@ -252,8 +297,8 @@ export default function SignupPage() {
 
             {error && <Alert variant="error">{error}</Alert>}
 
-            <Button type="submit" size="lg" className="mt-1 h-11 w-full text-base" disabled={loading}>
-              {loading ? 'Creating account...' : 'Sign up'}
+            <Button type="submit" size="lg" className="mt-1 h-11 w-full text-base rounded-xl font-semibold" disabled={loading}>
+              {loading ? 'Creating account...' : invitedOrgId ? 'Join Organization' : 'Sign up'}
             </Button>
           </form>
         </div>
@@ -266,5 +311,13 @@ export default function SignupPage() {
         </p>
       </div>
     </div>
+  )
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-muted-foreground">Loading signup...</div>}>
+      <SignupForm />
+    </Suspense>
   )
 }

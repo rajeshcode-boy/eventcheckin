@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useEventRole } from '@/components/EventRoleContext'
@@ -213,6 +214,12 @@ export default function TeamPage() {
                       ]}
                       aria-label="Team member"
                     />
+                    <div className="flex justify-between items-center mt-1.5 px-0.5">
+                      <span className="text-[11px] text-muted-foreground">Need to add staff?</span>
+                      <Link href="/organization#team" className="text-[11px] font-semibold text-primary hover:underline">
+                        + Invite to Organization →
+                      </Link>
+                    </div>
                   </div>
 
                   <div>

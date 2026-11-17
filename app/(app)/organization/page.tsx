@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { LOGO_RULES } from '@/lib/images'
 import ImageUpload from '@/components/ImageUpload'
@@ -9,7 +9,12 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Building2, Calendar, CalendarDays, ShieldAlert, Sparkles, AlertTriangle } from 'lucide-react'
+import { CustomSelect } from '@/components/ui/custom-select'
+import { cn } from '@/lib/utils'
+import {
+  Building2, Calendar, CalendarDays, ShieldAlert, Sparkles, AlertTriangle,
+  Users, UserPlus, Mail, Shield, Check, Copy, ExternalLink, Trash2, Clock
+} from 'lucide-react'
 
 interface Organization {
   id: string
@@ -18,39 +23,80 @@ interface Organization {
   created_at: string
 }
 
+interface Member {
+  id: string
+  full_name: string
+  email: string
+  role: 'admin' | 'staff'
+  is_owner?: boolean
+  created_at: string
+}
+
+interface TeamInvite {
+  id: string
+  email: string
+  full_name: string | null
+  role: 'admin' | 'staff'
+  status: 'pending' | 'accepted' | 'revoked' | 'expired'
+  created_at: string
+}
+
 export default function OrganizationPage() {
   const [org, setOrg] = useState<Organization | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [name, setName] = useState('')
   const [eventCount, setEventCount] = useState(0)
+  const [members, setMembers] = useState<Member[]>([])
+  const [invites, setInvites] = useState<TeamInvite[]>([])
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [saving, setSaving] = useState(false)
 
-  useEffect(() => {
-    const load = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const { data: profile } = await supabase.from('profiles').select('organization_id, role').eq('id', user.id).single()
-      if (!profile) {
-        setError('Your profile could not be loaded.')
-        return
-      }
-      setIsAdmin(profile.role === 'admin')
-      const [{ data: orgData }, { count }] = await Promise.all([
-        supabase.from('organizations').select('id, name, logo_path, created_at').eq('id', profile.organization_id).single(),
-        supabase.from('events').select('id', { count: 'exact', head: true }).eq('organization_id', profile.organization_id),
-      ])
-      if (!orgData) {
-        setError('Your organization could not be loaded.')
-        return
-      }
-      setOrg(orgData)
-      setName(orgData.name)
-      setEventCount(count ?? 0)
+  // Invite modal / state
+  const [showInviteModal, setShowInviteModal] = useState(false)
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteName, setInviteName] = useState('')
+  const [inviteRole, setInviteRole] = useState<'admin' | 'staff'>('staff')
+  const [inviting, setInviting] = useState(false)
+  const [copiedLink, setCopiedLink] = useState(false)
+
+  const load = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    setCurrentUserId(user.id)
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('organization_id, role')
+      .eq('id', user.id)
+      .single()
+    if (!profile) {
+      setError('Your profile could not be loaded.')
+      return
     }
-    load()
+    setIsAdmin(profile.role === 'admin')
+
+    const [{ data: orgData }, { count }, { data: membersData }, { data: invitesData }] = await Promise.all([
+      supabase.from('organizations').select('id, name, logo_path, created_at').eq('id', profile.organization_id).single(),
+      supabase.from('events').select('id', { count: 'exact', head: true }).eq('organization_id', profile.organization_id),
+      supabase.from('profiles').select('id, full_name, email, role, is_owner, created_at').eq('organization_id', profile.organization_id).order('created_at'),
+      supabase.from('team_invites').select('id, email, full_name, role, status, created_at').eq('organization_id', profile.organization_id).eq('status', 'pending').order('created_at', { ascending: false }),
+    ])
+
+    if (!orgData) {
+      setError('Your organization could not be loaded.')
+      return
+    }
+    setOrg(orgData)
+    setName(orgData.name)
+    setEventCount(count ?? 0)
+    setMembers((membersData ?? []) as Member[])
+    setInvites((invitesData ?? []) as TeamInvite[])
   }, [])
+
+  useEffect(() => {
+    load()
+  }, [load])
 
   const saveName = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -80,7 +126,85 @@ export default function OrganizationPage() {
     return true
   }
 
-  if (!org) return error ? <Alert variant="error">{error}</Alert> : <p>Loading organization...</p>
+  const getShareableInviteLink = () => {
+    if (!org || typeof window === 'undefined') return ''
+    const base = window.location.origin
+    const params = new URLSearchParams({
+      org: org.id,
+      role: inviteRole,
+    })
+    if (inviteEmail.trim()) params.set('email', inviteEmail.trim())
+    return `${base}/signup?${params.toString()}`
+  }
+
+  const copyInviteLink = async () => {
+    const link = getShareableInviteLink()
+    if (!link) return
+    try {
+      await navigator.clipboard.writeText(link)
+      setCopiedLink(true)
+      setTimeout(() => setCopiedLink(false), 2500)
+    } catch {
+      // fallback
+    }
+  }
+
+  const handleCreateInvite = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!org || !currentUserId) return
+    setError('')
+    setNotice('')
+
+    if (!inviteEmail.trim()) {
+      setError('Teammate email is required.')
+      return
+    }
+
+    setInviting(true)
+    const { error: insertError } = await supabase.from('team_invites').insert([
+      {
+        organization_id: org.id,
+        email: inviteEmail.trim().toLowerCase(),
+        full_name: inviteName.trim() || null,
+        role: inviteRole,
+        invited_by: currentUserId,
+        status: 'pending',
+      },
+    ])
+    setInviting(false)
+
+    if (insertError) {
+      if (insertError.message.includes('unique') || insertError.code === '23505') {
+        setError('An invite has already been sent to this email address.')
+      } else {
+        setError('Could not send invite: ' + insertError.message)
+      }
+      return
+    }
+
+    setNotice(`Invite created for ${inviteEmail.trim()}. Share the invite link with them to join.`)
+    setInviteEmail('')
+    setInviteName('')
+    setShowInviteModal(false)
+    load()
+  }
+
+  const revokeInvite = async (inviteId: string) => {
+    if (!org) return
+    const { error: revokeError } = await supabase
+      .from('team_invites')
+      .update({ status: 'revoked' })
+      .eq('id', inviteId)
+
+    if (revokeError) {
+      setError('Could not revoke invite: ' + revokeError.message)
+    } else {
+      setNotice('Invite revoked.')
+      load()
+    }
+  }
+
+  if (!org) return error ? <Alert variant="error">{error}</Alert> : <div className="p-8 text-center text-muted-foreground">Loading organization...</div>
 
   const formattedDate = new Date(org.created_at).toLocaleDateString('en-GB', {
     day: 'numeric',
@@ -89,7 +213,7 @@ export default function OrganizationPage() {
   })
 
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-8 pb-12">
+    <div className="mx-auto flex max-w-5xl flex-col gap-8 pb-16">
       {/* Header with Title & Meta Badges */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border/60 pb-5">
         <div>
@@ -98,7 +222,7 @@ export default function OrganizationPage() {
             <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">Organization Profile</h1>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            Manage your company details, brand logo assets, and global event preferences.
+            Manage your company details, brand logo assets, and team member permissions.
           </p>
         </div>
 
@@ -107,11 +231,18 @@ export default function OrganizationPage() {
             <CalendarDays size={13} className="mr-1.5 text-primary" />
             {eventCount} {eventCount === 1 ? 'Event' : 'Events'} Active
           </Badge>
+          <Badge variant="secondary" className="px-3 py-1 text-xs font-semibold">
+            <Users size={13} className="mr-1.5 text-primary" />
+            {members.length} {members.length === 1 ? 'Team Member' : 'Team Members'}
+          </Badge>
           <Badge variant="outline" className="px-3 py-1 text-xs font-medium text-muted-foreground">
             Member since {formattedDate}
           </Badge>
         </div>
       </div>
+
+      {error && <Alert variant="error">{error}</Alert>}
+      {notice && <Alert variant="success">{notice}</Alert>}
 
       {!isAdmin && (
         <Alert variant="warning">
@@ -119,6 +250,7 @@ export default function OrganizationPage() {
         </Alert>
       )}
 
+      {/* Grid: Assets & Company Details */}
       <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
         {/* Left Column: Company Logo & Brand Asset Card */}
         <div className="space-y-6 md:col-span-1">
@@ -145,21 +277,10 @@ export default function OrganizationPage() {
               />
             </div>
           </Card>
-
-          {/* Quick Info Box */}
-          <Card className="rounded-3xl border border-border bg-card p-6 shadow-xs">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">
-              About Organization Assets
-            </h3>
-            <p className="text-xs leading-relaxed text-muted-foreground">
-              Your organization logo automatically populates new event creations. Individual events can still override with custom event banners and logos.
-            </p>
-          </Card>
         </div>
 
-        {/* Right Column: Name & Danger Zone */}
+        {/* Right Column: Name & General Details */}
         <div className="space-y-6 md:col-span-2">
-          {/* General Details Form */}
           <Card className="rounded-3xl border border-border bg-card p-6 sm:p-8 shadow-xs">
             <h2 className="text-lg font-bold text-foreground mb-1">Company Details</h2>
             <p className="text-xs text-muted-foreground mb-6">
@@ -183,9 +304,6 @@ export default function OrganizationPage() {
                 />
               </div>
 
-              {error && <Alert variant="error">{error}</Alert>}
-              {notice && <Alert variant="success">{notice}</Alert>}
-
               {isAdmin && (
                 <div className="pt-2">
                   <Button
@@ -199,33 +317,251 @@ export default function OrganizationPage() {
               )}
             </form>
           </Card>
-
-          {/* Danger Zone */}
-          <Card className="rounded-3xl border border-destructive/30 bg-destructive/5 p-6 sm:p-8 shadow-xs">
-            <div className="flex items-center gap-2 mb-2 text-destructive">
-              <AlertTriangle size={20} />
-              <h2 className="text-base font-bold">Danger Zone</h2>
-            </div>
-            <p className="text-xs text-muted-foreground leading-relaxed mb-4">
-              Permanently delete this organization, along with all associated events, badges, check-in history, and attendee rosters.
-            </p>
-            <div className="flex items-center justify-between border-t border-destructive/20 pt-4">
-              <span className="text-xs text-muted-foreground font-medium">
-                Self-service deletion is locked to prevent accidental data loss.
-              </span>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="rounded-full border-destructive/40 text-destructive opacity-60"
-                disabled
-              >
-                Delete Organization
-              </Button>
-            </div>
-          </Card>
         </div>
       </div>
+
+      {/* TEAM MEMBERS & INVITES SECTION (New Master Section) */}
+      <div id="team" className="space-y-6">
+        <Card className="rounded-3xl border border-border bg-card p-6 sm:p-8 shadow-xs">
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-6 pb-4 border-b border-border">
+            <div>
+              <div className="flex items-center gap-2">
+                <Users size={20} className="text-primary" />
+                <h2 className="text-xl font-bold text-foreground">Organization Team Members</h2>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                People who can log in to your organization. They can then be assigned to run check-in gates and badge printing at events.
+              </p>
+            </div>
+
+            {isAdmin && (
+              <Button
+                type="button"
+                onClick={() => setShowInviteModal(true)}
+                className="rounded-full bg-primary text-primary-foreground font-semibold gap-1.5 shadow-xs"
+              >
+                <UserPlus size={16} />
+                + Invite Teammate
+              </Button>
+            )}
+          </div>
+
+          {/* Members List */}
+          <div className="divide-y divide-border">
+            {members.map((m) => {
+              const isOwner = m.is_owner
+              const isCurrent = m.id === currentUserId
+              const memberDate = m.created_at
+                ? new Date(m.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+                : 'Joined'
+
+              return (
+                <div key={m.id} className="py-3.5 flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="size-10 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200 font-bold flex items-center justify-center text-sm flex-shrink-0">
+                      {m.full_name ? m.full_name.charAt(0).toUpperCase() : 'U'}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-sm text-foreground truncate">
+                          {m.full_name || 'Unnamed Member'}
+                        </span>
+                        {isCurrent && (
+                          <span className="text-[10px] font-bold text-muted-foreground uppercase px-1.5 py-0.5 rounded bg-muted">
+                            You
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-xs text-muted-foreground truncate block">
+                        {m.email}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-muted-foreground hidden sm:inline">
+                      {memberDate}
+                    </span>
+                    <Badge
+                      variant={isOwner ? 'default' : m.role === 'admin' ? 'secondary' : 'outline'}
+                      className={cn(
+                        'text-xs font-semibold capitalize',
+                        isOwner ? 'bg-purple-600 text-white hover:bg-purple-700' : m.role === 'admin' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200' : ''
+                      )}
+                    >
+                      {isOwner ? 'Owner' : m.role === 'admin' ? 'Admin' : 'Staff'}
+                    </Badge>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Pending Invites List */}
+          {invites.length > 0 && (
+            <div className="mt-8 pt-6 border-t border-border">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5">
+                <Clock size={14} /> Pending Invitations ({invites.length})
+              </h3>
+              <div className="divide-y divide-border/60">
+                {invites.map((inv) => (
+                  <div key={inv.id} className="py-3 flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="size-8 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200 flex items-center justify-center text-xs flex-shrink-0">
+                        <Mail size={14} />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-xs text-foreground truncate">{inv.email}</span>
+                          {inv.full_name && <span className="text-xs text-muted-foreground">({inv.full_name})</span>}
+                        </div>
+                        <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                          Awaiting registration as {inv.role === 'admin' ? 'Admin' : 'Staff'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs gap-1 text-destructive hover:bg-destructive/10 border-destructive/20"
+                        onClick={() => revokeInvite(inv.id)}
+                      >
+                        <Trash2 size={12} /> Revoke
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </Card>
+      </div>
+
+      {/* Danger Zone */}
+      <Card className="rounded-3xl border border-destructive/30 bg-destructive/5 p-6 sm:p-8 shadow-xs">
+        <div className="flex items-center gap-2 mb-2 text-destructive">
+          <AlertTriangle size={20} />
+          <h2 className="text-base font-bold">Danger Zone</h2>
+        </div>
+        <p className="text-xs text-muted-foreground leading-relaxed mb-4">
+          Permanently delete this organization, along with all associated events, badges, check-in history, and attendee rosters.
+        </p>
+        <div className="flex items-center justify-between border-t border-destructive/20 pt-4">
+          <span className="text-xs text-muted-foreground font-medium">
+            Self-service deletion is locked to prevent accidental data loss.
+          </span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="rounded-full border-destructive/40 text-destructive opacity-60"
+            disabled
+          >
+            Delete Organization
+          </Button>
+        </div>
+      </Card>
+
+      {/* INVITE TEAMMATE MODAL */}
+      {showInviteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="bg-card border border-border rounded-2xl shadow-xl max-w-md w-full p-6 flex flex-col gap-5 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950 text-emerald-600">
+                  <UserPlus className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-foreground">Invite Teammate</h3>
+                  <p className="text-xs text-muted-foreground">Add staff to your organization</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowInviteModal(false)}
+                className="text-muted-foreground hover:text-foreground text-sm font-bold p-1"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateInvite} className="space-y-4">
+              <div>
+                <label htmlFor="invite-email" className="block text-xs font-semibold text-foreground mb-1.5">
+                  Email Address <span className="text-destructive">*</span>
+                </label>
+                <Input
+                  id="invite-email"
+                  type="email"
+                  required
+                  placeholder="teammate@example.com"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  className="h-10 text-xs rounded-xl"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="invite-name" className="block text-xs font-semibold text-foreground mb-1.5">
+                  Full Name (Optional)
+                </label>
+                <Input
+                  id="invite-name"
+                  type="text"
+                  placeholder="e.g. Alex Johnson"
+                  value={inviteName}
+                  onChange={(e) => setInviteName(e.target.value)}
+                  className="h-10 text-xs rounded-xl"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-foreground mb-1.5">
+                  Organization Role
+                </label>
+                <CustomSelect
+                  value={inviteRole}
+                  onChange={(v) => setInviteRole(v as 'admin' | 'staff')}
+                  options={[
+                    { value: 'staff', label: 'Staff Member (Can run check-in & badges at events)' },
+                    { value: 'admin', label: 'Organization Admin (Full event creation & settings)' },
+                  ]}
+                />
+              </div>
+
+              {/* Shareable Link Box */}
+              <div className="p-3 bg-muted rounded-xl text-xs space-y-2">
+                <div className="flex items-center justify-between font-semibold text-foreground">
+                  <span>Shareable Signup Link:</span>
+                  <button
+                    type="button"
+                    onClick={copyInviteLink}
+                    className="text-primary hover:underline flex items-center gap-1 font-bold"
+                  >
+                    {copiedLink ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} />}
+                    {copiedLink ? 'Copied!' : 'Copy Link'}
+                  </button>
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Anyone with this link will automatically join <strong>{org.name}</strong> upon creating their account.
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-border">
+                <Button type="button" variant="outline" size="sm" onClick={() => setShowInviteModal(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" size="sm" className="bg-primary text-primary-foreground font-semibold" disabled={inviting || !inviteEmail.trim()}>
+                  {inviting ? 'Creating Invite...' : 'Send Invite'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

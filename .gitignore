@@ -42,3 +42,8 @@ Thumbs.db
 
 # OMC operational state (see CLAUDE.md worktree_paths)
 .omc/
+
+# Local MCP configs & Agent configs (contain credentials)
+mcp_config.json
+.agents/
+

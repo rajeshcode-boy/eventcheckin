@@ -31,6 +31,10 @@ interface Props {
   scale: number
   editable?: boolean
   selectedId?: string | null
+  showGrid?: boolean
+  showGuides?: boolean
+  backView?: boolean
+  wifiConfig?: { ssid: string; passkey: string }
   onSelect?: (id: string | null) => void
   onElementChange?: (el: BadgeElement) => void
 }
@@ -38,7 +42,20 @@ interface Props {
 const SNAP = 0.5
 const snap = (v: number) => Math.round(v / SNAP) * SNAP
 
-export default function BadgePreview({ design, data, images, scale, editable, selectedId, onSelect, onElementChange }: Props) {
+export default function BadgePreview({
+  design,
+  data,
+  images,
+  scale,
+  editable,
+  selectedId,
+  showGrid = false,
+  showGuides = false,
+  backView = false,
+  wifiConfig = { ssid: 'VENUE-EVENT-GUEST', passkey: 'EventPass#2026' },
+  onSelect,
+  onElementChange,
+}: Props) {
   const dragRef = useRef<{ id: string; mode: 'move' | 'resize'; startX: number; startY: number; orig: BadgeElement } | null>(null)
   const ptToPx = (pt: number) => (pt / MM_TO_PT) * scale
 
@@ -116,34 +133,169 @@ export default function BadgePreview({ design, data, images, scale, editable, se
           pointerEvents: 'none',
         }}
       />
-      {design.elements.map((el) => (
-        <div
-          key={el.id}
-          onPointerDown={(e) => startDrag(e, el, 'move')}
+
+      {/* Alignment Grid Overlay */}
+      {showGrid && !backView && (
+        <svg
           style={{
             position: 'absolute',
-            left: el.x * scale,
-            top: el.y * scale,
-            width: el.w * scale,
-            height: el.h * scale,
-            cursor: editable ? 'move' : undefined,
-            outline: editable && selectedId === el.id ? '2px solid #3b82f6' : editable ? '1px dashed rgba(59,130,246,0.35)' : undefined,
-            outlineOffset: 0,
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            pointerEvents: 'none',
+            zIndex: 35,
+            opacity: 0.35,
           }}
         >
-          <ElementView el={el} data={data} images={images} scale={scale} ptToPx={ptToPx} />
-          {editable && selectedId === el.id && (
-            <div
-              onPointerDown={(e) => startDrag(e, el, 'resize')}
-              aria-label="Resize"
-              style={{
-                position: 'absolute', right: -6, bottom: -6, width: 12, height: 12, backgroundColor: '#3b82f6',
-                border: '2px solid #ffffff', borderRadius: 2, cursor: 'nwse-resize',
-              }}
-            />
-          )}
+          <defs>
+            <pattern id="badge-grid" width={6.35 * scale} height={6.35 * scale} patternUnits="userSpaceOnUse">
+              <path d={`M ${6.35 * scale} 0 L 0 0 0 ${6.35 * scale}`} fill="none" stroke="#059669" strokeWidth="0.5" strokeDasharray="1 3" />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#badge-grid)" />
+        </svg>
+      )}
+
+      {/* Safe Bleed Margins (0.125" / ~3.175mm) */}
+      {showGuides && !backView && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 3.175 * scale,
+            left: 3.175 * scale,
+            right: 3.175 * scale,
+            bottom: 3.175 * scale,
+            border: '1px dashed rgba(16, 185, 129, 0.65)',
+            borderRadius: Math.max(4, (design.border.radius - 2) * scale),
+            pointerEvents: 'none',
+            zIndex: 36,
+          }}
+        >
+          <span
+            style={{
+              position: 'absolute',
+              top: 3,
+              right: 6,
+              fontSize: Math.max(8, scale * 1.8),
+              fontFamily: 'monospace',
+              color: '#059669',
+              fontWeight: 700,
+              letterSpacing: '0.05em',
+              textTransform: 'uppercase',
+              backgroundColor: 'rgba(255, 255, 255, 0.85)',
+              padding: '1px 4px',
+              borderRadius: 3,
+            }}
+          >
+            Safe Bleed 0.125&quot;
+          </span>
         </div>
-      ))}
+      )}
+
+      {/* BACK VIEW OF BADGE (Emergency Wi-Fi, Agenda, Help Hotline) */}
+      {backView ? (
+        <div
+          style={{
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            padding: `${12 * (scale / 3.5)}px`,
+            paddingTop: `${22 * (scale / 3.5)}px`,
+            backgroundColor: '#ffffff',
+            color: '#0f172a',
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+            boxSizing: 'border-box',
+          }}
+        >
+          {/* Top: Wi-Fi Section */}
+          <div style={{ borderBottom: '1px solid #e2e8f0', paddingBottom: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+              <span style={{ fontSize: Math.max(10, scale * 2.8), fontWeight: 700, letterSpacing: '-0.01em' }}>
+                Emergency &amp; Venue Wi-Fi
+              </span>
+              <span style={{ fontSize: Math.max(8, scale * 2), color: '#059669', fontWeight: 600 }}>● HIGH-SPEED</span>
+            </div>
+            <div style={{ backgroundColor: '#f1f5f9', borderRadius: 8, padding: '6px 10px', fontSize: Math.max(9, scale * 2.3) }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
+                <span style={{ color: '#64748b' }}>SSID:</span>
+                <span style={{ fontFamily: 'monospace', fontWeight: 700 }}>{wifiConfig.ssid}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#64748b' }}>Passkey:</span>
+                <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#059669' }}>{wifiConfig.passkey}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Middle: Event Schedule Highlights */}
+          <div style={{ margin: 'auto 0', padding: '6px 0' }}>
+            <span style={{ fontSize: Math.max(8, scale * 2), textTransform: 'uppercase', letterSpacing: '0.08em', color: '#64748b', fontWeight: 700 }}>
+              Scheduled Appearances &amp; Keynotes
+            </span>
+            <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 8px', fontSize: Math.max(8, scale * 2.2) }}>
+                <div style={{ fontWeight: 600 }}>Opening Keynote: Main Stage</div>
+                <div style={{ color: '#64748b', fontSize: '90%' }}>Day 1 • 09:30 AM • Hall Alpha</div>
+              </div>
+              <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 8px', fontSize: Math.max(8, scale * 2.2) }}>
+                <div style={{ fontWeight: 600 }}>Networking &amp; VIP Reception</div>
+                <div style={{ color: '#64748b', fontSize: '90%' }}>Day 1 • 05:30 PM • Skyline Lounge</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom: Concierge Hotline & Serial */}
+          <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', fontSize: Math.max(8, scale * 2) }}>
+            <div>
+              <div style={{ color: '#64748b', textTransform: 'uppercase', fontSize: '80%', fontWeight: 700 }}>On-Site Concierge</div>
+              <div style={{ fontFamily: 'monospace', fontWeight: 700 }}>+1 (800) 555-PASS</div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ color: '#64748b', textTransform: 'uppercase', fontSize: '80%', fontWeight: 700 }}>Serial Verification</div>
+              <div style={{ fontFamily: 'monospace', color: '#059669', fontWeight: 700 }}>#{data.registration_id || 'DEMO-001'}</div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* FRONT VIEW ELEMENTS */
+        design.elements.map((el) => (
+          <div
+            key={el.id}
+            onPointerDown={(e) => startDrag(e, el, 'move')}
+            style={{
+              position: 'absolute',
+              left: el.x * scale,
+              top: el.y * scale,
+              width: el.w * scale,
+              height: el.h * scale,
+              cursor: editable ? 'move' : undefined,
+              outline: editable && selectedId === el.id ? '2px solid #059669' : editable ? '1px dashed rgba(5,150,105,0.35)' : undefined,
+              outlineOffset: 0,
+            }}
+          >
+            <ElementView el={el} data={data} images={images} scale={scale} ptToPx={ptToPx} />
+            {editable && selectedId === el.id && (
+              <div
+                onPointerDown={(e) => startDrag(e, el, 'resize')}
+                aria-label="Resize"
+                style={{
+                  position: 'absolute',
+                  right: -6,
+                  bottom: -6,
+                  width: 12,
+                  height: 12,
+                  backgroundColor: '#059669',
+                  border: '2px solid #ffffff',
+                  borderRadius: 2,
+                  cursor: 'nwse-resize',
+                }}
+              />
+            )}
+          </div>
+        ))
+      )}
       {design.border.width > 0 && (
         <div
           style={{

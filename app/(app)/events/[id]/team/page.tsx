@@ -182,7 +182,7 @@ export default function TeamPage() {
         {/* Left Column: Add Team Member & Role Guide */}
         <div className="space-y-6 lg:col-span-1">
           {isAdmin && (
-            <Card className="rounded-3xl border border-border bg-card p-6 shadow-xs">
+            <Card className="overflow-visible rounded-3xl border border-border bg-card p-6 shadow-xs">
               <div className="flex items-center gap-2 mb-4">
                 <UserPlus size={18} className="text-primary" />
                 <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">

@@ -1,6 +1,7 @@
 'use client'
 
-import React, { useEffect, useRef, useState, useId } from 'react'
+import React, { useEffect, useRef, useState, useId, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { ChevronDown, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -39,10 +40,24 @@ export function CustomSelect({
   'aria-label': ariaLabel,
 }: CustomSelectProps) {
   const [isOpen, setIsOpen] = useState(false)
-  const containerRef = useRef<HTMLDivElement>(null)
+  const [mounted, setMounted] = useState(false)
+  const triggerRef = useRef<HTMLButtonElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const autoId = useId()
   const selectId = id || autoId
+
+  const [coords, setCoords] = useState<{
+    top?: number
+    bottom?: number
+    left: number
+    width: number
+    placement: 'bottom' | 'top'
+    maxHeight: number
+  } | null>(null)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // Normalize options
   const normalizedOptions: SelectOption[] = options.map((opt) => {
@@ -55,12 +70,57 @@ export function CustomSelect({
   // Find currently selected option
   const selectedOption = normalizedOptions.find((opt) => String(opt.value) === String(value))
 
-  // Close when clicking outside
+  const updatePosition = useCallback(() => {
+    if (!triggerRef.current) return
+    const rect = triggerRef.current.getBoundingClientRect()
+    const spaceBelow = window.innerHeight - rect.bottom
+    const spaceAbove = rect.top
+    const minHeightNeeded = 180
+
+    const placeAbove = spaceBelow < minHeightNeeded && spaceAbove > spaceBelow
+    const availableHeight = placeAbove ? spaceAbove - 16 : spaceBelow - 16
+    const maxHeight = Math.max(120, Math.min(280, availableHeight))
+
+    if (placeAbove) {
+      setCoords({
+        bottom: window.innerHeight - rect.top + 4,
+        left: rect.left,
+        width: Math.max(rect.width, 160),
+        placement: 'top',
+        maxHeight,
+      })
+    } else {
+      setCoords({
+        top: rect.bottom + 4,
+        left: rect.left,
+        width: Math.max(rect.width, 160),
+        placement: 'bottom',
+        maxHeight,
+      })
+    }
+  }, [])
+
+  // Update position when opening or scrolling/resizing
   useEffect(() => {
     if (!isOpen) return
 
+    updatePosition()
+
+    const handleScrollOrResize = () => {
+      updatePosition()
+    }
+
+    window.addEventListener('resize', handleScrollOrResize, { passive: true })
+    window.addEventListener('scroll', handleScrollOrResize, { passive: true, capture: true })
+
     const handleClickOutside = (e: MouseEvent | TouchEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node
+      if (
+        triggerRef.current &&
+        !triggerRef.current.contains(target) &&
+        listRef.current &&
+        !listRef.current.contains(target)
+      ) {
         setIsOpen(false)
       }
     }
@@ -68,6 +128,7 @@ export function CustomSelect({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setIsOpen(false)
+        triggerRef.current?.focus()
       }
     }
 
@@ -75,30 +136,35 @@ export function CustomSelect({
     document.addEventListener('keydown', handleKeyDown)
 
     return () => {
+      window.removeEventListener('resize', handleScrollOrResize)
+      window.removeEventListener('scroll', handleScrollOrResize, true)
       document.removeEventListener('pointerdown', handleClickOutside)
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [isOpen])
+  }, [isOpen, updatePosition])
 
   const handleSelect = (optValue: string | number) => {
     onChange(optValue)
     setIsOpen(false)
+    triggerRef.current?.focus()
   }
 
   return (
-    <div
-      ref={containerRef}
-      className={cn('relative inline-block w-full min-w-0 select-none', className)}
-    >
+    <div className={cn('relative inline-block w-full min-w-0 select-none', className)}>
       {/* Trigger Button */}
       <button
+        ref={triggerRef}
         id={selectId}
         type="button"
         disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         aria-label={ariaLabel || placeholder}
-        onClick={() => !disabled && setIsOpen((prev) => !prev)}
+        onClick={() => {
+          if (!disabled) {
+            setIsOpen((prev) => !prev)
+          }
+        }}
         className={cn(
           'flex h-10 w-full min-w-0 items-center justify-between gap-2.5 rounded-2xl border border-border bg-card px-3.5 text-xs font-semibold text-foreground shadow-2xs transition-all cursor-pointer',
           'hover:border-primary/40 hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
@@ -131,59 +197,71 @@ export function CustomSelect({
         />
       </button>
 
-      {/* Floating Popover Menu */}
-      {isOpen && (
-        <div
-          ref={listRef}
-          role="listbox"
-          tabIndex={-1}
-          className={cn(
-            'absolute left-0 top-[calc(100%+4px)] z-50 min-w-full w-max max-w-[320px] max-h-64 overflow-y-auto rounded-2xl border border-border bg-popover p-1.5 shadow-xl backdrop-blur-md animate-in fade-in-0 zoom-in-95',
-            popoverClassName
-          )}
-        >
-          {normalizedOptions.map((opt) => {
-            const isSelected = String(opt.value) === String(value)
+      {/* Floating Popover Menu rendered in React Portal to escape any overflow:hidden */}
+      {isOpen && mounted && coords && typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            ref={listRef}
+            role="listbox"
+            tabIndex={-1}
+            style={{
+              position: 'fixed',
+              top: coords.top !== undefined ? `${coords.top}px` : undefined,
+              bottom: coords.bottom !== undefined ? `${coords.bottom}px` : undefined,
+              left: `${coords.left}px`,
+              width: `${coords.width}px`,
+              maxHeight: `${coords.maxHeight}px`,
+              zIndex: 9999,
+            }}
+            className={cn(
+              'overflow-y-auto rounded-2xl border border-border bg-popover/98 p-1.5 shadow-2xl backdrop-blur-md animate-in fade-in-0 zoom-in-95',
+              coords.placement === 'top' ? 'slide-in-from-bottom-2' : 'slide-in-from-top-2',
+              popoverClassName
+            )}
+          >
+            {normalizedOptions.map((opt) => {
+              const isSelected = String(opt.value) === String(value)
 
-            return (
-              <div
-                key={String(opt.value)}
-                role="option"
-                aria-selected={isSelected}
-                onClick={() => handleSelect(opt.value)}
-                className={cn(
-                  'flex items-center justify-between gap-2.5 rounded-xl px-2.5 py-2 text-xs font-medium cursor-pointer transition-colors',
-                  isSelected
-                    ? 'bg-primary/10 text-primary font-bold'
-                    : 'text-foreground hover:bg-muted hover:text-foreground'
-                )}
-                style={opt.fontFamily ? { fontFamily: opt.fontFamily } : undefined}
-              >
-                <div className="flex min-w-0 items-center gap-2 truncate">
-                  {opt.dot && (
-                    <span className={cn('size-2 shrink-0 rounded-full', opt.dot)} />
+              return (
+                <div
+                  key={String(opt.value)}
+                  role="option"
+                  aria-selected={isSelected}
+                  onClick={() => handleSelect(opt.value)}
+                  className={cn(
+                    'flex items-center justify-between gap-2.5 rounded-xl px-2.5 py-2 text-xs font-medium cursor-pointer transition-colors',
+                    isSelected
+                      ? 'bg-primary/10 text-primary font-bold'
+                      : 'text-foreground hover:bg-muted hover:text-foreground'
                   )}
-                  {opt.icon && (
-                    <span className="shrink-0 text-muted-foreground">{opt.icon}</span>
-                  )}
-                  <div className="min-w-0 truncate">
-                    <span className="truncate">{opt.label}</span>
-                    {opt.description && (
-                      <p className="text-[10px] text-muted-foreground font-normal truncate">
-                        {opt.description}
-                      </p>
+                  style={opt.fontFamily ? { fontFamily: opt.fontFamily } : undefined}
+                >
+                  <div className="flex min-w-0 items-center gap-2 truncate">
+                    {opt.dot && (
+                      <span className={cn('size-2 shrink-0 rounded-full', opt.dot)} />
                     )}
+                    {opt.icon && (
+                      <span className="shrink-0 text-muted-foreground">{opt.icon}</span>
+                    )}
+                    <div className="min-w-0 truncate">
+                      <span className="truncate">{opt.label}</span>
+                      {opt.description && (
+                        <p className="text-[10px] text-muted-foreground font-normal truncate">
+                          {opt.description}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                </div>
 
-                {isSelected && (
-                  <Check size={14} className="shrink-0 text-primary ml-1" />
-                )}
-              </div>
-            )
-          })}
-        </div>
-      )}
+                  {isSelected && (
+                    <Check size={14} className="shrink-0 text-primary ml-1" />
+                  )}
+                </div>
+              )
+            })}
+          </div>,
+          document.body
+        )}
     </div>
   )
 }

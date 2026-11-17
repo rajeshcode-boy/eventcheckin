@@ -148,6 +148,99 @@ export function defaultDesign(): BadgeDesign {
   }
 }
 
+export interface TemplateProfile {
+  id: string
+  label: string
+  category: string
+  design: BadgeDesign
+}
+
+export function getTemplateProfiles(eventName = 'Tech Summit'): TemplateProfile[] {
+  const W4x3 = 101.6
+  const H4x3 = 76.2
+  const W4x6 = 101.6
+  const H4x6 = 152.4
+  const WCR80 = 85.6
+  const HCR80 = 54
+
+  return [
+    {
+      id: 'standard-attendee',
+      label: 'Standard Attendee Badge (4×3" Direct Thermal)',
+      category: 'General',
+      design: defaultDesign(),
+    },
+    {
+      id: 'vip-speaker',
+      label: 'VIP Speaker Foil Pass (4×3" Die-Cut)',
+      category: 'VIP & Keynote',
+      design: {
+        version: 1,
+        widthMm: W4x3,
+        heightMm: H4x3,
+        background: { color: '#ffffff', imagePath: null },
+        border: { width: 0, color: '#d1d5db', radius: 4 },
+        elements: [
+          { id: newElementId(), type: 'rect', x: 0, y: 0, w: W4x3, h: 14, fill: '#006948', stroke: null, strokeWidth: 0, radius: 0 },
+          textElement({ x: 4, y: 2, w: W4x3 - 8, h: 10, field: 'event_name', size: 13, minSize: 8, bold: true, color: '#ffffff', uppercase: true }),
+          { id: newElementId(), type: 'rect', x: W4x3 - 42, y: 17, w: 38, h: 6.5, fill: '#FAF5FF', stroke: '#A855F7', strokeWidth: 0.5, radius: 3 },
+          textElement({ x: W4x3 - 42, y: 18, w: 38, h: 5, source: 'static', text: 'KEYNOTE SPEAKER', font: 'helvetica', size: 8, minSize: 6, bold: true, color: '#7E22CE', align: 'center', uppercase: true, field: 'registration_type', italic: false }),
+          textElement({ x: 4, y: 24, w: W4x3 - 8, h: 16, field: 'full_name', size: 26, minSize: 12, bold: true, color: '#111827' }),
+          textElement({ x: 4, y: 41, w: W4x3 - 8, h: 7, field: 'designation', size: 12, minSize: 8, color: '#059669', bold: true }),
+          textElement({ x: 4, y: 48, w: W4x3 - 8, h: 8, field: 'company', size: 14, minSize: 8, color: '#4b5563' }),
+          { id: newElementId(), type: 'image', x: 4, y: 57, w: 22, h: 15, source: 'event_logo', path: null, label: 'Event logo', keepAspect: true },
+          textElement({ x: 28, y: 62, w: 46, h: 8, field: 'registration_id', size: 12, minSize: 8, font: 'courier', bold: true, color: '#111827' }),
+          { id: newElementId(), type: 'qr', x: W4x3 - 22, y: 55, w: 18, h: 18, color: '#111827' },
+        ],
+      },
+    },
+    {
+      id: 'press-media',
+      label: 'Press & Media Credential (4×6" Lanyard)',
+      category: 'Media',
+      design: {
+        version: 1,
+        widthMm: W4x6,
+        heightMm: H4x6,
+        background: { color: '#ffffff', imagePath: null },
+        border: { width: 0, color: '#d1d5db', radius: 6 },
+        elements: [
+          { id: newElementId(), type: 'rect', x: 0, y: 0, w: W4x6, h: 22, fill: '#0f172a', stroke: null, strokeWidth: 0, radius: 0 },
+          textElement({ x: 4, y: 4, w: W4x6 - 8, h: 14, field: 'event_name', size: 16, minSize: 10, bold: true, color: '#ffffff', uppercase: true }),
+          { id: newElementId(), type: 'rect', x: 0, y: 22, w: W4x6, h: 10, fill: '#ef4444', stroke: null, strokeWidth: 0, radius: 0 },
+          textElement({ x: 4, y: 23, w: W4x6 - 8, h: 8, source: 'static', text: 'PRESS & ALL-ACCESS MEDIA', font: 'helvetica', size: 11, minSize: 8, bold: true, color: '#ffffff', align: 'center', uppercase: true, field: 'registration_type', italic: false }),
+          textElement({ x: 6, y: 44, w: W4x6 - 12, h: 22, field: 'full_name', size: 30, minSize: 14, bold: true, color: '#0f172a' }),
+          textElement({ x: 6, y: 68, w: W4x6 - 12, h: 10, field: 'company', size: 16, minSize: 10, bold: true, color: '#059669' }),
+          textElement({ x: 6, y: 80, w: W4x6 - 12, h: 8, field: 'designation', size: 13, minSize: 9, color: '#64748b' }),
+          { id: newElementId(), type: 'qr', x: (W4x6 - 36) / 2, y: 96, w: 36, h: 36, color: '#0f172a' },
+          textElement({ x: 4, y: 135, w: W4x6 - 8, h: 10, field: 'registration_id', size: 15, minSize: 10, font: 'courier', bold: true, color: '#0f172a', align: 'center' }),
+        ],
+      },
+    },
+    {
+      id: 'staff-rfid',
+      label: 'All-Access Staff RFID Pass (CR-80 PVC)',
+      category: 'Operations',
+      design: {
+        version: 1,
+        widthMm: WCR80,
+        heightMm: HCR80,
+        background: { color: '#0f172a', imagePath: null },
+        border: { width: 0, color: '#334155', radius: 4 },
+        elements: [
+          { id: newElementId(), type: 'rect', x: 0, y: 0, w: WCR80, h: 10, fill: '#059669', stroke: null, strokeWidth: 0, radius: 0 },
+          textElement({ x: 3, y: 1.5, w: WCR80 - 6, h: 7, field: 'event_name', size: 9, minSize: 6, bold: true, color: '#ffffff', uppercase: true }),
+          textElement({ x: 4, y: 14, w: WCR80 - 8, h: 12, field: 'full_name', size: 18, minSize: 10, bold: true, color: '#ffffff' }),
+          textElement({ x: 4, y: 27, w: WCR80 - 8, h: 6, source: 'static', text: 'CREW / OPERATIONS LEAD', font: 'helvetica', size: 9, minSize: 7, bold: true, color: '#34d399', uppercase: true, field: 'registration_type', italic: false }),
+          textElement({ x: 4, y: 34, w: 45, h: 5, field: 'company', size: 8, minSize: 6, color: '#94a3b8' }),
+          textElement({ x: 4, y: 44, w: 45, h: 6, field: 'registration_id', size: 9, minSize: 6, font: 'courier', bold: true, color: '#f8fafc' }),
+          { id: newElementId(), type: 'qr', x: WCR80 - 22, y: 28, w: 18, h: 18, color: '#ffffff' },
+        ],
+      },
+    },
+  ]
+}
+
 const HEX = /^#[0-9a-fA-F]{6}$/
 const num = (v: unknown, min: number, max: number, fallback: number) =>
   typeof v === 'number' && Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : fallback

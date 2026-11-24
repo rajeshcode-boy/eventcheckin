@@ -2,23 +2,24 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { ArrowRight, CalendarDays, Check, ChevronDown, MonitorSmartphone, Sparkles, WifiOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import SiteHeader from '@/components/home/SiteHeader'
 import SiteFooter from '@/components/home/SiteFooter'
 import HeroVisual from '@/components/home/HeroVisual'
 import CheckinDemo from '@/components/home/CheckinDemo'
 import SignedInRedirect from '@/components/home/SignedInRedirect'
-import { BETA_INCLUDES, BOOKING_URL, COMING_SOON, FAQS, FEATURES, STEPS } from '@/components/home/content'
+import { BOOKING_URL, COMING_SOON, FAQS, FEATURES, PRICING_PLANS, STEPS } from '@/components/home/content'
 
 export const metadata: Metadata = {
   title: 'EventCheckin | Event registration and QR check-in',
   description:
-    'Import your guest list, check guests in with a QR scan, print badges and watch attendance live. Free while in beta.',
+    'Import your guest list, check guests in with a QR scan, print badges and watch attendance live. Free starter plan available.',
 }
 
 const FACTS = [
   { icon: MonitorSmartphone, title: 'Nothing to install', body: 'Runs in the browser on any phone, tablet or laptop' },
   { icon: WifiOff, title: 'Kiosks work offline', body: 'Check-ins upload when the Wi-Fi comes back' },
-  { icon: Sparkles, title: 'Free during beta', body: 'Every feature, no card needed' },
+  { icon: Sparkles, title: 'Free starter tier', body: 'Up to 75 attendees at no cost' },
 ]
 
 function SectionHead({ eyebrow, title, sub }: { eyebrow: string; title: string; sub?: string }) {
@@ -150,46 +151,76 @@ export default function Home() {
 
         <section id="pricing" className="scroll-mt-16 border-t border-border bg-card py-20 sm:py-24">
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
-            <SectionHead eyebrow="Pricing" title="Free while we are in beta" sub="Use every feature for your events at no cost while EventCheckin is in beta." />
-            <div className="mx-auto grid grid-cols-1 max-w-4xl gap-6 md:grid-cols-[3fr_2fr]">
-              <div className="relative rounded-3xl border-2 border-primary bg-background p-8 shadow-lg">
-                <span className="absolute -top-3 left-8 rounded-full bg-primary px-3 py-1 text-xs font-bold uppercase tracking-wider text-primary-foreground">Beta</span>
-                <h3 className="text-xl font-bold">Everything included</h3>
-                <p className="mt-1 text-sm text-muted-foreground">For organisers running events of any size</p>
-                <p className="my-6">
-                  <span className="text-5xl font-extrabold">Free</span>
-                  <span className="ml-2 text-sm text-muted-foreground">during beta</span>
-                </p>
-                <ul className="space-y-3 text-sm">
-                  {BETA_INCLUDES.map((item) => (
-                    <li key={item} className="flex items-start gap-2.5">
-                      <Check className="mt-0.5 size-4 shrink-0 text-primary dark:text-brand" />
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-                <Button size="lg" className="mt-8 h-12 w-full text-base" render={<Link href="/signup" />} nativeButton={false}>
-                  Create your free account
-                </Button>
-              </div>
+            <SectionHead
+              eyebrow="Pricing Plans"
+              title="Transparent pricing for gatherings of any size"
+              sub="Start for free with your first 75 attendees, or unlock commercial scale with Pro."
+            />
+            <div className="mx-auto grid grid-cols-1 max-w-6xl gap-8 lg:grid-cols-3 items-stretch">
+              {PRICING_PLANS.map((plan) => {
+                const isPopular = plan.popular
+                return (
+                  <div
+                    key={plan.name}
+                    className={cn(
+                      'relative flex flex-col rounded-3xl border bg-background p-8 transition-all',
+                      isPopular
+                        ? 'border-2 border-primary shadow-xl ring-1 ring-primary/20 scale-[1.02] z-10'
+                        : 'border-border shadow-sm hover:shadow-md'
+                    )}
+                  >
+                    {isPopular && (
+                      <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-1 text-xs font-bold uppercase tracking-wider text-primary-foreground shadow-sm">
+                        {plan.badge}
+                      </span>
+                    )}
+                    <div>
+                      <h3 className="text-xl font-bold">{plan.name}</h3>
+                      <p className="mt-1 text-xs text-muted-foreground min-h-[32px]">{plan.description}</p>
+                    </div>
 
-              <div className="flex flex-col rounded-3xl border border-border bg-background p-8">
-                <h3 className="text-xl font-bold">Large or complex event?</h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                  Running a multi-day summit, several entrances or thousands of guests? Book a call and we will help you plan the setup.
-                </p>
-                <ul className="mt-6 space-y-3 text-sm">
-                  {['Help planning your check-in setup', 'Guidance on importing your guest list', 'A walkthrough for your team'].map((item) => (
-                    <li key={item} className="flex items-start gap-2.5">
-                      <Check className="mt-0.5 size-4 shrink-0 text-primary dark:text-brand" />
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-                <Button size="lg" variant="outline" className="mt-auto h-12 w-full text-base max-md:mt-8" render={<a {...bookingProps} />} nativeButton={false}>
-                  <CalendarDays /> Book a call
-                </Button>
-              </div>
+                    <div className="my-6 border-y border-border/60 py-4">
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="text-4xl font-extrabold tracking-tight">{plan.price}</span>
+                        <span className="text-xs text-muted-foreground">/ {plan.frequency}</span>
+                      </div>
+                    </div>
+
+                    <ul className="space-y-3 text-sm flex-1 mb-8">
+                      {plan.features.map((item) => (
+                        <li key={item} className="flex items-start gap-2.5">
+                          <Check className="mt-0.5 size-4 shrink-0 text-primary dark:text-brand" />
+                          <span className="text-foreground/90">{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+
+                    <div className="mt-auto">
+                      {plan.external ? (
+                        <Button
+                          size="lg"
+                          variant="outline"
+                          className="h-12 w-full text-base font-semibold"
+                          render={<a {...bookingProps} />}
+                          nativeButton={false}
+                        >
+                          <CalendarDays className="mr-2 size-4" /> {plan.cta}
+                        </Button>
+                      ) : (
+                        <Button
+                          size="lg"
+                          variant={isPopular ? 'default' : 'outline'}
+                          className={cn('h-12 w-full text-base font-semibold', isPopular ? 'shadow-md' : '')}
+                          render={<Link href={plan.href} />}
+                          nativeButton={false}
+                        >
+                          {plan.cta}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           </div>
         </section>

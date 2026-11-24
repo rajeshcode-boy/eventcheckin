@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next'
+import Script from 'next/script'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 import { Geist } from "next/font/google";
@@ -6,6 +7,8 @@ import { cn } from "@/lib/utils";
 import { Toaster } from '@/components/ui/sonner'
 import { ThemeProvider } from '@/components/theme-provider'
 import ProductAnalytics from '@/components/Analytics'
+
+const GA_ID = process.env.NEXT_PUBLIC_GA_ID || 'G-NJXY2K8DVN'
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
@@ -44,6 +47,26 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-capable" content="yes" />
       </head>
       <body>
+        {/* Google Analytics 4 (Google tag) */}
+        <Script
+          src={`https://www.googletagmanager.com/gtm.js?id=${GA_ID}`}
+          strategy="afterInteractive"
+        />
+        <Script
+          src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', '${GA_ID}', {
+              page_path: window.location.pathname,
+            });
+          `}
+        </Script>
+
         <ThemeProvider>
           {children}
         </ThemeProvider>

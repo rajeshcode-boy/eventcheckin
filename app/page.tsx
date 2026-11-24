@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { ArrowRight, CalendarDays, Check, ChevronDown, MonitorSmartphone, Sparkles, WifiOff } from 'lucide-react'
+import { ArrowRight, CalendarDays, Check, ChevronDown, Mail, MonitorSmartphone, Sparkles, WifiOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import SiteHeader from '@/components/home/SiteHeader'
@@ -8,7 +8,7 @@ import SiteFooter from '@/components/home/SiteFooter'
 import HeroVisual from '@/components/home/HeroVisual'
 import CheckinDemo from '@/components/home/CheckinDemo'
 import SignedInRedirect from '@/components/home/SignedInRedirect'
-import { BOOKING_URL, COMING_SOON, FAQS, FEATURES, PRICING_PLANS, STEPS } from '@/components/home/content'
+import { BOOKING_URL, COMING_SOON, CONTACT_EMAIL, FAQS, FEATURES, PRICING_PLANS, STEPS } from '@/components/home/content'
 
 export const metadata: Metadata = {
   title: 'EventCheckin | Event registration and QR check-in',
@@ -201,10 +201,10 @@ export default function Home() {
                           size="lg"
                           variant="outline"
                           className="h-12 w-full text-base font-semibold"
-                          render={<a {...bookingProps} />}
+                          render={<a href={plan.href} />}
                           nativeButton={false}
                         >
-                          <CalendarDays className="mr-2 size-4" /> {plan.cta}
+                          <Mail className="mr-2 size-4" /> {plan.cta}
                         </Button>
                       ) : (
                         <Button
@@ -241,8 +241,8 @@ export default function Home() {
             </div>
             <p className="mt-8 text-center text-sm text-muted-foreground">
               Still have a question?{' '}
-              <a {...bookingProps} className="font-semibold text-primary dark:text-brand underline-offset-4 hover:underline">
-                Book a call with us
+              <a href={`mailto:${CONTACT_EMAIL}`} className="font-semibold text-primary dark:text-brand underline-offset-4 hover:underline">
+                Contact us
               </a>
               .
             </p>

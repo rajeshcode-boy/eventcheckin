@@ -37,6 +37,9 @@ export const metadata: Metadata = {
     icon: '/icons/icon-192.png',
     apple: '/icons/apple-touch-icon.png',
   },
+  verification: {
+    google: 'O_2tECLUgsrHB-vYHEzCwu1cIhZtg0mj6ybXB1D2WsE',
+  },
   openGraph: {
     type: 'website',
     locale: 'en_US',

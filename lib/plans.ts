@@ -127,7 +127,9 @@ export function canCreateEvent(
 export const PAYPAL_COMMERCIALS = {
   priceUsd: 49,
   title: 'EventCheckin Pro License',
-  // Users can set their custom PayPal.Me link in env or fallback to instructions/email
-  paypalMeUrl: process.env.NEXT_PUBLIC_PAYPAL_ME_URL || 'https://paypal.me/',
+  // Official PayPal Hosted Payment link
+  paypalMeUrl:
+    process.env.NEXT_PUBLIC_PAYPAL_ME_URL ||
+    'https://www.paypal.com/ncp/payment/3YMYLH3YAPDRA',
   supportEmail: process.env.NEXT_PUBLIC_SUPPORT_EMAIL || 'support@eventcheckin.com',
 }

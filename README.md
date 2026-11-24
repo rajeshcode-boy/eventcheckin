@@ -8,6 +8,8 @@ A working web app for small event organizers (50-500 registrations) to manage ch
 - Organizers see only their own events
 - Create new events with auto-generated unique IDs
 - Event list with pagination (5-10 events per page)
+- Commercial plan tiers (Starter vs Pro vs Enterprise) with attendee & event limits
+- PayPal payment & license key activation system (see [COMMERCIALS.md](COMMERCIALS.md))
 
 ## Tech Stack
 

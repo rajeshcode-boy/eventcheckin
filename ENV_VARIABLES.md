@@ -56,6 +56,20 @@ All variables go in `.env.local` (created from `.env.example`).
 - **Format:** `postgresql://user:password@host:port/dbname`
 - **Where to find:** Supabase → Settings → Database → Connection pooling
 
+### Commercials & Licensing (PayPal)
+
+#### `NEXT_PUBLIC_PAYPAL_ME_URL`
+- **Purpose:** Link opened when users click "Pay via PayPal" in the Upgrade modal
+- **Required:** Optional (defaults to `https://paypal.me/`)
+- **Public:** Yes
+- **Example:** `https://paypal.me/yourusername/49`
+
+#### `NEXT_PUBLIC_SUPPORT_EMAIL`
+- **Purpose:** Contact email displayed for enterprise inquiries, invoices, or manual payments
+- **Required:** Optional (defaults to `support@eventcheckin.com`)
+- **Public:** Yes
+- **Example:** `support@yourdomain.com`
+
 ---
 
 ## How to Fill `.env.local`

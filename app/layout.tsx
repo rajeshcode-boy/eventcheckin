@@ -91,16 +91,17 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-capable" content="yes" />
       </head>
       <body>
-        {/* Google Analytics 4 (Google tag) */}
+        {/* Google Tag Manager (GTM-5S9SWNPC) */}
         <Script
-          src={`https://www.googletagmanager.com/gtm.js?id=${GA_ID}`}
+          src="https://www.googletagmanager.com/gtm.js?id=GTM-5S9SWNPC"
           strategy="afterInteractive"
         />
+        {/* Google Analytics 4 (G-NJXY2K8DVN) */}
         <Script
           src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
           strategy="afterInteractive"
         />
-        <Script id="google-analytics" strategy="afterInteractive">
+        <Script id="google-tag-manager" strategy="afterInteractive">
           {`
             window.dataLayer = window.dataLayer || [];
             function gtag(){dataLayer.push(arguments);}
@@ -108,8 +109,17 @@ export default function RootLayout({
             gtag('config', '${GA_ID}', {
               page_path: window.location.pathname,
             });
+            gtag('config', 'GTM-5S9SWNPC');
           `}
         </Script>
+        <noscript>
+          <iframe
+            src="https://www.googletagmanager.com/ns.html?id=GTM-5S9SWNPC"
+            height="0"
+            width="0"
+            style={{ display: 'none', visibility: 'hidden' }}
+          />
+        </noscript>
 
         <ThemeProvider>
           {children}

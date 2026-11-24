@@ -18,6 +18,6 @@ export default function robots(): MetadataRoute.Robots {
         ],
       },
     ],
-    sitemap: 'https://eventcheckin.tech/sitemap.xml',
+    sitemap: 'https://www.eventcheckin.tech/sitemap.xml',
   }
 }

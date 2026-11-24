@@ -25,6 +25,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { NativeSelect } from '@/components/ui/native-select'
 import { CustomSelect } from '@/components/ui/custom-select'
+import { Badge } from '@/components/ui/badge'
+import UpgradeModal from '@/components/UpgradeModal'
+import { getEffectiveAttendeeLimit, getPlanConfig, parsePlanTier } from '@/lib/plans'
+import { Sparkles, Zap, Lock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface EventInfo {
@@ -33,6 +37,18 @@ interface EventInfo {
   name: string
   location: string
   country: string | null
+  organizations?:
+    | {
+        id?: string
+        plan_tier?: string
+        max_attendees_override?: number | null
+      }
+    | {
+        id?: string
+        plan_tier?: string
+        max_attendees_override?: number | null
+      }[]
+    | null
 }
 
 type SortKey = 'created_desc' | 'created_asc' | 'name_asc' | 'name_desc'
@@ -99,13 +115,15 @@ export default function GuestsPage() {
   // The guest drawer: one guest to view or edit, or a blank form to add
   const [openId, setOpenId] = useState<string | null>(null)
   const [drawerMode, setDrawerMode] = useState<DrawerMode | null>(null)
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
+  const [upgradeNotice, setUpgradeNotice] = useState('')
   const role = useEventRole()
   const canEdit = canManageGuests(role)
 
   const loadData = useCallback(async () => {
     setLoading(true)
     const [{ data: eventData }, { data: guestData, error: guestError }, { data: checkinData }] = await Promise.all([
-      supabase.from('events').select('id, event_id, name, location, country').eq('id', eventUuid).single(),
+      supabase.from('events').select('id, event_id, name, location, country, organizations(id, plan_tier, max_attendees_override)').eq('id', eventUuid).single(),
       supabase.from('registrations').select(ATTENDEE_COLUMNS).eq('event_id', eventUuid).order('created_at', { ascending: true }),
       supabase.from('checkins').select('registration_id').eq('event_id', eventUuid),
     ])
@@ -115,7 +133,7 @@ export default function GuestsPage() {
     } else if (guestError) {
       setError('Failed to load attendees: ' + guestError.message)
     } else {
-      setEvent(eventData)
+      setEvent(eventData as unknown as EventInfo)
       const list = (guestData ?? []) as unknown as Guest[]
       setGuests(list)
       setCheckedIn(new Set((checkinData ?? []).map((c) => c.registration_id as string)))
@@ -267,7 +285,17 @@ export default function GuestsPage() {
     }
   }
 
+  const org = Array.isArray(event?.organizations) ? event?.organizations[0] : event?.organizations
+  const planTier = parsePlanTier(org?.plan_tier)
+  const planConfig = getPlanConfig(planTier)
+  const maxAllowedAttendees = getEffectiveAttendeeLimit(planTier, org?.max_attendees_override)
+
   const handleExport = () => {
+    if (!planConfig.canExportCsv) {
+      setUpgradeNotice('Full CSV attendee export and debrief audit logs are unlocked on Pro Organizer ($49).')
+      setShowUpgradeModal(true)
+      return
+    }
     // Selected attendees (even ones hidden by the current filters), otherwise everything shown
     const rows = selected.size > 0 ? guests.filter((g) => selected.has(g.id)) : filtered
     const blob = new Blob(['﻿' + toCsv(guestsToCsvRows(rows))], { type: 'text/csv;charset=utf-8' })
@@ -277,6 +305,28 @@ export default function GuestsPage() {
     a.download = `${event?.event_id ?? 'attendees'}-attendees${selected.size > 0 ? '-selected' : ''}.csv`
     a.click()
     setTimeout(() => URL.revokeObjectURL(url), 1000)
+  }
+
+  const handleAddClick = () => {
+    if (guests.length >= maxAllowedAttendees) {
+      setUpgradeNotice(
+        `You have reached the ${maxAllowedAttendees}-attendee limit on the ${planConfig.name}. Upgrade to Pro for up to 1,000 attendees!`
+      )
+      setShowUpgradeModal(true)
+      return
+    }
+    openAdd()
+  }
+
+  const handleImportClick = () => {
+    if (guests.length >= maxAllowedAttendees) {
+      setUpgradeNotice(
+        `You have reached the ${maxAllowedAttendees}-attendee limit on the ${planConfig.name}. Upgrade to Pro for up to 1,000 attendees!`
+      )
+      setShowUpgradeModal(true)
+      return
+    }
+    setPanel('import')
   }
 
   const handleEditSelected = () => {
@@ -313,14 +363,38 @@ export default function GuestsPage() {
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="mb-2 text-[28px] font-bold">Guests</h1>
-          <p className="text-[15px] text-muted-foreground">
-            {guests.length} guest{guests.length === 1 ? '' : 's'} for {event.name}
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-[28px] font-bold">Guests</h1>
+            <Badge
+              variant={planTier === 'pro' ? 'default' : 'secondary'}
+              className={cn(
+                'text-xs px-2.5 py-0.5 font-semibold',
+                planTier === 'pro' ? 'bg-emerald-600 text-white' : ''
+              )}
+            >
+              {guests.length} / {maxAllowedAttendees} Capacity ({planConfig.name})
+            </Badge>
+          </div>
+          <p className="mt-1 text-[15px] text-muted-foreground">
+            {guests.length} guest{guests.length === 1 ? '' : 's'} registered for {event.name}
           </p>
         </div>
-        <div className="flex flex-wrap gap-3">
-          {canEdit && <Button onClick={() => setPanel('import')}>Import CSV/Excel</Button>}
-          {canEdit && <Button variant="outline" onClick={openAdd}>Add guest</Button>}
+        <div className="flex flex-wrap items-center gap-3">
+          {planTier === 'starter' && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setUpgradeNotice('Upgrade to Pro to unlock 1,000 attendees, Badge Studio, and CSV exports.')
+                setShowUpgradeModal(true)
+              }}
+              className="gap-1.5 border-primary/40 text-primary font-semibold hover:bg-primary/5"
+            >
+              <Sparkles size={14} /> Upgrade ($49)
+            </Button>
+          )}
+          {canEdit && <Button onClick={handleImportClick}>Import CSV/Excel</Button>}
+          {canEdit && <Button variant="outline" onClick={handleAddClick}>Add guest</Button>}
         </div>
       </div>
 
@@ -546,6 +620,15 @@ export default function GuestsPage() {
       />
     )}
     </div>
+
+    <UpgradeModal
+      open={showUpgradeModal}
+      onClose={() => setShowUpgradeModal(false)}
+      onUpgraded={() => {
+        loadData()
+      }}
+      featureNotice={upgradeNotice}
+    />
     </>
   )
 }

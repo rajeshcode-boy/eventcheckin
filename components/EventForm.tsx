@@ -11,6 +11,8 @@ import { publicImageUrl, uploadImage } from '@/lib/storage'
 import SearchSelect from './SearchSelect'
 import ImageUpload, { PendingImage } from './ImageUpload'
 import EventPassSimulator from './events/EventPassSimulator'
+import UpgradeModal from './UpgradeModal'
+import { getEffectiveEventLimit, getPlanConfig, parsePlanTier } from '@/lib/plans'
 import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -89,6 +91,8 @@ export default function EventForm({ event }: { event?: EventRecord }) {
   const [saving, setSaving] = useState(false)
   const [copiedId, setCopiedId] = useState(false)
   const [mobileTab, setMobileTab] = useState<'form' | 'preview'>('form')
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
+  const [upgradeNotice, setUpgradeNotice] = useState('')
 
   const countryOptions = useMemo(
     () => [...COUNTRIES].sort((a, b) => a.name.localeCompare(b.name)).map((c) => ({ value: c.iso, label: c.name })),
@@ -179,6 +183,24 @@ export default function EventForm({ event }: { event?: EventRecord }) {
         ? await supabase.from('profiles').select('organization_id').eq('id', user.id).single()
         : { data: null }
       if (!profile) throw new Error('Your profile could not be loaded. Please log in again.')
+
+      if (!editing) {
+        const [{ data: org }, { count: activeCount }] = await Promise.all([
+          supabase.from('organizations').select('plan_tier, max_events_override').eq('id', profile.organization_id).single(),
+          supabase.from('events').select('id', { count: 'exact', head: true }).eq('organization_id', profile.organization_id).is('archived_at', null),
+        ])
+        const planTier = parsePlanTier(org?.plan_tier)
+        const maxEvents = getEffectiveEventLimit(planTier, org?.max_events_override)
+        if ((activeCount ?? 0) >= maxEvents) {
+          setUpgradeNotice(
+            `You have reached the limit of ${maxEvents} active event(s) on ${getPlanConfig(planTier).name}. Upgrade to Pro for up to 10 events!`
+          )
+          setShowUpgradeModal(true)
+          throw new Error(
+            `You have reached the limit of ${maxEvents} active event(s) on ${getPlanConfig(planTier).name}. Upgrade to Pro to create more events.`
+          )
+        }
+      }
 
       const { data: created, error: createError } = await supabase
         .from('events')
@@ -765,6 +787,12 @@ export default function EventForm({ event }: { event?: EventRecord }) {
           />
         </div>
       </div>
+
+      <UpgradeModal
+        open={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        featureNotice={upgradeNotice}
+      />
     </div>
   )
 }

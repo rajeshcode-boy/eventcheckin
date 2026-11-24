@@ -446,12 +446,15 @@ export default function BadgeDesignPage() {
                   type="button"
                   onClick={() => setBackView(true)}
                   className={cn(
-                    'px-3 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1',
+                    'px-3 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5',
                     backView ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'
                   )}
                 >
                   <Wifi className="w-3 h-3 text-emerald-600" />
-                  Back (Wi-Fi &amp; Agenda)
+                  <span>Back (Wi-Fi &amp; Agenda)</span>
+                  <span className="text-[9px] font-extrabold px-1 py-0.2 rounded bg-primary/10 text-primary border border-primary/20 uppercase">
+                    Pro
+                  </span>
                 </button>
               </div>
 

@@ -4,6 +4,8 @@ import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { LOGO_RULES } from '@/lib/images'
 import ImageUpload from '@/components/ImageUpload'
+import UpgradeModal from '@/components/UpgradeModal'
+import { getPlanConfig, parsePlanTier, PlanTier } from '@/lib/plans'
 import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -13,7 +15,8 @@ import { CustomSelect } from '@/components/ui/custom-select'
 import { cn } from '@/lib/utils'
 import {
   Building2, Calendar, CalendarDays, ShieldAlert, Sparkles, AlertTriangle,
-  Users, UserPlus, Mail, Shield, Check, Copy, ExternalLink, Trash2, Clock
+  Users, UserPlus, Mail, Shield, Check, Copy, ExternalLink, Trash2, Clock,
+  KeyRound, Zap, ShieldCheck
 } from 'lucide-react'
 
 interface Organization {
@@ -21,6 +24,9 @@ interface Organization {
   name: string
   logo_path: string | null
   created_at: string
+  plan_tier?: string
+  max_attendees_override?: number | null
+  max_events_override?: number | null
 }
 
 interface Member {
@@ -61,6 +67,12 @@ export default function OrganizationPage() {
   const [inviting, setInviting] = useState(false)
   const [copiedLink, setCopiedLink] = useState(false)
 
+  // Plan & Upgrade state
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
+  const [upgradeNotice, setUpgradeNotice] = useState('')
+  const [quickKey, setQuickKey] = useState('')
+  const [redeemingQuickKey, setRedeemingQuickKey] = useState(false)
+
   const load = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
@@ -77,7 +89,7 @@ export default function OrganizationPage() {
     setIsAdmin(profile.role === 'admin')
 
     const [{ data: orgData }, { count }, { data: membersData }, { data: invitesData }] = await Promise.all([
-      supabase.from('organizations').select('id, name, logo_path, created_at').eq('id', profile.organization_id).single(),
+      supabase.from('organizations').select('id, name, logo_path, created_at, plan_tier, max_attendees_override, max_events_override').eq('id', profile.organization_id).single(),
       supabase.from('events').select('id', { count: 'exact', head: true }).eq('organization_id', profile.organization_id),
       supabase.from('profiles').select('id, full_name, email, role, is_owner, created_at').eq('organization_id', profile.organization_id).order('created_at'),
       supabase.from('team_invites').select('id, email, full_name, role, status, created_at').eq('organization_id', profile.organization_id).eq('status', 'pending').order('created_at', { ascending: false }),
@@ -189,6 +201,31 @@ export default function OrganizationPage() {
     load()
   }
 
+  const handleQuickRedeem = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const cleanKey = quickKey.trim().toUpperCase()
+    if (!cleanKey) return
+    setRedeemingQuickKey(true)
+    setError('')
+    setNotice('')
+    try {
+      const { data, error } = await supabase.rpc('redeem_license_key', { p_key: cleanKey })
+      if (error) {
+        setError('License redemption failed: ' + error.message)
+        return
+      }
+      if (!data?.success) {
+        setError(data?.message || 'Invalid license key.')
+        return
+      }
+      setNotice(data.message || 'License redeemed successfully!')
+      setQuickKey('')
+      load()
+    } finally {
+      setRedeemingQuickKey(false)
+    }
+  }
+
   const revokeInvite = async (inviteId: string) => {
     if (!org) return
     const { error: revokeError } = await supabase
@@ -212,6 +249,9 @@ export default function OrganizationPage() {
     year: 'numeric',
   })
 
+  const planTier = parsePlanTier(org.plan_tier)
+  const planConfig = getPlanConfig(planTier)
+
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-8 pb-16">
       {/* Header with Title & Meta Badges */}
@@ -222,11 +262,21 @@ export default function OrganizationPage() {
             <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">Organization Profile</h1>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            Manage your company details, brand logo assets, and team member permissions.
+            Manage your company details, brand logo assets, commercial plan, and team member permissions.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <Badge
+            variant={planTier === 'pro' ? 'default' : 'secondary'}
+            className={cn(
+              'px-3 py-1 text-xs font-semibold capitalize',
+              planTier === 'pro' ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : ''
+            )}
+          >
+            <Zap size={13} className="mr-1.5" />
+            {planConfig.name}
+          </Badge>
           <Badge variant="secondary" className="px-3 py-1 text-xs font-semibold">
             <CalendarDays size={13} className="mr-1.5 text-primary" />
             {eventCount} {eventCount === 1 ? 'Event' : 'Events'} Active
@@ -249,6 +299,106 @@ export default function OrganizationPage() {
           You are viewing this organization as staff. Only organization administrators can modify these details.
         </Alert>
       )}
+
+      {/* PLAN & COMMERCIALS CARD */}
+      <Card className="rounded-3xl border border-border bg-card p-6 sm:p-8 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-border">
+          <div>
+            <div className="flex items-center gap-2">
+              <Zap size={20} className="text-primary" />
+              <h2 className="text-lg font-bold text-foreground">Current Plan: {planConfig.name}</h2>
+              <Badge variant={planConfig.badgeTone === 'primary' ? 'default' : 'secondary'} className="capitalize text-xs">
+                {planConfig.tier}
+              </Badge>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {planConfig.tagline}
+            </p>
+          </div>
+
+          {planTier === 'starter' ? (
+            <Button
+              type="button"
+              onClick={() => {
+                setUpgradeNotice('Upgrade to Pro to unlock 1,000 attendees, 10 events, and Badge Studio.')
+                setShowUpgradeModal(true)
+              }}
+              className="rounded-full bg-primary font-semibold gap-2 shadow-sm text-primary-foreground"
+            >
+              <Sparkles size={16} /> Upgrade to Pro ($49)
+            </Button>
+          ) : (
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-3 py-1.5 rounded-full border border-emerald-500/20">
+              <ShieldCheck size={16} /> Commercial License Active
+            </div>
+          )}
+        </div>
+
+        {/* Live Quota Usage Meters */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 py-5">
+          <div className="rounded-2xl border border-border/80 bg-muted/30 p-4">
+            <span className="text-xs font-medium text-muted-foreground">Active Events Quota</span>
+            <div className="mt-1 flex items-baseline justify-between">
+              <span className="text-xl font-bold text-foreground">{eventCount}</span>
+              <span className="text-xs text-muted-foreground">of {planConfig.maxActiveEvents} allowed</span>
+            </div>
+            <div className="mt-2 h-1.5 w-full rounded-full bg-muted overflow-hidden">
+              <div
+                className="h-full bg-primary rounded-full transition-all"
+                style={{ width: `${Math.min(100, (eventCount / planConfig.maxActiveEvents) * 100)}%` }}
+              />
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-border/80 bg-muted/30 p-4">
+            <span className="text-xs font-medium text-muted-foreground">Team Member Seats</span>
+            <div className="mt-1 flex items-baseline justify-between">
+              <span className="text-xl font-bold text-foreground">{members.length}</span>
+              <span className="text-xs text-muted-foreground">of {planConfig.maxTeamSeats} seats</span>
+            </div>
+            <div className="mt-2 h-1.5 w-full rounded-full bg-muted overflow-hidden">
+              <div
+                className="h-full bg-primary rounded-full transition-all"
+                style={{ width: `${Math.min(100, (members.length / planConfig.maxTeamSeats) * 100)}%` }}
+              />
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-border/80 bg-muted/30 p-4">
+            <span className="text-xs font-medium text-muted-foreground">Max Guests per Event</span>
+            <div className="mt-1 flex items-baseline justify-between">
+              <span className="text-xl font-bold text-foreground">
+                {org.max_attendees_override || planConfig.maxAttendeesPerEvent}
+              </span>
+              <span className="text-xs text-muted-foreground">attendees cap</span>
+            </div>
+            <span className="text-[11px] text-muted-foreground mt-2 block">
+              {planTier === 'starter' ? 'Expandable to 1,000 on Pro' : 'High capacity enabled'}
+            </span>
+          </div>
+        </div>
+
+        {/* License Key Quick Redemption */}
+        {isAdmin && (
+          <div className="mt-2 pt-4 border-t border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2">
+              <KeyRound size={15} className="text-primary shrink-0" />
+              <span className="font-medium text-foreground">Have a PayPal license code or activation key?</span>
+            </div>
+            <form onSubmit={handleQuickRedeem} className="flex items-center gap-2 w-full sm:w-auto">
+              <Input
+                placeholder="PRO-XXXX-XXXX-XXXX"
+                value={quickKey}
+                onChange={(e) => setQuickKey(e.target.value.toUpperCase())}
+                className="h-8 text-xs font-mono uppercase w-full sm:w-52"
+              />
+              <Button type="submit" size="sm" variant="outline" disabled={redeemingQuickKey} className="h-8 text-xs shrink-0">
+                {redeemingQuickKey ? 'Redeeming...' : 'Redeem Key'}
+              </Button>
+            </form>
+          </div>
+        )}
+      </Card>
 
       {/* Grid: Assets & Company Details */}
       <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
@@ -337,7 +487,16 @@ export default function OrganizationPage() {
             {isAdmin && (
               <Button
                 type="button"
-                onClick={() => setShowInviteModal(true)}
+                onClick={() => {
+                  if (members.length >= planConfig.maxTeamSeats) {
+                    setUpgradeNotice(
+                      `Your ${planConfig.name} allows up to ${planConfig.maxTeamSeats} team member seat. Upgrade to Pro for up to 5 seats!`
+                    )
+                    setShowUpgradeModal(true)
+                    return
+                  }
+                  setShowInviteModal(true)
+                }}
                 className="rounded-full bg-primary text-primary-foreground font-semibold gap-1.5 shadow-xs"
               >
                 <UserPlus size={16} />
@@ -562,6 +721,16 @@ export default function OrganizationPage() {
           </div>
         </div>
       )}
+
+      {/* Upgrade & Commercial Licensing Modal */}
+      <UpgradeModal
+        open={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        onUpgraded={() => {
+          load()
+        }}
+        featureNotice={upgradeNotice}
+      />
     </div>
   )
 }

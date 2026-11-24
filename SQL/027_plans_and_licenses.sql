@@ -226,6 +226,7 @@ REVOKE EXECUTE ON FUNCTION admin_list_license_keys() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION admin_list_license_keys() TO authenticated;
 
 -- 7. Update admin_list_organizations to return plan information
+DROP FUNCTION IF EXISTS public.admin_list_organizations();
 CREATE OR REPLACE FUNCTION public.admin_list_organizations()
 RETURNS TABLE (
   id UUID,

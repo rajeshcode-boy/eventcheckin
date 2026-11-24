@@ -66,9 +66,9 @@ All variables go in `.env.local` (created from `.env.example`).
 
 #### `NEXT_PUBLIC_SUPPORT_EMAIL`
 - **Purpose:** Contact email displayed for enterprise inquiries, invoices, or manual payments
-- **Required:** Optional (defaults to `support@eventcheckin.com`)
+- **Required:** Optional (defaults to `rajesh@eventcheckin.tech`)
 - **Public:** Yes
-- **Example:** `support@yourdomain.com`
+- **Example:** `rajesh@eventcheckin.tech`
 
 ---
 

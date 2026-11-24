@@ -131,5 +131,5 @@ export const PAYPAL_COMMERCIALS = {
   paypalMeUrl:
     process.env.NEXT_PUBLIC_PAYPAL_ME_URL ||
     'https://www.paypal.com/ncp/payment/3YMYLH3YAPDRA',
-  supportEmail: process.env.NEXT_PUBLIC_SUPPORT_EMAIL || 'support@eventcheckin.com',
+  supportEmail: process.env.NEXT_PUBLIC_SUPPORT_EMAIL || 'rajesh@eventcheckin.tech',
 }

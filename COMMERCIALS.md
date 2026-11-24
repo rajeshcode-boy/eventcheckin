@@ -89,7 +89,7 @@ Configure these in `.env.local` and in your deployment settings (e.g. Vercel):
 NEXT_PUBLIC_PAYPAL_ME_URL=https://paypal.me/yourusername/49
 
 # Support contact for invoice or billing inquiries
-NEXT_PUBLIC_SUPPORT_EMAIL=support@eventcheckin.com
+NEXT_PUBLIC_SUPPORT_EMAIL=rajesh@eventcheckin.tech
 ```
 
 ---

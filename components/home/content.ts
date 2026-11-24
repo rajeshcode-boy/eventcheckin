@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 
 export const BOOKING_URL = 'https://calendly.com/rajesh-emea/30min'
-export const CONTACT_EMAIL = 'rajesh.emea@gmail.com'
+export const CONTACT_EMAIL = 'rajesh@eventcheckin.tech'
 
 export const NAV_LINKS = [
   { href: '/#features', label: 'Features' },
